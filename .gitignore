@@ -1,0 +1,31 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Playwright
+test-results/
+playwright-report/
+
+# Project specific
+artifacts/raw-json/*
+!artifacts/raw-json/.gitkeep
+stores/*
+!stores/.gitkeep

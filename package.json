@@ -1,0 +1,27 @@
+{
+  "name": "spec-driven-generator",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node --esm src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "cli": "ts-node --esm src/index.ts"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "playwright": "^1.39.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.8.9",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
