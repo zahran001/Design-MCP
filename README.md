@@ -101,7 +101,7 @@ docker build -t design-mcp .
 
 # Run with environment variables
 docker run -v $(pwd)/artifacts:/app/artifacts \
-  -e START_URL=https://chakra-ui.com/docs/components \
+  -e START_URL=https://chakra-ui.com/docs/components/concepts/overview \
   -e MAX_PAGES=100 \
   design-mcp start
 ```
@@ -112,7 +112,7 @@ Edit `.env` to customize crawler behavior:
 
 ```env
 # URL of the documentation to start crawling from
-START_URL=https://chakra-ui.com/docs/components
+START_URL=https://chakra-ui.com/docs/components/concepts/overview
 
 # Maximum number of pages to crawl (use -1 for unlimited)
 MAX_PAGES=100
@@ -133,7 +133,7 @@ npm run dev
 npm run cli 0-extract-docs
 
 # With CLI options (override .env settings)
-npm run cli 0-extract-docs -- -s https://chakra-ui.com/docs/components -m 50
+npm run cli 0-extract-docs -- -s https://chakra-ui.com/docs/components/concepts/overview -m 50
 
 # Build TypeScript for production
 npm run build
@@ -152,7 +152,7 @@ Options:
 
 Example:
 ```bash
-npm run cli 0-extract-docs -- --start-url https://chakra-ui.com/docs/components --max-pages 25
+npm run cli 0-extract-docs -- --start-url https://chakra-ui.com/docs/components/concepts/overview --max-pages 25
 ```
 
 ## Data Schema

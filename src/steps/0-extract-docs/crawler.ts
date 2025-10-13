@@ -11,7 +11,7 @@ export class ChakraDocsSpider {
   private page: Page | null = null;
 
   constructor(
-    private startUrl: string = process.env.START_URL || 'https://chakra-ui.com/docs/components',
+    private startUrl: string = process.env.START_URL || 'https://chakra-ui.com/docs/components/concepts/overview',
     private maxPages: number = Number(process.env.MAX_PAGES) || 100
   ) {}
 
