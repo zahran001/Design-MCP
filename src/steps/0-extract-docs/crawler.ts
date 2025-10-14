@@ -109,6 +109,11 @@
 // actual implementation 2 - more advanced crawler with queue and delay
 // =============================================================================
 import { chromium } from "playwright";
+import { ComponentDocSchema, type ComponentDoc } from '../../schemas/RAGResultSchema.js';
+import { extractComponent } from "./extractors.js";
+import { mkdir, writeFile, appendFile } from "fs/promises";
+import { dirname } from "path";
+
 
 type CrawlOpts = { startUrl: string; maxPages: number };
 
@@ -118,6 +123,11 @@ export async function runCrawl({ startUrl, maxPages }: CrawlOpts): Promise<strin
   const page = await context.newPage();
 
   const delayMs = Number(process.env.CRAWL_DELAY ?? 0);
+
+  // --- output sink (JSONL) ---
+  const outPath = process.env.OUT_JSONL ?? "./out/docs.jsonl";
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, ""); // truncate/create
 
   // --- BFS state ---
   const queue: string[] = [startUrl];
@@ -136,10 +146,26 @@ export async function runCrawl({ startUrl, maxPages }: CrawlOpts): Promise<strin
     try {
       console.log(`Visiting (${processed + 1}/${maxPages}): ${url}`);
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      await page.locator("main").first().waitFor({ state: "attached", timeout: 5000 }).catch(() => {});
 
       // show the title so we can confirm navigation worked
       const title = await page.title();
       console.log(`→ ${title}`);
+
+      // ---- EXTRACTION WIRING ----
+      const doc = (await extractComponent(page, url)) as ComponentDoc | null;
+      if (doc) {
+        const parsed = ComponentDocSchema.safeParse(doc);
+        if (!parsed.success) {
+    const issues = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    console.warn(`   ! validation failed → ${issues}`);
+        } else {
+          await appendFile(outPath, JSON.stringify(parsed.data) + "\n", "utf8");
+          console.log(`   ✓ extracted: ${parsed.data.componentName}`);
+        }
+      } else {
+        console.log(`   · skipped (no component/description)`);
+      }
 
       // discover next-layer links (BFS enqueue)
       const hrefs: string[] = await page
