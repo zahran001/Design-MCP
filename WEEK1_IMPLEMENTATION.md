@@ -127,38 +127,51 @@ Crawl Chakra UI documentation and extract high-quality, structured component dat
 
 ---
 
-### Decision 3: Page Context Metadata
+### ~~Decision 3: Page Context Metadata~~ [SKIPPED - See Exploration Findings]
 
-**Problem:** Components span multiple pages (main, usage, theming, migration). Week 2 merging needs to know page type.
+> **📊 Exploration Finding (2025-10-15):**
+> After crawling 7 Chakra UI components (Button, Input, Box, Dialog, Select, Skeleton, Stat), we discovered that **all component documentation is single-page**. There are no separate `/usage`, `/theming`, or `/migration` pages. All content (Usage, Examples, Props) exists as sections with heading IDs on one page (e.g., `https://chakra-ui.com/docs/components/button#usage`).
+>
+> **Decision:** Skip `pageContext` field for Week 1. All crawled pages are effectively "main" pages.
+>
+> **Future consideration:** If we encounter multi-page documentation structures (either Chakra UI v4+ or other component libraries), we can add this field in Week 2+ without re-crawling by parsing the existing `sourceUrl` field.
+>
+> See [docs/week1/CODE_BLOCK_EXPLORATION.md](docs/week1/CODE_BLOCK_EXPLORATION.md) for detailed findings.
 
-**Solution:** Detect and tag page context during extraction
+---
 
-#### Page Types
+**Original Plan (Not Implemented):**
 
-- `main`: Primary component documentation
-- `usage`: Advanced examples and patterns
-- `theming`: Customization and styling
-- `migration`: Version upgrade guides
-- `changelog`: Release notes
+~~**Problem:** Components span multiple pages (main, usage, theming, migration). Week 2 merging needs to know page type.~~
 
-#### Detection Heuristics
+~~**Solution:** Detect and tag page context during extraction~~
 
-1. Check URL path: `/migration`, `/theming`, `/usage`, `/examples`, `/variants`
-2. Check page title for keywords
-3. Default to `main` if no match
+~~#### Page Types~~
 
-#### Why Add Now (Week 1)?
+~~- `main`: Primary component documentation~~
+~~- `usage`: Advanced examples and patterns~~
+~~- `theming`: Customization and styling~~
+~~- `migration`: Version upgrade guides~~
+~~- `changelog`: Release notes~~
 
-1. **Trivial implementation**: 10-line function
-2. **Week 2 benefit**: Enables smart merging rules
-   - Prefer `main` page descriptions
-   - Filter out `migration` code examples (deprecated patterns)
-   - Separate component props from theme props
-3. **Debug visibility**: See page type in logs during crawl
-4. **Future-proof**: Can add filter (`--skip-migration`) without re-crawling
+~~#### Detection Heuristics~~
 
-**Alternative (rejected):** Parse URLs in Week 2
-- Con: Repeated URL parsing, no filtering capability, harder to debug
+~~1. Check URL path: `/migration`, `/theming`, `/usage`, `/examples`, `/variants`~~
+~~2. Check page title for keywords~~
+~~3. Default to `main` if no match~~
+
+~~#### Why Add Now (Week 1)?~~
+
+~~1. **Trivial implementation**: 10-line function~~
+~~2. **Week 2 benefit**: Enables smart merging rules~~
+~~   - Prefer `main` page descriptions~~
+~~   - Filter out `migration` code examples (deprecated patterns)~~
+~~   - Separate component props from theme props~~
+~~3. **Debug visibility**: See page type in logs during crawl~~
+~~4. **Future-proof**: Can add filter (`--skip-migration`) without re-crawling~~
+
+~~**Alternative (rejected):** Parse URLs in Week 2~~
+~~- Con: Repeated URL parsing, no filtering capability, harder to debug~~
 
 ---
 
@@ -386,7 +399,6 @@ export const ComponentDocSchema = z.object({
 export const ComponentDocSchema = z.object({
   componentName: z.string().min(1),
   sourceUrl: z.string().url(),
-  pageContext: z.enum(["main", "usage", "theming", "migration", "changelog"]),
   description: z.string().min(1).optional(),
 
   // Cross-component relationship tracking
@@ -406,6 +418,8 @@ export const ComponentDocSchema = z.object({
     required: z.boolean().optional(),
   })).optional(),
 });
+
+// NOTE: pageContext field removed - see Decision 3 exploration findings
 ```
 
 ### Environment Variables
@@ -506,26 +520,29 @@ DEBUG=false   # If true, include stack traces in error log
 
 ---
 
-### Milestone D: Page Context Detection
+### ~~Milestone D: Page Context Detection~~ [SKIPPED]
 
-**Goal:** Tag each doc with page type for Week 2 merging
+> **Skipped based on exploration findings** - Chakra UI uses single-page documentation structure.
+> See Decision 3 above for rationale.
 
-**Tasks:**
-1. Implement `detectPageContext()` helper
-2. Add to schema
-3. Tag each doc during extraction
-4. Log page context for visibility
+~~**Goal:** Tag each doc with page type for Week 2 merging~~
 
-**Files Modified:**
-- `src/steps/0-extract-docs/extractors.ts`
-- `src/schemas/RAGResultSchema.ts`
+~~**Tasks:**~~
+~~1. Implement `detectPageContext()` helper~~
+~~2. Add to schema~~
+~~3. Tag each doc during extraction~~
+~~4. Log page context for visibility~~
 
-**Success Check:**
-- `/button` tagged as "main"
-- `/button/usage` tagged as "usage"
-- `/button/theming` tagged as "theming"
-- `/button/migration` tagged as "migration"
-- Logs show page context
+~~**Files Modified:**~~
+~~- `src/steps/0-extract-docs/extractors.ts`~~
+~~- `src/schemas/RAGResultSchema.ts`~~
+
+~~**Success Check:**~~
+~~- `/button` tagged as "main"~~
+~~- `/button/usage` tagged as "usage"~~
+~~- `/button/theming` tagged as "theming"~~
+~~- `/button/migration` tagged as "migration"~~
+~~- Logs show page context~~
 
 ---
 
@@ -631,19 +648,19 @@ console.log(`Saved to ${filepath}`);
 #### `src/steps/0-extract-docs/extractors.ts`
 
 **New Exports:**
-- `detectPageContext(url, title): PageContext`
+- ~~`detectPageContext(url, title): PageContext`~~ [SKIPPED - see Milestone D]
 - `isInExcludedSection(codeNode, page): Promise<{excluded, section}>`
 - `isLowValueCode(code): boolean`
 - `getCompositionScore(code): number`
 - `dedupeCodeExamples(examples): typeof examples`
-- `detectRelatedComponents(componentName, codeExamples): string[]` ← **NEW**
+- `detectRelatedComponents(componentName, codeExamples): string[]`
 - `normalizeCell(text): string`
 - `isRequired(nameCell, typeCell): boolean`
 - `dedupeProps(props): typeof props`
 
 **Modified Export:**
 - `extractComponent(page, url): Promise<ComponentDoc | null>`
-  - Now extracts: description, codeExamples, props, pageContext, relatedComponents
+  - Now extracts: description, codeExamples, props, relatedComponents
 
 ---
 
@@ -777,8 +794,8 @@ npm run cli -- 0-extract-docs -m 25
 
 ### Schema & Types
 
-- [ ] Update `ComponentDocSchema` with `pageContext`
-- [ ] Add `relatedComponents` array to schema ← **NEW**
+- [ ] ~~Update `ComponentDocSchema` with `pageContext`~~ [SKIPPED]
+- [ ] Add `relatedComponents` array to schema
 - [ ] Add `codeExamples` array to schema
 - [ ] Add `props` array to schema
 - [ ] Create `CrawlError` schema
@@ -796,19 +813,19 @@ npm run cli -- 0-extract-docs -m 25
 
 ### Extractors
 
-- [ ] Implement `detectPageContext()`
+- [ ] ~~Implement `detectPageContext()`~~ [SKIPPED]
 - [ ] Implement `isInExcludedSection()`
 - [ ] Implement `isLowValueCode()`
 - [ ] Implement `getCompositionScore()`
 - [ ] Implement `dedupeCodeExamples()`
-- [ ] Implement `detectRelatedComponents()` ← **NEW**
+- [ ] Implement `detectRelatedComponents()`
 - [ ] Implement code examples extraction loop
 - [ ] Implement `normalizeCell()`
 - [ ] Implement `isRequired()`
 - [ ] Implement `dedupeProps()`
 - [ ] Implement props table detection
 - [ ] Implement props table parsing loop
-- [ ] Update `extractComponent()` to return all new fields (including relatedComponents)
+- [ ] Update `extractComponent()` to return all new fields (codeExamples, props, relatedComponents)
 
 ### Crawler
 
