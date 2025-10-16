@@ -155,6 +155,31 @@ Example:
 npm run cli 0-extract-docs -- --start-url https://chakra-ui.com/docs/components/concepts/overview --max-pages 25
 ```
 
+### Quality Evaluation Commands
+
+After extraction, validate the quality of extracted content:
+
+```bash
+# Run automated smoke test (pass/fail check)
+npm run quality:smoke
+
+# View random samples for manual review
+npm run quality:samples
+
+# Run both smoke test and sample viewer
+npm run quality:all
+
+# View custom number of samples (e.g., 5)
+npx tsx src/steps/0-extract-docs/sample-viewer.ts 5
+```
+
+**Quality criteria:**
+- ✅ Schema validation ≥95%
+- ✅ Description coverage ≥80%
+- ✅ Code examples coverage ≥60%
+
+See [Quality Evaluation Guide](docs/QUALITY_EVALUATION.md) for details.
+
 ## Data Schema
 
 Extracted documentation follows the `RAGResult` schema:
