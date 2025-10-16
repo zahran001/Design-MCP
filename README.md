@@ -176,7 +176,7 @@ npx tsx src/steps/0-extract-docs/sample-viewer.ts 5
 **Quality criteria:**
 - ✅ Schema validation ≥95%
 - ✅ Description coverage ≥80%
-- ✅ Code examples coverage ≥60%
+- ✅ Code examples coverage ≥70%
 
 See [Quality Evaluation Guide](docs/QUALITY_EVALUATION.md) for details.
 

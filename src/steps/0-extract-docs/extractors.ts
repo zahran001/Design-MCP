@@ -6,14 +6,55 @@
 //
 // This file contains extraction logic for Chakra UI component documentation.
 // Implements Milestone B (Code Examples) and Milestone C (Props Tables).
+//
+// ARCHITECTURE:
+// This file is organized into 6 functional batches that build upon each other:
+//
+//   Batch 1: Text Processing Utilities
+//            Low-level string manipulation (cleaning, normalizing, parsing)
+//
+//   Batch 2: Code Quality Filters
+//            Business logic to determine if code examples are valuable
+//
+//   Batch 3: Array Processing
+//            Deduplication and relationship detection across code examples
+//
+//   Batch 4: Playwright Interaction
+//            Browser DOM queries to extract context (headings, structure)
+//
+//   Batch 5: Main Extraction
+//            Orchestration layer that combines Batches 1-4 to extract code
+//
+//   Batch 6: Integration
+//            Public API (extractComponent) that produces final ComponentDoc
+//
+// FLOW:
+// 1. extractComponent() is called with a Playwright page + URL
+// 2. Extract basic metadata (component name, description)
+// 3. Call extractCodeExamples() to get all code blocks with quality filtering
+// 4. Call detectRelatedComponents() to find cross-component relationships
+// 5. Return structured ComponentDoc or null if page has no useful content
+//
+// QUALITY STRATEGY:
+// We use a multi-stage filtering approach to only keep high-value code:
+//   - Section filtering: Skip installation/import sections
+//   - Content heuristics: Skip package.json, bare imports, install commands
+//   - Composition scoring: Only keep code with ≥5 points (see getCompositionScore)
+//   - Deduplication: Remove semantically identical code blocks
+//
 // =============================================================================
 
 import type { Page } from 'playwright';
 import type { ComponentDoc, CodeExample } from '../../schemas/RAGResultSchema.js';
 
 // Enable debug logging (set to false in production)
+// Usage: DEBUG=true npm run cli -- 0-extract-docs
 const DEBUG = process.env.DEBUG === 'true';
 
+/**
+ * Internal debug logger - only logs when DEBUG=true
+ * Helps trace execution flow when troubleshooting extraction issues
+ */
 function log(...args: any[]) {
   if (DEBUG) console.log('[extractors]', ...args);
 }
@@ -24,12 +65,23 @@ function log(...args: any[]) {
 
 /**
  * Clean CSS class pollution from heading text
- * Example: ".css-vfo6uh{color:...}Usage" → "Usage"
+ *
+ * PROBLEM: Chakra UI's MDX renderer sometimes injects inline CSS into text nodes
+ * Example raw text: ".css-vfo6uh{color:var(--chakra-colors-fg);}Usage"
+ *
+ * SOLUTION: Use regex to strip out any .css-xxx{...} patterns
+ * Result: "Usage"
+ *
+ * WHY: We need clean section names for:
+ *   1. Filtering excluded sections (e.g., "Installation")
+ *   2. Storing in CodeExample.section field
+ *   3. Human-readable debug logs
  */
 function cleanHeadingText(text: string): string {
   log('cleanHeadingText - input:', text);
 
   // Remove CSS class definitions (pattern: .css-xxx{...})
+  // Regex breakdown: \.css-[a-z0-9]+ matches class name, \{[^}]*\} matches style rules
   const cleaned = text.replace(/\.css-[a-z0-9]+\{[^}]*\}/gi, '').trim();
 
   log('cleanHeadingText - output:', cleaned);
@@ -38,16 +90,34 @@ function cleanHeadingText(text: string): string {
 
 /**
  * Normalize code for deduplication
- * Removes comments, collapses whitespace, normalizes strings
+ *
+ * PROBLEM: Same code example may appear multiple times with minor differences:
+ *   - Different comments: "// Example 1" vs "// Demo code"
+ *   - Different string content: "Click me" vs "Submit form"
+ *   - Different whitespace/formatting
+ *
+ * SOLUTION: Create a canonical form by removing/normalizing non-structural elements
+ *
+ * TRANSFORMATIONS:
+ *   1. Strip line comments (//)
+ *   2. Strip block comments (slash-star ... star-slash)
+ *   3. Normalize all string literals to "" (preserves structure, ignores content)
+ *   4. Collapse all whitespace to single spaces
+ *
+ * EXAMPLE:
+ *   Input:  const Demo = () => { // Comment  return <Button>Click</Button> }
+ *   Output: const Demo = () => { return <Button>""</Button> }
+ *
+ * Used by: dedupeCodeExamples() to detect semantic duplicates
  */
 function normalizeCode(code: string): string {
   log('normalizeCode - input length:', code.length);
 
   const normalized = code
-    .replace(/\/\/.*$/gm, '') // Remove line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
-    .replace(/["']([^"']+)["']/g, '""') // Normalize string literals
-    .replace(/\s+/g, ' ') // Collapse whitespace
+    .replace(/\/\/.*$/gm, '')             // Remove line comments (// ...)
+    .replace(/\/\*[\s\S]*?\*\//g, '')     // Remove block comments
+    .replace(/["']([^"']+)["']/g, '""')   // Normalize all strings to ""
+    .replace(/\s+/g, ' ')                  // Collapse whitespace
     .trim();
 
   log('normalizeCode - output length:', normalized.length);
@@ -57,7 +127,27 @@ function normalizeCode(code: string): string {
 
 /**
  * Extract component tags from code examples
- * Finds JSX tags like <Button>, <Input>, etc.
+ *
+ * PURPOSE: Parse JSX code to find all React component usages
+ *
+ * HOW IT WORKS:
+ *   1. Use regex to match JSX opening tags that start with uppercase letters
+ *   2. Capture the component name (excluding HTML tags like <div>, <span>)
+ *   3. Return unique, sorted list of component names
+ *
+ * REGEX PATTERN: /<([A-Z][A-Za-z0-9]*)/g
+ *   - < = literal less-than (JSX tag start)
+ *   - ([A-Z][A-Za-z0-9]*) = capture group: uppercase letter + alphanumeric
+ *   - /g = global flag (find all matches)
+ *
+ * EXAMPLES:
+ *   Input:  "<Button><Icon /><Text>Hello</Text></Button>"
+ *   Output: ["Button", "Icon", "Text"]
+ *
+ *   Input:  "<div><button>HTML</button></div>"
+ *   Output: [] (no uppercase components)
+ *
+ * Used by: detectRelatedComponents() to build component relationship graph
  */
 function extractComponentTags(code: string): string[] {
   log('extractComponentTags - analyzing code...');
@@ -67,7 +157,7 @@ function extractComponentTags(code: string): string[] {
 
   const matches = code.matchAll(tagPattern);
   for (const match of matches) {
-    found.add(match[1]);
+    found.add(match[1]);  // match[1] is the captured component name
   }
 
   const tags = Array.from(found).sort();
@@ -152,8 +242,31 @@ function isLowValueCode(code: string): boolean {
 
 /**
  * Score code block for composition quality
- * Higher score = more valuable for LLM training
- * Threshold: ≥5 points to keep
+ *
+ * PURPOSE: Determine if a code example is valuable enough to include
+ *
+ * STRATEGY: Award points for complexity indicators that make examples useful
+ * for LLM training and developer reference
+ *
+ * SCORING CRITERIA:
+ *   +2 points: Contains JSX/TSX (React components)
+ *   +2 points: Uses multiple props (shows component configuration)
+ *   +3 points: Defines a function (complete, executable example)
+ *   +3 points: Uses 3+ different components (composition patterns)
+ *   +1 point:  Has event handlers (interactivity)
+ *   +2 points: Uses React hooks (useState, useEffect, etc.)
+ *   +2 points: Includes accessibility attrs (aria-*, role, alt)
+ *
+ * THRESHOLD: Code must score ≥5 points to be kept
+ *
+ * EXAMPLES:
+ *   "<Button>Click</Button>"
+ *   → Score: 2 (JSX only) → REJECTED
+ *
+ *   "const Demo = () => { const [count, setCount] = useState(0); return <Button onClick={() => setCount(count + 1)} aria-label="Increment">Count: {count}</Button> }"
+ *   → Score: 13 (JSX + Function + Props + Hooks + Event + Accessibility) → ACCEPTED
+ *
+ * WHY: Filters out trivial snippets while keeping rich, educational examples
  */
 function getCompositionScore(code: string): number {
   log('block to analyze for composition score:\n', code, '\n---');
@@ -264,16 +377,45 @@ function detectRelatedComponents(componentName: string, codeExamples: CodeExampl
 // =============================================================================
 
 /**
- * Find the heading that precedes a code block
- * Returns { section, found } where section is the heading text or empty string
+ * Find the heading that precedes a code block in the DOM
  *
- * From exploration: Only 40% success rate, so we use multiple strategies with fallbacks
+ * PURPOSE: Extract section context for code examples (e.g., "Usage", "Props", "Installation")
+ *
+ * CHALLENGE: Chakra UI's MDX structure is unpredictable - headings may be:
+ *   - Direct siblings of code blocks
+ *   - Wrapped in different container elements
+ *   - Nested at varying depths
+ *
+ * From exploration: Simple sibling-only search succeeds ~40% of the time
+ *
+ * SOLUTION: Multi-strategy fallback approach
+ *
+ * STRATEGY 1: Sibling Walk (fastest, works 40% of time)
+ *   - Start from code block's parent
+ *   - Walk backwards through previous siblings (max 20 elements)
+ *   - Return first h1-h6 element found
+ *
+ * STRATEGY 2: Parent Tree Search (slower, catches remaining cases)
+ *   - Walk up parent tree (max 5 levels)
+ *   - At each level, find all h1-h6 elements
+ *   - Search backwards through headings
+ *   - Return first heading that appears BEFORE the code block in document order
+ *   - Uses compareDocumentPosition() to check ordering
+ *
+ * DOCUMENT_POSITION_FOLLOWING: Bitmask flag indicating an element comes after another
+ *
+ * RETURN: { section: string, found: boolean }
+ *   - section: Cleaned heading text (see cleanHeadingText)
+ *   - found: true if a heading was found, false otherwise
+ *
+ * Used by: extractCodeExamples() to populate CodeExample.section field
  */
 async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args: any[]) => infer R ? R : never): Promise<{ section: string; found: boolean }> {
   try {
     log('findPrecedingHeading - searching for heading...');
 
     // Strategy 1: Walk backwards through siblings (up to 20 elements)
+    // This is the fast path - works when heading and code are at the same nesting level
     const siblingResult = await codeBlock.evaluate((el) => {
       let current = el.parentElement?.previousElementSibling;
       let distance = 0;
@@ -301,14 +443,21 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
     }
 
     // Strategy 2: Walk up parent tree and search backwards
+    // This is the fallback for nested/wrapped structures
     const parentResult = await codeBlock.evaluate((el) => {
       let parentEl = el.parentElement;
       let level = 0;
 
       while (parentEl && level < 5) {
+        // Get all headings within this parent
         const headings = parentEl.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+        // Search backwards through headings (reverse order)
         for (let i = headings.length - 1; i >= 0; i--) {
           const heading = headings[i];
+
+          // Check if heading comes BEFORE the code block in document order
+          // DOCUMENT_POSITION_FOLLOWING = heading appears after code block = heading comes first
           if (heading.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) {
             return {
               found: true,
@@ -318,6 +467,8 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
             };
           }
         }
+
+        // Move up one level in the tree
         parentEl = parentEl.parentElement;
         level++;
       }
@@ -344,7 +495,44 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
 
 /**
  * Extract all code examples from the page with quality filtering
- * Main orchestrator function that uses all helpers from Batches 1-4
+ *
+ * PURPOSE: Main orchestrator that combines all extraction logic from Batches 1-4
+ *
+ * EXECUTION FLOW:
+ *   1. Find all <pre> elements in <main> (Chakra's code block container)
+ *   2. For each code block:
+ *      a. Extract code text from nested <code> element
+ *      b. Find preceding heading using findPrecedingHeading()
+ *      c. Apply 3-stage filtering pipeline (see below)
+ *      d. Extract language from class attribute (e.g., "language-tsx")
+ *      e. Build CodeExample object with code, language, section
+ *   3. Deduplicate using normalizeCode()
+ *   4. Return filtered, unique code examples
+ *
+ * FILTERING PIPELINE (in order):
+ *   Stage 1: Section-based filtering
+ *            Skip if section is "Installation", "Import", "Setup", etc.
+ *            (see isInExcludedSection)
+ *
+ *   Stage 2: Content heuristics
+ *            Skip if code is:
+ *            - Too short (< 3 lines)
+ *            - Installation commands (npm install, yarn add)
+ *            - Bare imports
+ *            - package.json or config file snippets
+ *            (see isLowValueCode)
+ *
+ *   Stage 3: Composition scoring
+ *            Skip if score < 5 points
+ *            (see getCompositionScore for scoring rubric)
+ *
+ * METRICS: Tracks counts for debugging:
+ *   - excluded: Filtered by section
+ *   - lowValue: Filtered by content heuristics
+ *   - lowScore: Filtered by composition score
+ *   - accepted: Passed all filters
+ *
+ * RETURN: Deduplicated array of high-quality CodeExample objects
  */
 async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
   log('extractCodeExamples - starting extraction...');
@@ -357,10 +545,10 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
 
   const examples: CodeExample[] = [];
   let filtered = {
-    excluded: 0,
-    lowValue: 0,
-    lowScore: 0,
-    accepted: 0,
+    excluded: 0,   // Rejected due to section (Installation, Import, etc.)
+    lowValue: 0,   // Rejected due to content heuristics
+    lowScore: 0,   // Rejected due to composition score < 5
+    accepted: 0,   // Passed all filters
   };
 
   for (let i = 0; i < count; i++) {
@@ -440,19 +628,67 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
 
 /**
  * Extract component documentation from a page
- * Updated to include code examples and related components (Milestone B)
+ *
+ * PUBLIC API - Main entry point for extracting structured ComponentDoc from Chakra UI pages
+ *
+ * PURPOSE: Transform a Chakra UI component documentation page into structured JSON
+ *
+ * EXECUTION FLOW:
+ *   1. Validate page structure (<main> element exists)
+ *   2. Extract component name from <h1> (required)
+ *   3. Extract description from first <p> after <h1> (with fallback)
+ *   4. Extract code examples using extractCodeExamples() (Batch 5)
+ *   5. Detect related components using detectRelatedComponents() (Batch 3)
+ *   6. Build ComponentDoc object
+ *   7. Return null if no useful content found (description or codeExamples required)
+ *
+ * EXTRACTION STRATEGY:
+ *
+ *   Component Name (REQUIRED):
+ *     - Selector: main h1 (first)
+ *     - Example: "Button", "Input", "Tooltip"
+ *     - Returns null if missing
+ *
+ *   Description (with fallback):
+ *     - Primary: First <p> immediately after <h1> (h1 + p)
+ *     - Fallback: First non-empty <p> anywhere in <main>
+ *     - Optional field
+ *
+ *   Code Examples (Milestone B):
+ *     - Delegates to extractCodeExamples()
+ *     - Applies quality filtering (see extractCodeExamples for details)
+ *     - Optional field
+ *
+ *   Related Components (Milestone B):
+ *     - Delegates to detectRelatedComponents()
+ *     - Parses JSX tags from code examples
+ *     - Excludes the component itself
+ *     - Optional field
+ *
+ * VALIDATION:
+ *   - Page MUST have <main> element (Chakra convention)
+ *   - Page MUST have <h1> with component name
+ *   - Page MUST have either description OR codeExamples
+ *
+ * RETURN:
+ *   - ComponentDoc object with populated fields
+ *   - null if page is not a valid component page
+ *
+ * SCHEMA: See RAGResultSchema.ts for ComponentDoc type definition
+ *
+ * Called by: crawler.ts during BFS traversal of Chakra UI docs
  */
 export async function extractComponent(page: Page, url: string): Promise<ComponentDoc | null> {
   log('extractComponent - starting for URL:', url);
 
-  // main content region (Chakra uses <main> for docs)
+  // Validate page structure - Chakra uses <main> for docs content
   const main = page.locator("main");
   if (!(await main.count())) {
     log('extractComponent - no <main> element found');
     return null;
   }
 
-  // Title (component name)
+  // Extract component name from h1 (REQUIRED)
   const componentName =
     (await main.locator("h1").first().textContent())?.trim() || "";
   if (!componentName) {
@@ -462,13 +698,14 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
 
   log('extractComponent - component:', componentName);
 
-  // Description: first paragraph after h1; fallback to first non-empty <p> in main
+  // Extract description with fallback strategy
+  // Primary: First paragraph immediately after h1 (CSS adjacent sibling selector)
   const firstParaAfterH1 = main.locator("h1 + p");
   let description =
     (await firstParaAfterH1.first().textContent())?.trim() || "";
 
   if (!description) {
-    // fallback: first non-empty paragraph in main
+    // Fallback: Search for first non-empty paragraph in entire <main>
     const paras = main.locator("p");
     const count = await paras.count();
     for (let i = 0; i < count; i++) {
@@ -482,15 +719,15 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
 
   log('extractComponent - description length:', description?.length || 0);
 
-  // NEW (Milestone B): Extract code examples
+  // Extract code examples with quality filtering (Milestone B)
   const codeExamples = await extractCodeExamples(page);
   log('extractComponent - code examples extracted:', codeExamples.length);
 
-  // NEW (Milestone B): Detect related components
+  // Detect related components from code examples (Milestone B)
   const relatedComponents = detectRelatedComponents(componentName, codeExamples);
   log('extractComponent - related components:', relatedComponents);
 
-  // Build doc with all fields
+  // Build ComponentDoc object (only include non-empty optional fields)
   const doc: ComponentDoc = {
     componentName,
     sourceUrl: url,
@@ -508,7 +745,7 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
     doc.relatedComponents = relatedComponents;
   }
 
-  // Must have at least description OR codeExamples to be useful
+  // Validation: Must have at least description OR codeExamples to be useful
   const hasUseful = Boolean(doc.description || doc.codeExamples);
   if (!hasUseful) {
     log('extractComponent - no useful content found');
