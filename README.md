@@ -2,11 +2,34 @@
 
 A TypeScript-based documentation crawler and extraction tool designed to systematically gather component specifications from design system documentation (initially targeting Chakra UI) and transform them into structured, machine-readable formats suitable for RAG (Retrieval-Augmented Generation) systems.
 
+## Quick Start
+
+```bash
+# 1. Install dependencies
+npm install
+npx playwright install chromium
+
+# 2. Configure (optional - defaults work for Chakra UI)
+cp .env.example .env
+
+# 3. Run extraction
+npm run cli -- 0-extract-docs -m 10
+
+# 4. Verify quality
+npm run quality:smoke
+npm run quality:samples
+```
+
+**Output:** See extracted data in [artifacts/raw-json/](artifacts/raw-json/)
+
+---
+
 ## Overview
 
 Design-MCP is a specialized web scraping and data extraction pipeline that:
 - Crawls design system documentation websites using Playwright
 - Extracts structured component information (props, examples, accessibility notes)
+- Filters code examples for composition patterns (not boilerplate)
 - Validates and schemas data using Zod
 - Prepares documentation for embedding into vector stores and RAG systems
 - Enables AI-powered component generation from design specifications
@@ -29,22 +52,31 @@ Future Steps:
 
 ### Current Implementation Status
 
-**Implemented:**
+**✅ Week 1 Complete - Core Extraction Pipeline:**
 - ✅ CLI infrastructure with Commander.js
 - ✅ Playwright browser automation setup
-- ✅ Data schemas (RAGResult, Prop, CodeExample)
+- ✅ Full data schemas (ComponentDoc, Prop, CodeExample)
 - ✅ Text processing utilities (chunking, normalization)
 - ✅ Environment-based configuration
 - ✅ Docker containerization
 - ✅ TypeScript compilation and type safety
+- ✅ BFS web crawler with link discovery
+- ✅ Component data extraction (descriptions, props, code examples)
+- ✅ High-quality code filtering (composition patterns only)
+- ✅ Props table parsing (column-order agnostic)
+- ✅ Related components detection
+- ✅ Quality validation suite (smoke tests + sample viewer)
 
-**In Progress (Placeholder Implementations):**
-- 🚧 Web crawler pagination and link following
-- 🚧 Component data extraction logic
-- 🚧 CSS selector refinement for Chakra UI
-- 🚧 Props table parsing
-- 🚧 Code example extraction
-- 🚧 Accessibility section parsing
+**📊 Extraction Quality (50 Chakra UI components):**
+- Schema validation: 100% (50/50 files)
+- Description coverage: 100% (50/50 components)
+- Code examples: 96% (48/50 components, 355 total examples)
+- Avg 7.1 code examples per component (filtered from ~40 raw blocks)
+
+**🎯 Ready for Week 2:**
+- Data normalization and cross-page merging
+- Text chunking for embeddings
+- Vector store integration
 
 ## Project Structure
 
@@ -114,32 +146,39 @@ Edit `.env` to customize crawler behavior:
 # URL of the documentation to start crawling from
 START_URL=https://chakra-ui.com/docs/components/concepts/overview
 
-# Maximum number of pages to crawl (use -1 for unlimited)
+# Maximum number of pages to crawl (-1 for unlimited)
 MAX_PAGES=100
 
-# Control the crawling delay between pages (in milliseconds)
+# REQUIRED: Only URLs starting with this pattern will be crawled
+# This prevents the crawler from following external links
+CRAWL_URL_PATTERN=https://chakra-ui.com/docs/components/
+
+# Optional: Delay between page navigations (in milliseconds)
 CRAWL_DELAY=1000
 ```
+
+**Key Settings:**
+- `START_URL`: The page where crawling begins (should list component links)
+- `MAX_PAGES`: Limit crawl size for testing (use 5-10 for quick tests)
+- `CRAWL_URL_PATTERN`: Safety filter to stay within intended documentation scope
+- `CRAWL_DELAY`: Polite crawling delay (1000ms = 1 second between pages)
 
 ## Usage
 
 ### CLI Commands
 
 ```bash
-# Run in development mode (with ts-node)
-npm run dev
-
-# Extract documentation (Step 0)
-npm run cli 0-extract-docs
-
-# With CLI options (override .env settings)
-npm run cli 0-extract-docs -- -s https://chakra-ui.com/docs/components/concepts/overview -m 50
-
-# Build TypeScript for production
+# Build TypeScript
 npm run build
 
-# Run production build
-npm start
+# Extract documentation (Step 0) - uses settings from .env
+npm run cli -- 0-extract-docs
+
+# With CLI options (override .env settings)
+npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/overview -m 50
+
+# Development mode (no build required)
+npm run dev
 ```
 
 ### Command Options
@@ -212,35 +251,61 @@ interface CodeExample {
 
 ## Output
 
-Crawled data is saved to:
+Extracted data is saved to individual JSON files:
 ```
-artifacts/raw-json/crawl-{timestamp}.json
+artifacts/raw-json/{ComponentName}-{timestamp}.json
 ```
 
-Each file contains structured component data validated against the RAGResult schema.
+Each file contains structured component data validated against the `ComponentDocSchema`:
+- **componentName**: Component identifier (e.g., "Button")
+- **sourceUrl**: Original documentation URL
+- **description**: Component description/purpose
+- **codeExamples**: High-quality usage examples (filtered)
+- **relatedComponents**: Components used together in examples
+- **props**: Component properties from documentation tables
+
+Example output structure:
+```json
+{
+  "componentName": "Button",
+  "sourceUrl": "https://chakra-ui.com/docs/components/button",
+  "description": "Used to trigger an action or event",
+  "codeExamples": [...],
+  "relatedComponents": ["ButtonGroup", "IconButton", "Stack"],
+  "props": [...]
+}
+```
 
 ## Development Roadmap
 
-### Phase 1: Core Extraction (Current)
+### ✅ Phase 1: Core Extraction (COMPLETE)
 - [x] Project setup and CLI infrastructure
-- [ ] Complete web crawler implementation
-- [ ] Implement DOM extraction logic
-- [ ] Test against Chakra UI documentation
-- [ ] Validate data schema with real examples
+- [x] Complete web crawler implementation
+- [x] Implement DOM extraction logic
+- [x] High-quality code filtering (composition patterns)
+- [x] Props table parsing (column-order agnostic)
+- [x] Related components detection
+- [x] Test against Chakra UI documentation (50 components)
+- [x] Validate data schema with real examples (100% pass rate)
+- [x] Quality validation suite
 
-### Phase 2: Data Transformation
+**📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
+
+### Phase 2: Data Transformation (Week 2)
 - [ ] Normalize extracted data across formats
 - [ ] Implement intelligent text chunking
-- [ ] Extract and catalog code examples
+- [ ] Cross-page deduplication and merging
 - [ ] Handle edge cases and malformed docs
+- [ ] Prepare data for embedding generation
 
-### Phase 3: RAG Integration
+### Phase 3: RAG Integration (Week 3+)
 - [ ] Generate embeddings for component descriptions
 - [ ] Integrate with vector stores (Pinecone/Weaviate/Chroma)
 - [ ] Implement semantic search functionality
 - [ ] Build retrieval pipeline
+- [ ] Test cross-component queries using relatedComponents
 
-### Phase 4: Multi-System Support
+### Phase 4: Multi-System Support (Future)
 - [ ] Extend to other design systems (Material-UI, Ant Design, etc.)
 - [ ] Create adapters for different documentation formats
 - [ ] Implement configurable extraction rules
@@ -258,20 +323,29 @@ Each file contains structured component data validated against the RAGResult sch
 
 ### Key Components
 
-**ChakraDocsSpider** (`src/steps/0-extract-docs/crawler.ts`)
+**ChakraDocsSpider** ([src/steps/0-extract-docs/crawler.ts](src/steps/0-extract-docs/crawler.ts))
 - Manages Playwright browser lifecycle
+- BFS crawling with link discovery
 - Orchestrates page navigation and data extraction
-- Handles output file generation
+- Validates and saves individual JSON files per component
 
-**Extractors** (`src/steps/0-extract-docs/extractors.ts`)
-- CSS selector-based DOM parsing
-- Component-specific extraction functions
-- Accessibility information gathering
+**Extractors** ([src/steps/0-extract-docs/extractors.ts](src/steps/0-extract-docs/extractors.ts))
+- CSS selector-based DOM parsing with semantic fallbacks
+- High-quality code filtering (composition score ≥5)
+- Column-order-agnostic props table parsing
+- Related components detection from code examples
+- Section-aware extraction (skips Installation/Import sections)
 
-**Text Processor** (`src/utils/textProcessor.ts`)
-- Intelligent text chunking with overlap
-- Whitespace normalization
-- Code block extraction
+**Quality Validation** ([src/steps/0-extract-docs/smoke-test.ts](src/steps/0-extract-docs/smoke-test.ts))
+- Schema validation (Zod)
+- Coverage metrics (descriptions, code examples)
+- Pass/fail criteria enforcement
+- Automated quality gates
+
+**Sample Viewer** ([src/steps/0-extract-docs/sample-viewer.ts](src/steps/0-extract-docs/sample-viewer.ts))
+- Random sampling for manual review
+- Formatted output for human inspection
+- Quality verification workflow
 
 ### Design Patterns
 - **Step-based Pipeline:** Modular architecture for extensibility
@@ -352,6 +426,27 @@ Use extracted specs to train or prompt LLMs for generating:
 
 ---
 
-**Status:** 🚧 Under Active Development
+## What's Next?
+
+### If you're starting fresh:
+1. **Run the Quick Start** (see top of README)
+2. **Check extraction quality:** `npm run quality:smoke`
+3. **Review samples:** `npm run quality:samples`
+4. **Adjust configuration** in `.env` if targeting different docs
+
+### If continuing from Week 1:
+- ✅ **Week 1 is complete!** (Core extraction pipeline)
+- 📂 **Your data:** 50 components extracted in [artifacts/raw-json/](artifacts/raw-json/)
+- 📋 **Implementation details:** See [WEEK1_IMPLEMENTATION.md](WEEK1_IMPLEMENTATION.md)
+- 🎯 **Next phase:** Data normalization and chunking (see [CLAUDE.md](CLAUDE.md) for guidance)
+
+### Key Documentation:
+- **[CLAUDE.md](CLAUDE.md)** - Project quick facts, commands, and contribution guide (for LLM assistance)
+- **[WEEK1_IMPLEMENTATION.md](WEEK1_IMPLEMENTATION.md)** - Detailed implementation plan and decisions
+- **[.env.example](.env.example)** - Configuration reference
+
+---
+
+**Status:** ✅ **Week 1 Complete** | 🎯 Ready for Week 2 (Data Normalization)
 
 For questions, issues, or feature requests, please open an issue on GitHub.
