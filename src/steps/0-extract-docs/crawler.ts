@@ -1,197 +1,112 @@
 // =============================================================================
-// Skeleton implementation 
+// This file contains the Playwright crawling logic. It navigates to a page,
+// invokes the extractor, validates the result, and saves it.
 // =============================================================================
 
-// import { Browser, Page, chromium } from 'playwright';
-// import { config } from 'dotenv';
-// import path from 'path';
-// import fs from 'fs/promises';
+import { Browser, Page, chromium } from 'playwright';
+import { config } from 'dotenv';
+import path from 'path';
+import fs from 'fs/promises';
+import { extractComponent } from './extractors.js';
+import { ComponentDocSchema } from '../../schemas/RAGResultSchema.js';
+// Load environment variables
+config();
 
-// // Load environment variables
-// config();
+export class ChakraDocsSpider {
+  private browser: Browser | null = null;
+  private page: Page | null = null;
+  private crawlUrlPattern: string;
 
-// export class ChakraDocsSpider {
-//   private browser: Browser | null = null;
-//   private page: Page | null = null;
+  constructor(
+    private startUrl: string,
+    private maxPages: number
+  ) {
+    // Require explicit CRAWL_URL_PATTERN from environment
+    if (!process.env.CRAWL_URL_PATTERN) {
+      throw new Error('CRAWL_URL_PATTERN environment variable is required');
+    }
+    this.crawlUrlPattern = process.env.CRAWL_URL_PATTERN;
+    console.log(`Crawl pattern: ${this.crawlUrlPattern}`);
+  }
 
-//   constructor(
-//     private startUrl: string = process.env.START_URL || 'https://chakra-ui.com/docs/components/concepts/overview',
-//     private maxPages: number = Number(process.env.MAX_PAGES) || 100
-//   ) {}
+  async init() {
+    this.browser = await chromium.launch({
+      headless: true,
+    });
+    this.page = await this.browser.newPage();
+  }
 
-//   async init() {
-//     this.browser = await chromium.launch({
-//       headless: true
-//     });
-//     this.page = await this.browser.newPage();
-//   }
+  async crawl() {
+    if (!this.page) {
+      throw new Error('Browser not initialized. Call init() first.');
+    }
 
-//   async crawl() {
-//     if (!this.page) {
-//       throw new Error('Browser not initialized. Call init() first.');
-//     }
+    console.log(`Starting crawl from ${this.startUrl}`);
+    await this.page.goto(this.startUrl, { waitUntil: 'domcontentloaded' });
 
-//     console.log(`Starting crawl from ${this.startUrl}`);
-//     await this.page.goto(this.startUrl);
+    // Discover all unique component links on the starting page
+    const hrefs = await this.page.locator('a[href]').evaluateAll((links: HTMLAnchorElement[]) =>
+      links.map(a => a.href)
+    );
 
-//     // TODO: Implement crawling logic
-//     // This is a placeholder for the actual crawling implementation
-//     const pageData = await this.extractPageData();
-    
-//     // Save the data
-//     await this.saveData(pageData);
-//   }
+    const componentUrls = Array.from(
+      new Set(
+        hrefs
+          .filter(h => h.startsWith(this.crawlUrlPattern))
+          .map(h => h.split('#')[0]) // Remove fragment identifiers
+      )
+    );
 
-//   private async extractPageData() {
-//     if (!this.page) throw new Error('Page not initialized');
-    
-//     // TODO: Implement actual data extraction
-//     return {
-//       timestamp: new Date().toISOString(),
-//       url: this.page.url(),
-//       title: await this.page.title(),
-//       data: {} // Placeholder for extracted data
-//     };
-//   }
+    console.log(`Discovered ${componentUrls.length} unique component URLs.`);
 
-//   private async saveData(data: any) {
-//     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-//     const outputPath = path.join(process.cwd(), 'artifacts', 'raw-json', `crawl-${timestamp}.json`);
-    
-//     await fs.writeFile(outputPath, JSON.stringify(data, null, 2));
-//     console.log(`Data saved to ${outputPath}`);
-//   }
+    // Crawl each component link, respecting maxPages
+    const pagesToCrawl = this.maxPages > 0 ? componentUrls.slice(0, this.maxPages) : componentUrls;
+    console.log(`Crawling up to ${pagesToCrawl.length} pages...`);
 
-//   async close() {
-//     if (this.browser) {
-//       await this.browser.close();
-//       this.browser = null;
-//       this.page = null;
-//     }
-//   }
-// }
+    for (const url of pagesToCrawl) {
+      try {
+        console.log(`\n--- Crawling: ${url} ---`);
+        await this.page.goto(url, { waitUntil: 'networkidle' });
 
+        // Use the extractor on the component page
+        const extractedDoc = await extractComponent(this.page, url);
 
+        if (extractedDoc) {
+          // Validate and save the data
+          const validationResult = ComponentDocSchema.safeParse(extractedDoc);
 
-// =============================================================================
-// actual implementation 1 - simple crawler to get component links
-// =============================================================================
-
-// import { Browser, Page, chromium } from 'playwright';
-
-// export async function runCrawl({ startUrl, maxPages }: { startUrl: string; maxPages: number }) {
-//   const browser = await chromium.launch();
-//   const context = await browser.newContext();
-//   const page = await context.newPage();
-
-//   await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-
-//   const hrefs: string[] = await page.locator("a[href]").evaluateAll((as: HTMLAnchorElement[]) =>
-//     as.map(a => a.href).filter(Boolean)
-//   );
-
-//   const componentLinks = Array.from(
-//     new Set(
-//       hrefs
-//         .filter(h => /^https?:\/\/(www\.)?chakra-ui\.com\/docs\/components\//.test(h))
-//         .map(h => h.split("#")[0])
-//     )
-//   );
-
-//   console.log(`found ${componentLinks.length} component links`);
-//   console.log(componentLinks.slice(0, 20).map((x, i) => `${i + 1}. ${x}`).join("\n"));
-
-//   await browser.close();
-//   return componentLinks;
-// }
-
-// =============================================================================
-// actual implementation 2 - more advanced crawler with queue and delay
-// =============================================================================
-import { chromium } from "playwright";
-import { ComponentDocSchema, type ComponentDoc } from '../../schemas/RAGResultSchema.js';
-import { extractComponent } from "./extractors.js";
-import { mkdir, writeFile, appendFile } from "fs/promises";
-import { dirname } from "path";
-
-
-type CrawlOpts = { startUrl: string; maxPages: number };
-
-export async function runCrawl({ startUrl, maxPages }: CrawlOpts): Promise<string[]> {
-  const browser = await chromium.launch(); // headless by default
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
-  const delayMs = Number(process.env.CRAWL_DELAY ?? 0);
-
-  // --- output sink (JSONL) ---
-  const outPath = process.env.OUT_JSONL ?? "./out/docs.jsonl";
-  await mkdir(dirname(outPath), { recursive: true });
-  await writeFile(outPath, ""); // truncate/create
-
-  // --- BFS state ---
-  const queue: string[] = [startUrl];
-  const visited = new Set<string>();
-  let processed = 0;
-
-  while (queue.length && processed < maxPages) {
-    const url = queue.shift()!;
-    if (visited.has(url)) continue;
-
-    // Only allow component-docs subtree, except the start hub itself
-    if (url !== startUrl && !/\/docs\/components\//.test(url)) continue;
-
-    visited.add(url);
-
-    try {
-      console.log(`Visiting (${processed + 1}/${maxPages}): ${url}`);
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-      await page.locator("main").first().waitFor({ state: "attached", timeout: 5000 }).catch(() => {});
-
-      // show the title so we can confirm navigation worked
-      const title = await page.title();
-      console.log(`→ ${title}`);
-
-      // ---- EXTRACTION WIRING ----
-      const doc = (await extractComponent(page, url)) as ComponentDoc | null;
-      if (doc) {
-        const parsed = ComponentDocSchema.safeParse(doc);
-        if (!parsed.success) {
-    const issues = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
-    console.warn(`   ! validation failed → ${issues}`);
+          if (validationResult.success) {
+            console.log(`✅ [${extractedDoc.componentName}] Extraction validated successfully.`);
+            await this.saveData(validationResult.data);
+          } else {
+            console.error(`❌ [${extractedDoc.componentName}] Validation failed:`, validationResult.error.flatten());
+            await this.saveData(extractedDoc, 'invalid-');
+          }
         } else {
-          await appendFile(outPath, JSON.stringify(parsed.data) + "\n", "utf8");
-          console.log(`   ✓ extracted: ${parsed.data.componentName}`);
+          console.log(`No useful content extracted from ${url}.`);
         }
-      } else {
-        console.log(`   · skipped (no component/description)`);
+      } catch (error) {
+        console.error(`Failed to crawl or process ${url}:`, error);
       }
-
-      // discover next-layer links (BFS enqueue)
-      const hrefs: string[] = await page
-        .locator("a[href]")
-        .evaluateAll((as: HTMLAnchorElement[]) => as.map(a => a.href).filter(Boolean));
-
-      for (const h of hrefs) {
-        if (/^https?:\/\/(www\.)?chakra-ui\.com\/docs\/components\//.test(h)) {
-          const clean = h.split("#")[0]; // strip hash fragments
-          if (!visited.has(clean)) queue.push(clean);
-        }
-      }
-
-      processed++;
-
-      // optional politeness delay
-      if (delayMs > 0) await page.waitForTimeout(delayMs);
-    } catch (err) {
-      console.warn(`! Error on ${url}: ${(err as Error).message}`);
     }
   }
 
-  await browser.close();
-  console.log(
-    `Done. processed=${processed} visited=${visited.size} queued_left=${queue.length}`
-  );
+  private async saveData(data: any, prefix = '') {
+    const componentName = data.componentName?.replace(/ /g, '-') || 'unknown-component';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${prefix}${componentName}-${timestamp}.json`;
+    const outputPath = path.join(process.cwd(), 'artifacts', 'raw-json', fileName);
 
-  return Array.from(visited);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, JSON.stringify(data, null, 2));
+    console.log(`Data saved to ${outputPath}`);
+  }
+
+  async close() {
+    if (this.browser) {
+      await this.browser.close();
+      this.browser = null;
+      this.page = null;
+    }
+  }
 }

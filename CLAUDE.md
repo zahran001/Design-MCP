@@ -35,7 +35,18 @@ npm run cli -- 0-extract-docs -m 10
 **ENV:**
 
 * `START_URL` (default: `https://chakra-ui.com/docs/components/concepts/overview`)
+  - The starting page for the crawler
+  - Can be overridden via CLI: `-s <url>`
+
 * `MAX_PAGES` (default: `20`)
+  - Maximum number of pages to crawl
+  - Can be overridden via CLI: `-m <number>`
+
+* `CRAWL_URL_PATTERN` (required)
+  - Only URLs starting with this pattern will be followed
+  - **Examples:**
+    - `https://chakra-ui.com/docs/components/` → crawls all component pages
+    - `https://chakra-ui.com/docs/` → crawls entire docs
 
 ## 3) Style & code conventions
 
@@ -54,7 +65,7 @@ npm run cli -- 0-extract-docs -m 10
 * **Idempotent changes:** Re-runs should not duplicate work or corrupt artifacts.
 * **Guardrails:**
 
-  * Do not hit non-`/docs/components/` pages (except the hub).
+  * Only crawl URLs matching `CRAWL_URL_PATTERN`.
   * Strip hash fragments when enqueueing (avoid duplicates).
   * Be resilient to selector drift (fallbacks, optional chaining).
 * **Security:** Never commit secrets. `.env` is ignored. Reference `.env.example` only.
