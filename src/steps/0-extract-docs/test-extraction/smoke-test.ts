@@ -17,7 +17,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { ComponentDocSchema } from '../../schemas/RAGResultSchema.js';
+import { ComponentDocSchema } from '../../../schemas/RAGResultSchema.js';
 
 interface SmokeTestResults {
   totalFiles: number;

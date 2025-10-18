@@ -67,10 +67,14 @@ Future Steps:
 - ✅ Related components detection
 - ✅ Quality validation suite (smoke tests + sample viewer)
 
-**📊 Extraction Quality (50 Chakra UI components):**
-- Schema validation: 100% (50/50 files)
-- Description coverage: 100% (50/50 components)
-- Code examples: 96% (48/50 components, 355 total examples)
+**📊 Extraction Quality (60 Chakra UI components):**
+- Schema validation: 100% (60/60 files)
+- Description coverage: 100% (60/60 components)
+- Code examples: 96% (58/60 components, 400+ total examples)
+- Props extraction: 38% (42/110 pages, 588 total props)
+  - Avg 14.0 props per component (for components with props tables)
+  - Pattern detection: Handles simple, composite, and no-props patterns
+  - Dot notation for composite components (e.g., "Root.collection")
 - Avg 7.1 code examples per component (filtered from ~40 raw blocks)
 
 **🎯 Ready for Week 2:**

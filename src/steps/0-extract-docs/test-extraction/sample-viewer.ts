@@ -11,7 +11,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { ComponentDocSchema, type ComponentDoc } from '../../schemas/RAGResultSchema.js';
+import { ComponentDocSchema, type ComponentDoc } from '../../../schemas/RAGResultSchema.js';
 
 const COLORS = {
   reset: '\x1b[0m',

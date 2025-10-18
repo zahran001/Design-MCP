@@ -45,7 +45,7 @@
 // =============================================================================
 
 import type { Page } from 'playwright';
-import type { ComponentDoc, CodeExample } from '../../schemas/RAGResultSchema.js';
+import type { ComponentDoc, CodeExample, Prop } from '../../schemas/RAGResultSchema.js';
 
 // Enable debug logging (set to false in production)
 // Usage: DEBUG=true npm run cli -- 0-extract-docs
@@ -623,6 +623,211 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
 }
 
 // =============================================================================
+// Batch 5.5: Props Extraction (Milestone C)
+// =============================================================================
+
+/**
+ * Extract props from a Chakra UI component page
+ *
+ * PURPOSE: Parse props tables from Chakra UI documentation pages
+ *
+ * CHAKRA UI PROPS PATTERNS:
+ *   Pattern 1: No props section → return []
+ *   Pattern 2: Simple props (h2#props → table) → single props table
+ *   Pattern 3: Composite props (h2#props → h3 → table) → multiple tables with subcomponents
+ *
+ * COLUMN ORDER (Fixed in Chakra UI):
+ *   - Column 0: Prop (name)
+ *   - Column 1: Default (default value)
+ *   - Column 2: Type (may include description)
+ *
+ * COMPOSITE COMPONENTS:
+ *   For components like Combobox with Root, Item, etc.:
+ *   - Each h3 subheading represents a subcomponent
+ *   - Props are named with dot notation: "Root.collection", "Item.item"
+ *
+ * EXECUTION FLOW:
+ *   1. Find h2#props heading
+ *   2. Check for h3 subheadings (determines pattern)
+ *   3. If h3 exists → Pattern 3 (composite)
+ *   4. Otherwise → Pattern 2 (simple)
+ *   5. Extract tables using flexible selectors (handles div wrapping)
+ *   6. Parse rows using fixed column indices
+ *
+ * RETURN: Array of Prop objects (empty if no props found)
+ */
+async function extractProps(page: Page): Promise<Prop[]> {
+  log('extractProps - starting extraction...');
+
+  // Pattern 1: Check if props section exists
+  const propsHeading = page.locator('h2#props').first();
+  if (!(await propsHeading.count())) {
+    log('extractProps - no props heading found (Pattern 1)');
+    return [];
+  }
+
+  log('extractProps - props heading found, checking for subheadings...');
+
+  // Determine pattern: Check for h3 subheadings
+  const subheadings = await propsHeading.locator('~ h3').all();
+
+  if (subheadings.length > 0) {
+    // Pattern 3: Composite props (multiple tables with subcomponents)
+    log('extractProps - Pattern 3 detected (composite), subheadings:', subheadings.length);
+    return await extractCompositeProps(page, subheadings);
+  } else {
+    // Pattern 2: Simple props (single table)
+    log('extractProps - Pattern 2 detected (simple)');
+    return await extractSimpleProps(page, propsHeading);
+  }
+}
+
+/**
+ * Extract props from a simple table (Pattern 2)
+ *
+ * STRUCTURE: h2#props → (optional div) → table
+ *
+ * Uses flexible selector to handle both:
+ *   - Direct sibling: h2#props → table
+ *   - Div-wrapped: h2#props → div → table
+ */
+async function extractSimpleProps(
+  page: Page,
+  propsHeading: ReturnType<Page['locator']>
+): Promise<Prop[]> {
+  log('extractSimpleProps - searching for table...');
+
+  // Flexible selector: handles direct sibling OR div-wrapped
+  const table = propsHeading.locator('~ table, ~ div table').first();
+
+  if (!(await table.count())) {
+    log('extractSimpleProps - no table found');
+    return [];
+  }
+
+  log('extractSimpleProps - table found, extracting rows...');
+  return await extractPropsFromTable(table);
+}
+
+/**
+ * Extract props from composite tables (Pattern 3)
+ *
+ * STRUCTURE: h2#props → h3 (subcomponent) → (optional div) → table
+ *
+ * For each h3 subheading:
+ *   1. Extract subcomponent name (e.g., "Root", "Item")
+ *   2. Find associated table
+ *   3. Parse props with dot notation: "Root.collection"
+ */
+async function extractCompositeProps(
+  page: Page,
+  subheadings: Array<ReturnType<Page['locator']>>
+): Promise<Prop[]> {
+  log('extractCompositeProps - processing', subheadings.length, 'subheadings...');
+
+  const allProps: Prop[] = [];
+
+  for (const h3 of subheadings) {
+    // Extract subcomponent name
+    const subcomponentName = (await h3.textContent())?.trim() || '';
+    log('extractCompositeProps - processing subcomponent:', subcomponentName);
+
+    // Find table after this h3 (handles div wrapping)
+    const table = h3.locator('~ table, ~ div table').first();
+
+    if (!(await table.count())) {
+      log('extractCompositeProps - no table found for', subcomponentName);
+      continue;
+    }
+
+    // Extract props from table
+    const props = await extractPropsFromTable(table, subcomponentName);
+    allProps.push(...props);
+    log('extractCompositeProps - extracted', props.length, 'props for', subcomponentName);
+  }
+
+  log('extractCompositeProps - total props extracted:', allProps.length);
+  return allProps;
+}
+
+/**
+ * Extract props from a table element
+ *
+ * COLUMN ORDER (Fixed in Chakra UI):
+ *   - Column 0: Prop name
+ *   - Column 1: Default value
+ *   - Column 2: Type and description (structured as <code> + <p>)
+ *
+ * COLUMN 2 STRUCTURE:
+ *   - <code> element: TypeScript type signature (e.g., "string | undefined")
+ *   - <p> element: Human-readable description (e.g., "The color scheme")
+ *
+ * @param table - Playwright locator for table element
+ * @param prefix - Optional prefix for composite props (e.g., "Root")
+ */
+async function extractPropsFromTable(
+  table: ReturnType<Page['locator']>,
+  prefix?: string
+): Promise<Prop[]> {
+  log('extractPropsFromTable - extracting rows...', prefix ? `(prefix: ${prefix})` : '');
+
+  const props: Prop[] = [];
+
+  // Get all rows in tbody (skip header)
+  const rows = table.locator('tbody tr');
+  const rowCount = await rows.count();
+
+  log('extractPropsFromTable - found', rowCount, 'rows');
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = rows.nth(i);
+    const cells = row.locator('td');
+    const cellCount = await cells.count();
+
+    if (cellCount < 3) {
+      log('extractPropsFromTable - row', i, 'has fewer than 3 cells, skipping');
+      continue;
+    }
+
+    // Extract cell values (fixed column order)
+    const propName = (await cells.nth(0).textContent())?.trim() || '';
+    const defaultValue = (await cells.nth(1).textContent())?.trim() || '';
+
+    // Column 2 contains type in <code> element and description in <p> element
+    const typeCell = cells.nth(2);
+    const typeText = (await typeCell.locator('code').first().textContent())?.trim() || '';
+    const descText = (await typeCell.locator('p').first().textContent())?.trim() || '';
+
+    if (!propName || !typeText) {
+      log('extractPropsFromTable - row', i, 'missing name or type, skipping');
+      continue;
+    }
+
+    // Build prop object
+    const prop: Prop = {
+      name: prefix ? `${prefix}.${propName}` : propName,
+      type: typeText,
+    };
+
+    // Add description if present (extracted from <p> element)
+    if (descText) {
+      prop.description = descText;
+    }
+
+    // Add default value if present (Chakra uses "-" for no default)
+    if (defaultValue && defaultValue !== '-') {
+      prop.defaultValue = defaultValue;
+    }
+
+    props.push(prop);
+    log('extractPropsFromTable - extracted prop:', prop.name);
+  }
+
+  log('extractPropsFromTable - extracted', props.length, 'props');
+  return props;
+}
+
+// =============================================================================
 // Batch 6: Integration (Updated extractComponent)
 // =============================================================================
 
@@ -723,6 +928,10 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
   const codeExamples = await extractCodeExamples(page);
   log('extractComponent - code examples extracted:', codeExamples.length);
 
+  // Extract props from props tables (Milestone C)
+  const props = await extractProps(page);
+  log('extractComponent - props extracted:', props.length);
+
   // Detect related components from code examples (Milestone B)
   const relatedComponents = detectRelatedComponents(componentName, codeExamples);
   log('extractComponent - related components:', relatedComponents);
@@ -741,6 +950,10 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
     doc.codeExamples = codeExamples;
   }
 
+  if (props.length > 0) {
+    doc.props = props;
+  }
+
   if (relatedComponents.length > 0) {
     doc.relatedComponents = relatedComponents;
   }
@@ -756,6 +969,7 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
     componentName,
     hasDescription: !!doc.description,
     codeExamplesCount: codeExamples.length,
+    propsCount: props.length,
     relatedComponentsCount: relatedComponents.length,
   });
 

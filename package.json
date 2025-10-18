@@ -7,9 +7,11 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "cli": "tsx src/index.ts",
-    "quality:smoke": "tsx src/steps/0-extract-docs/smoke-test.ts",
-    "quality:samples": "tsx src/steps/0-extract-docs/sample-viewer.ts 3",
-    "quality:all": "npm run quality:smoke && npm run quality:samples"
+    "quality:smoke": "tsx src/steps/0-extract-docs/test-extraction/smoke-test.ts",
+    "quality:samples": "tsx src/steps/0-extract-docs/test-extraction/sample-viewer.ts 3",
+    "quality:props-test": "tsx src/steps/0-extract-docs/test-props/test-props.ts",
+    "quality:props-verify": "tsx src/steps/0-extract-docs/test-props/verify-props.ts",
+    "quality:all": "npm run quality:smoke && npm run quality:samples && npm run quality:props-test && npm run quality:props-verify"
   },
   "dependencies": {
     "commander": "^11.1.0",
