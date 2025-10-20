@@ -45,7 +45,7 @@
 // =============================================================================
 
 import type { Page } from 'playwright';
-import type { ComponentDoc, CodeExample, Prop } from '../../schemas/RAGResultSchema.js';
+import type { ComponentDoc, CodeExample, Prop, ImportPattern } from '../../schemas/RAGResultSchema.js';
 
 // Enable debug logging (set to false in production)
 // Usage: DEBUG=true npm run cli -- 0-extract-docs
@@ -164,6 +164,189 @@ function extractComponentTags(code: string): string[] {
   log('extractComponentTags - found tags:', tags);
 
   return tags;
+}
+
+/**
+ * Extract import patterns from code
+ *
+ * PURPOSE: Parse all import statements to understand dependency patterns
+ *
+ * PATTERNS DETECTED:
+ *   - Named: import { A, B } from 'pkg'
+ *   - Default: import X from 'pkg'
+ *   - Namespace: import * as X from 'pkg'
+ *   - Default+Named: import X, { A, B } from 'pkg'  [CRITICAL - very common in React]
+ *   - Type: import type { X } from 'pkg'
+ *   - Type Default: import type X from 'pkg'
+ *   - Side-effect: import 'pkg'  [CSS, polyfills]
+ *
+ * CATEGORIZATION:
+ *   - isChakra: true if source contains 'chakra'
+ *   - Tracks third-party deps: React, framer-motion, react-hook-form, etc.
+ *
+ * Used by: extractCodeExamples() to build global import patterns
+ */
+function extractImports(code: string, section?: string): ImportPattern[] {
+  log('extractImports - analyzing code for imports...');
+
+  const patterns: ImportPattern[] = [];
+
+  // Pattern 1: Default + Named imports - import X, { A, B } from 'pkg'
+  // CRITICAL: Must be checked FIRST (most specific pattern)
+  // Example: import React, { useState, useEffect } from 'react'
+  const defaultNamedRegex = /import\s+(\w+)\s*,\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
+  for (const match of code.matchAll(defaultNamedRegex)) {
+    const defaultImport = match[1];
+    const rawNamedImports = match[2];
+    const source = match[3];
+
+    // Parse named imports (handles "type X" syntax)
+    const namedImports = rawNamedImports
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s && s !== 'type')
+      .map(s => s.replace(/^type\s+/, ''));
+
+    patterns.push({
+      source,
+      imports: namedImports,
+      type: 'default-named',
+      section,
+      isChakra: source.includes('chakra'),
+      defaultImport,
+    });
+  }
+
+  // Pattern 2: Type-only imports - import type { X } from 'pkg'
+  // Must be checked BEFORE regular named imports
+  const typeRegex = /import\s+type\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
+  for (const match of code.matchAll(typeRegex)) {
+    const imports = match[1].split(',').map(s => s.trim()).filter(Boolean);
+    const source = match[2];
+
+    // Skip if already captured as default+named
+    if (patterns.some(p => p.source === source && p.type === 'default-named')) {
+      continue;
+    }
+
+    patterns.push({
+      source,
+      imports,
+      type: 'type',
+      section,
+      isChakra: source.includes('chakra'),
+    });
+  }
+
+  // Pattern 3: Type default imports - import type X from 'pkg'
+  const typeDefaultRegex = /^import\s+type\s+(\w+)\s+from\s*['"]([^'"]+)['"]/gm;
+  for (const match of code.matchAll(typeDefaultRegex)) {
+    const importName = match[1];
+    const source = match[2];
+
+    // Skip if already captured
+    if (patterns.some(p => p.source === source)) {
+      continue;
+    }
+
+    patterns.push({
+      source,
+      imports: [importName],
+      type: 'type-default',
+      section,
+      isChakra: source.includes('chakra'),
+    });
+  }
+
+  // Pattern 4: Named imports - import { A, B } from 'pkg'
+  const namedRegex = /import\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
+  for (const match of code.matchAll(namedRegex)) {
+    const rawImports = match[1];
+    const source = match[2];
+
+    // Skip if already captured
+    if (patterns.some(p => p.source === source)) {
+      continue;
+    }
+
+    // Parse individual imports (handles "type X" syntax in mixed imports)
+    const imports = rawImports
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s && s !== 'type')
+      .map(s => s.replace(/^type\s+/, ''));
+
+    if (imports.length > 0) {
+      patterns.push({
+        source,
+        imports,
+        type: 'named',
+        section,
+        isChakra: source.includes('chakra'),
+      });
+    }
+  }
+
+  // Pattern 5: Namespace imports - import * as X from 'pkg'
+  const namespaceRegex = /import\s*\*\s*as\s+(\w+)\s*from\s*['"]([^'"]+)['"]/g;
+  for (const match of code.matchAll(namespaceRegex)) {
+    const source = match[2];
+
+    // Skip if already captured
+    if (patterns.some(p => p.source === source)) {
+      continue;
+    }
+
+    patterns.push({
+      source: match[2],
+      imports: [match[1]],
+      type: 'namespace',
+      section,
+      isChakra: match[2].includes('chakra'),
+    });
+  }
+
+  // Pattern 6: Default imports - import X from 'pkg'
+  const defaultRegex = /^import\s+(\w+)\s+from\s*['"]([^'"]+)['"]/gm;
+  for (const match of code.matchAll(defaultRegex)) {
+    const importName = match[1];
+    const source = match[2];
+
+    // Skip if already captured
+    if (patterns.some(p => p.source === source)) {
+      continue;
+    }
+
+    patterns.push({
+      source,
+      imports: [importName],
+      type: 'default',
+      section,
+      isChakra: source.includes('chakra'),
+    });
+  }
+
+  // Pattern 7: Side-effect imports - import 'pkg'
+  const sideEffectRegex = /^import\s+['"]([^'"]+)['"]/gm;
+  for (const match of code.matchAll(sideEffectRegex)) {
+    const source = match[1];
+
+    // Skip if already captured (avoid double-counting)
+    if (patterns.some(p => p.source === source)) {
+      continue;
+    }
+
+    patterns.push({
+      source,
+      imports: [],  // No imports for side-effect only
+      type: 'side-effect',
+      section,
+      isChakra: source.includes('chakra'),
+    });
+  }
+
+  log('extractImports - found', patterns.length, 'import patterns');
+  return patterns;
 }
 
 // =============================================================================
@@ -372,6 +555,58 @@ function detectRelatedComponents(componentName: string, codeExamples: CodeExampl
   return related;
 }
 
+/**
+ * Deduplicate import patterns by source and type
+ *
+ * PURPOSE: Merge imports from the same package/source
+ *
+ * STRATEGY:
+ *   - Group by source + type (e.g., "@chakra-ui/react:named")
+ *   - Merge import lists
+ *   - Remove duplicates
+ *   - Sort for consistency
+ *
+ * EXAMPLE:
+ *   Input:
+ *     [{ source: 'react', imports: ['useState'], type: 'named' },
+ *      { source: 'react', imports: ['useEffect'], type: 'named' }]
+ *
+ *   Output:
+ *     [{ source: 'react', imports: ['useEffect', 'useState'], type: 'named' }]
+ */
+function dedupeImportPatterns(patterns: ImportPattern[]): ImportPattern[] {
+  log('dedupeImportPatterns - input count:', patterns.length);
+
+  const map = new Map<string, ImportPattern>();
+
+  for (const pattern of patterns) {
+    // Key: source + type (section is intentionally excluded for grouping)
+    const key = `${pattern.source}:${pattern.type}`;
+    const existing = map.get(key);
+
+    if (existing) {
+      // Merge imports from same source+type
+      const combinedImports = new Set([...existing.imports, ...pattern.imports]);
+      existing.imports = Array.from(combinedImports).sort();
+
+      // Keep section if present
+      if (!existing.section && pattern.section) {
+        existing.section = pattern.section;
+      }
+    } else {
+      map.set(key, {
+        ...pattern,
+        imports: [...pattern.imports].sort(), // Sort for consistency
+      });
+    }
+  }
+
+  const deduped = Array.from(map.values());
+  log('dedupeImportPatterns - output count:', deduped.length, '(removed', patterns.length - deduped.length, 'duplicates)');
+
+  return deduped;
+}
+
 // =============================================================================
 // Batch 4: Playwright Interaction
 // =============================================================================
@@ -498,16 +733,20 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
  *
  * PURPOSE: Main orchestrator that combines all extraction logic from Batches 1-4
  *
+ * UPDATED: Now also extracts import patterns from ALL code blocks
+ *
  * EXECUTION FLOW:
  *   1. Find all <pre> elements in <main> (Chakra's code block container)
  *   2. For each code block:
  *      a. Extract code text from nested <code> element
  *      b. Find preceding heading using findPrecedingHeading()
- *      c. Apply 3-stage filtering pipeline (see below)
- *      d. Extract language from class attribute (e.g., "language-tsx")
- *      e. Build CodeExample object with code, language, section
- *   3. Deduplicate using normalizeCode()
- *   4. Return filtered, unique code examples
+ *      c. Extract imports (ALWAYS, even if code will be filtered)
+ *      d. Apply 3-stage filtering pipeline (see below)
+ *      e. Extract language from class attribute (e.g., "language-tsx")
+ *      f. Build CodeExample object with code, language, section
+ *   3. Deduplicate examples using normalizeCode()
+ *   4. Deduplicate import patterns by source+type
+ *   5. Return filtered examples + import patterns
  *
  * FILTERING PIPELINE (in order):
  *   Stage 1: Section-based filtering
@@ -532,9 +771,16 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
  *   - lowScore: Filtered by composition score
  *   - accepted: Passed all filters
  *
- * RETURN: Deduplicated array of high-quality CodeExample objects
+ * RETURN: Object containing:
+ *   - examples: Deduplicated high-quality code examples
+ *   - importPatterns: Imports from accepted examples only
+ *   - allImportPatterns: Imports from ALL blocks (including filtered)
  */
-async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
+async function extractCodeExamples(page: Page): Promise<{
+  examples: CodeExample[];
+  importPatterns: ImportPattern[];
+  allImportPatterns: ImportPattern[];
+}> {
   log('extractCodeExamples - starting extraction...');
 
   const main = page.locator('main');
@@ -544,6 +790,9 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
   log('extractCodeExamples - found', count, 'code blocks');
 
   const examples: CodeExample[] = [];
+  const allImports: ImportPattern[] = [];      // From ALL blocks
+  const acceptedImports: ImportPattern[] = []; // From accepted blocks only
+
   let filtered = {
     excluded: 0,   // Rejected due to section (Installation, Import, etc.)
     lowValue: 0,   // Rejected due to content heuristics
@@ -568,6 +817,13 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
     // Find preceding heading
     const { section, found } = await findPrecedingHeading(block);
 
+    // ALWAYS extract imports (even if code will be filtered)
+    const importsInBlock = extractImports(code, section);
+    if (importsInBlock.length > 0) {
+      allImports.push(...importsInBlock);
+      log(`extractCodeExamples - block ${i + 1}: extracted ${importsInBlock.length} import patterns`);
+    }
+
     // Section-based filtering
     if (found && isInExcludedSection(section)) {
       log(`extractCodeExamples - block ${i + 1}: FILTERED (excluded section: "${section}")`);
@@ -588,6 +844,11 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
       log(`extractCodeExamples - block ${i + 1}: FILTERED (score ${score} < 5)`);
       filtered.lowScore++;
       continue;
+    }
+
+    // CODE ACCEPTED - track imports from this block separately
+    if (importsInBlock.length > 0) {
+      acceptedImports.push(...importsInBlock);
     }
 
     // Extract language from class attribute if present
@@ -615,11 +876,24 @@ async function extractCodeExamples(page: Page): Promise<CodeExample[]> {
 
   log('extractCodeExamples - filtering summary:', filtered);
 
-  // Deduplicate
-  const deduped = dedupeCodeExamples(examples);
+  // Deduplicate examples
+  const dedupedExamples = dedupeCodeExamples(examples);
 
-  log('extractCodeExamples - complete:', deduped.length, 'examples extracted');
-  return deduped;
+  // Deduplicate import patterns (separate for accepted vs all)
+  const dedupedAcceptedImports = dedupeImportPatterns(acceptedImports);
+  const dedupedAllImports = dedupeImportPatterns(allImports);
+
+  log('extractCodeExamples - complete:', {
+    examples: dedupedExamples.length,
+    acceptedImports: dedupedAcceptedImports.length,
+    allImports: dedupedAllImports.length,
+  });
+
+  return {
+    examples: dedupedExamples,
+    importPatterns: dedupedAcceptedImports,
+    allImportPatterns: dedupedAllImports,
+  };
 }
 
 // =============================================================================
@@ -924,16 +1198,18 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
 
   log('extractComponent - description length:', description?.length || 0);
 
-  // Extract code examples with quality filtering (Milestone B)
-  const codeExamples = await extractCodeExamples(page);
-  log('extractComponent - code examples extracted:', codeExamples.length);
+  // Extract code examples with quality filtering AND import patterns
+  const { examples, importPatterns, allImportPatterns } = await extractCodeExamples(page);
+  log('extractComponent - code examples extracted:', examples.length);
+  log('extractComponent - import patterns (accepted):', importPatterns.length);
+  log('extractComponent - import patterns (all):', allImportPatterns.length);
 
   // Extract props from props tables (Milestone C)
   const props = await extractProps(page);
   log('extractComponent - props extracted:', props.length);
 
   // Detect related components from code examples (Milestone B)
-  const relatedComponents = detectRelatedComponents(componentName, codeExamples);
+  const relatedComponents = detectRelatedComponents(componentName, examples);
   log('extractComponent - related components:', relatedComponents);
 
   // Build ComponentDoc object (only include non-empty optional fields)
@@ -946,8 +1222,8 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
     doc.description = description;
   }
 
-  if (codeExamples.length > 0) {
-    doc.codeExamples = codeExamples;
+  if (examples.length > 0) {
+    doc.codeExamples = examples;
   }
 
   if (props.length > 0) {
@@ -956,6 +1232,15 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
 
   if (relatedComponents.length > 0) {
     doc.relatedComponents = relatedComponents;
+  }
+
+  // NEW: Attach import patterns
+  if (importPatterns.length > 0) {
+    doc.importPatterns = importPatterns;
+  }
+
+  if (allImportPatterns.length > 0) {
+    doc.allImportPatterns = allImportPatterns;
   }
 
   // Validation: Must have at least description OR codeExamples to be useful
@@ -968,9 +1253,11 @@ export async function extractComponent(page: Page, url: string): Promise<Compone
   log('extractComponent - complete:', {
     componentName,
     hasDescription: !!doc.description,
-    codeExamplesCount: codeExamples.length,
+    codeExamplesCount: examples.length,
     propsCount: props.length,
     relatedComponentsCount: relatedComponents.length,
+    importPatternsCount: importPatterns.length,
+    allImportPatternsCount: allImportPatterns.length,
   });
 
   return doc;
@@ -1076,6 +1363,111 @@ const Demo = () => {
   const related = detectRelatedComponents('Button', buttonExamples);
   console.log('Result:', related);
   console.log('Expected: ["ButtonGroup", "Form", "Icon", "Input"] (sorted, no "Button")');
+
+  console.log('\n' + '='.repeat(80));
+  console.log('\n📦 IMPORT PATTERN EXTRACTION TESTS\n');
+
+  console.log('Test 12: extractImports - Named imports');
+  const namedCode = 'import { Button, ButtonGroup } from "@chakra-ui/react"';
+  const namedImports = extractImports(namedCode);
+  console.log('Result:', JSON.stringify(namedImports, null, 2));
+  console.log('Expected: [{ source: "@chakra-ui/react", imports: ["Button", "ButtonGroup"], type: "named", isChakra: true }]');
+
+  console.log('\nTest 13: extractImports - Type imports');
+  const typeCode = 'import type { ButtonProps } from "@chakra-ui/react"';
+  const typeImports = extractImports(typeCode);
+  console.log('Result:', JSON.stringify(typeImports, null, 2));
+  console.log('Expected: type: "type"');
+
+  console.log('\nTest 14: extractImports - Multiple sources');
+  const mixedCode = `
+import { Button } from "@chakra-ui/react"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+`;
+  const mixedImports = extractImports(mixedCode);
+  console.log('Result count:', mixedImports.length);
+  console.log('Sources:', mixedImports.map(i => i.source));
+  console.log('Expected: 3 patterns (Chakra, React, framer-motion)');
+  console.log('isChakra flags:', mixedImports.map(i => i.isChakra));
+  console.log('Expected: [true, false, false]');
+
+  console.log('\nTest 15: extractImports - Default imports');
+  const defaultCode = 'import React from "react"';
+  const defaultImports = extractImports(defaultCode);
+  console.log('Result:', JSON.stringify(defaultImports, null, 2));
+  console.log('Expected: type: "default", imports: ["React"]');
+
+  console.log('\nTest 16: extractImports - Namespace imports');
+  const namespaceCode = 'import * as ChakraUI from "@chakra-ui/react"';
+  const namespaceImports = extractImports(namespaceCode);
+  console.log('Result:', JSON.stringify(namespaceImports, null, 2));
+  console.log('Expected: type: "namespace", imports: ["ChakraUI"]');
+
+  console.log('\nTest 17: dedupeImportPatterns');
+  const dupePatterns: ImportPattern[] = [
+    { source: 'react', imports: ['useState'], type: 'named', isChakra: false },
+    { source: 'react', imports: ['useEffect'], type: 'named', isChakra: false },
+    { source: '@chakra-ui/react', imports: ['Button'], type: 'named', isChakra: true },
+    { source: '@chakra-ui/react', imports: ['Icon'], type: 'named', isChakra: true },
+  ];
+  const dedupedPatterns = dedupeImportPatterns(dupePatterns);
+  console.log('Input count:', dupePatterns.length);
+  console.log('Output count:', dedupedPatterns.length);
+  console.log('Output:', JSON.stringify(dedupedPatterns, null, 2));
+  console.log('Expected: 2 patterns (React imports merged, Chakra imports merged)');
+
+  console.log('\nTest 18: extractImports - Mixed type imports');
+  const mixedTypeCode = 'import { Button, type ButtonProps } from "@chakra-ui/react"';
+  const mixedTypeImports = extractImports(mixedTypeCode);
+  console.log('Result:', JSON.stringify(mixedTypeImports, null, 2));
+  console.log('Expected: type: "named", imports should include both Button and ButtonProps (without "type" prefix)');
+
+  console.log('\n' + '='.repeat(80));
+  console.log('\n📦 NEW IMPORT PATTERN TESTS\n');
+
+  console.log('Test 19: extractImports - Default + Named (CRITICAL)');
+  const defaultNamedCode = 'import React, { useState, useEffect } from "react"';
+  const defaultNamedImports = extractImports(defaultNamedCode);
+  console.log('Result:', JSON.stringify(defaultNamedImports, null, 2));
+  console.log('Expected: type: "default-named", defaultImport: "React", imports: ["useState", "useEffect"]');
+
+  console.log('\nTest 20: extractImports - Side-effect imports');
+  const sideEffectCode = 'import "@chakra-ui/react/dist/index.css"';
+  const sideEffectImports = extractImports(sideEffectCode);
+  console.log('Result:', JSON.stringify(sideEffectImports, null, 2));
+  console.log('Expected: type: "side-effect", imports: [], source contains CSS path');
+
+  console.log('\nTest 21: extractImports - Type default imports');
+  const typeDefaultCode = 'import type React from "react"';
+  const typeDefaultImports = extractImports(typeDefaultCode);
+  console.log('Result:', JSON.stringify(typeDefaultImports, null, 2));
+  console.log('Expected: type: "type-default", imports: ["React"]');
+
+  console.log('\nTest 22: extractImports - Multiple patterns in one code block');
+  const multiPatternCode = `
+import React, { useState } from "react"
+import { Button } from "@chakra-ui/react"
+import "@chakra-ui/react/dist/index.css"
+import type { ButtonProps } from "@chakra-ui/react"
+`;
+  const multiPatternImports = extractImports(multiPatternCode);
+  console.log('Result count:', multiPatternImports.length);
+  console.log('Types:', multiPatternImports.map(i => i.type));
+  console.log('Expected: 4 patterns - default-named, named, side-effect, type');
+  console.log('Full result:', JSON.stringify(multiPatternImports, null, 2));
+
+  console.log('\nTest 23: extractImports - Real-world React example');
+  const realWorldCode = `
+import React, { useState, useEffect, useCallback } from 'react'
+import { Button, Stack, Text } from '@chakra-ui/react'
+import { motion } from 'framer-motion'
+import 'styles/global.css'
+`;
+  const realWorldImports = extractImports(realWorldCode);
+  console.log('Result count:', realWorldImports.length);
+  console.log('Summary:', realWorldImports.map(i => ({ source: i.source, type: i.type, count: i.imports.length })));
+  console.log('Expected: React (default-named with 3), Chakra (named with 3), framer (named with 1), CSS (side-effect)');
 
   console.log('\n' + '='.repeat(80));
   console.log('\n✅ All tests complete! Review results above.\n');

@@ -27,6 +27,36 @@ export const CodeExampleSchema = z.object({
 export type CodeExample = z.infer<typeof CodeExampleSchema>;
 
 /**
+ * Import pattern schema
+ * Tracks import statements to understand dependency patterns and code generation context
+ */
+export const ImportTypeEnum = z.enum([
+  // ESM Imports
+  'named',           // import { A, B } from 'pkg'
+  'default',         // import X from 'pkg'
+  'namespace',       // import * as X from 'pkg'
+  'default-named',   // import X, { A, B } from 'pkg' (combined default + named)
+
+  // TypeScript Type Imports
+  'type',            // import type { X } from 'pkg'
+  'type-default',    // import type X from 'pkg'
+
+  // Side Effects
+  'side-effect',     // import 'pkg' (CSS, polyfills, etc.)
+]);
+
+export const ImportPatternSchema = z.object({
+  source: z.string().min(1),          // Package source: '@chakra-ui/react', 'react', 'framer-motion'
+  imports: z.array(z.string()),       // Imported names: ['Button', 'useState']
+  type: ImportTypeEnum,               // Import style (see ImportTypeEnum above)
+  section: z.string().optional(),     // Section where import appeared: 'Usage', 'Installation', etc.
+  isChakra: z.boolean(),              // true if source contains 'chakra'
+  defaultImport: z.string().optional(), // For 'default-named': the default import name (e.g., 'React')
+});
+
+export type ImportPattern = z.infer<typeof ImportPatternSchema>;
+
+/**
  * Prop schema (Milestone C)
  * Represents a component prop extracted from props tables
  */
@@ -58,6 +88,14 @@ export const ComponentDocSchema = z.object({
 
   // Milestone C: Props Table Extraction
   props: z.array(PropSchema).optional(),
+
+  // Import Patterns: Track dependency patterns for code generation
+  // importPatterns: Imports from accepted (high-quality) code examples only
+  importPatterns: z.array(ImportPatternSchema).optional(),
+
+  // allImportPatterns: Imports from ALL code blocks (including filtered installation/setup)
+  // Useful for understanding full dependency graph
+  allImportPatterns: z.array(ImportPatternSchema).optional(),
 });
 
 export type ComponentDoc = z.infer<typeof ComponentDocSchema>;
