@@ -67,7 +67,7 @@ Future Steps:
 - ✅ Related components detection
 - ✅ Quality validation suite (smoke tests + sample viewer)
 
-**📊 Extraction Quality (60 Chakra UI components):**
+**📊 Extraction Quality (60+ Chakra UI components):**
 - Schema validation: 100% (60/60 files)
 - Description coverage: 100% (60/60 components)
 - Code examples: 96% (58/60 components, 400+ total examples)
@@ -77,9 +77,18 @@ Future Steps:
   - Dot notation for composite components (e.g., "Root.collection")
 - Avg 7.1 code examples per component (filtered from ~40 raw blocks)
 
-**🎯 Ready for Week 2:**
-- Data normalization and cross-page merging
-- Text chunking for embeddings
+**🚧 Week 2 Phase 1 Complete - Schema Foundation:**
+- ✅ Advanced normalization schemas (7 specialized chunk types)
+- ✅ Dual content strategy (embedding-optimized + API reference)
+- ✅ Chunk ID generation utilities (stable, semantic IDs)
+- ✅ Token counting and size optimization
+- ✅ Type guards and validation helpers
+- 📋 Ready for: Inference engine, natural language generation, transformation pipeline
+
+**🎯 Next: Week 2 Phase 2:**
+- Inference engine (section detection, intent classification)
+- Natural language generation (code explanations)
+- Transformation pipeline (raw JSON → normalized chunks)
 - Vector store integration
 
 ## Project Structure
@@ -87,22 +96,42 @@ Future Steps:
 ```
 Design-MCP/
 ├── src/
-│   ├── index.ts                      # CLI entry point
+│   ├── index.ts                               # CLI entry point
 │   ├── schemas/
-│   │   └── RAGResultSchema.ts        # Zod schemas for validation
+│   │   ├── RAGResultSchema.ts                 # Week 1: Extraction schemas
+│   │   ├── NormalizedChunkSchema.ts           # Week 2: Normalization schemas (7 chunk types)
+│   │   └── testing/
+│   │       ├── test-schema.ts                 # Schema validation tests
+│   │       └── test-normalized-schema.ts      # Normalized chunk tests
 │   ├── steps/
 │   │   └── 0-extract-docs/
-│   │       ├── crawler.ts            # Main spider class
-│   │       └── extractors.ts         # DOM extraction functions
+│   │       ├── crawler.ts                     # BFS web crawler
+│   │       ├── extractors.ts                  # DOM extraction logic
+│   │       ├── test-extraction/
+│   │       │   ├── smoke-test.ts              # Quality validation suite
+│   │       │   └── sample-viewer.ts           # Random sample inspector
+│   │       └── test-props/
+│   │           ├── test-props.ts              # Props extraction tests
+│   │           └── verify-props.ts            # Props verification
 │   └── utils/
-│       └── textProcessor.ts          # Text chunking & normalization
+│       ├── textProcessor.ts                   # Text chunking & normalization
+│       └── chunkId.ts                         # Stable chunk ID generation
 ├── artifacts/
-│   └── raw-json/                     # Crawled data output
-├── stores/                            # Future: vector store data
-├── .env.example                      # Environment configuration template
-├── Dockerfile                        # Multi-stage Docker build
-├── package.json                      # Dependencies & scripts
-└── tsconfig.json                     # TypeScript configuration
+│   └── raw-json/                              # Extracted component data (60+ components)
+├── stores/                                     # Future: vector store data
+├── docs/
+│   └── week1/
+│       ├── documentation/                      # Week 1 implementation docs
+│       └── testing/                           # Quality evaluation guides
+├── scripts/                                    # Build & utility scripts
+├── .env.example                               # Environment configuration template
+├── Dockerfile                                 # Multi-stage Docker build
+├── package.json                               # Dependencies & scripts
+├── tsconfig.json                              # TypeScript configuration
+├── CLAUDE.md                                  # Project quick facts & contribution guide
+├── NORMALIZATION_GUIDE.md                     # Week 2: Advanced normalization strategy
+├── WEEK2_IMPLEMENTATION.md                    # Week 2: Implementation timeline
+└── W2_PHASE1_SETUP_COMPLETE.md                # Week 2 Phase 1: Setup status
 ```
 
 ## Installation
@@ -209,19 +238,26 @@ npm run quality:smoke
 # View random samples for manual review
 npm run quality:samples
 
-# Run both smoke test and sample viewer
+# Test props extraction logic
+npm run quality:props-test
+
+# Verify props in extracted files
+npm run quality:props-verify
+
+# Run all quality checks
 npm run quality:all
 
 # View custom number of samples (e.g., 5)
-npx tsx src/steps/0-extract-docs/sample-viewer.ts 5
+npx tsx src/steps/0-extract-docs/test-extraction/sample-viewer.ts 5
 ```
 
 **Quality criteria:**
 - ✅ Schema validation ≥95%
 - ✅ Description coverage ≥80%
 - ✅ Code examples coverage ≥70%
+- ✅ Props extraction validated
 
-See [Quality Evaluation Guide](docs/QUALITY_EVALUATION.md) for details.
+See [docs/week1/testing/QUALITY_EVALUATION.md](docs/week1/testing/QUALITY_EVALUATION.md) for details.
 
 ## Data Schema
 
@@ -282,38 +318,51 @@ Example output structure:
 
 ## Development Roadmap
 
-### ✅ Phase 1: Core Extraction (COMPLETE)
+### ✅ Week 1: Core Extraction (COMPLETE)
 - [x] Project setup and CLI infrastructure
 - [x] Complete web crawler implementation
 - [x] Implement DOM extraction logic
 - [x] High-quality code filtering (composition patterns)
 - [x] Props table parsing (column-order agnostic)
 - [x] Related components detection
-- [x] Test against Chakra UI documentation (50 components)
+- [x] Test against Chakra UI documentation (60+ components)
 - [x] Validate data schema with real examples (100% pass rate)
 - [x] Quality validation suite
 
 **📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
 
-### Phase 2: Data Transformation (Week 2)
-- [ ] Normalize extracted data across formats
-- [ ] Implement intelligent text chunking
-- [ ] Cross-page deduplication and merging
-- [ ] Handle edge cases and malformed docs
-- [ ] Prepare data for embedding generation
+### 🚧 Week 2: Knowledge Base & Advanced Retrieval (IN PROGRESS)
 
-### Phase 3: RAG Integration (Week 3+)
-- [ ] Generate embeddings for component descriptions
-- [ ] Integrate with vector stores (Pinecone/Weaviate/Chroma)
-- [ ] Implement semantic search functionality
-- [ ] Build retrieval pipeline
-- [ ] Test cross-component queries using relatedComponents
+**Phase 2A: Data Normalization & Preparation (Days 8-14)** - ✅ Day 1 Complete
+- [x] **Day 1:** Advanced chunk schema definition (7 types)
+- [x] **Day 1:** Chunk ID generation utilities
+- [x] **Day 1:** Schema validation and testing
+- [ ] **Days 2-3:** Inference engine (section detection, intent classification)
+- [ ] **Days 4-5:** Natural language generation (code explanations)
+- [ ] **Days 6-7:** Transformation pipeline (raw JSON → normalized chunks)
 
-### Phase 4: Multi-System Support (Future)
-- [ ] Extend to other design systems (Material-UI, Ant Design, etc.)
-- [ ] Create adapters for different documentation formats
-- [ ] Implement configurable extraction rules
-- [ ] Support custom component libraries
+**Phase 2B: Vector Store Setup (Days 15-17)**
+- [ ] Local embedding generation (Sentence-BERT)
+- [ ] Vector store integration (Chroma/Qdrant)
+- [ ] Bulk import pipeline
+- [ ] Validation and quality checks
+
+**Phase 2C: Retrieval & Re-ranking (Days 18-19)**
+- [ ] Vector similarity search
+- [ ] LLM re-ranking integration
+- [ ] CLI search command
+- [ ] Evaluation metrics
+
+**📋 Current Focus:** Inference Engine Implementation
+**📖 Detailed Plan:** See [WEEK2_IMPLEMENTATION.md](WEEK2_IMPLEMENTATION.md)
+**🎯 Strategy Guide:** See [NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md)
+
+### Week 3+: Advanced Features (PLANNED)
+- [ ] Two-stage retrieval optimization
+- [ ] Multi-query strategies
+- [ ] Component composition queries
+- [ ] Extend to other design systems (Material-UI, Ant Design)
+- [ ] Custom component library support
 
 ## Technical Details
 
@@ -340,16 +389,27 @@ Example output structure:
 - Related components detection from code examples
 - Section-aware extraction (skips Installation/Import sections)
 
-**Quality Validation** ([src/steps/0-extract-docs/smoke-test.ts](src/steps/0-extract-docs/smoke-test.ts))
+**Quality Validation** ([src/steps/0-extract-docs/test-extraction/smoke-test.ts](src/steps/0-extract-docs/test-extraction/smoke-test.ts))
 - Schema validation (Zod)
-- Coverage metrics (descriptions, code examples)
+- Coverage metrics (descriptions, code examples, props)
 - Pass/fail criteria enforcement
 - Automated quality gates
 
-**Sample Viewer** ([src/steps/0-extract-docs/sample-viewer.ts](src/steps/0-extract-docs/sample-viewer.ts))
+**Sample Viewer** ([src/steps/0-extract-docs/test-extraction/sample-viewer.ts](src/steps/0-extract-docs/test-extraction/sample-viewer.ts))
 - Random sampling for manual review
 - Formatted output for human inspection
 - Quality verification workflow
+
+**Normalization Schemas** ([src/schemas/NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts))
+- 7 specialized chunk types for semantic search
+- Dual content strategy (embedding-optimized + API reference)
+- Type inference and natural language generation support
+- Token counting and size optimization
+
+**Chunk ID Generation** ([src/utils/chunkId.ts](src/utils/chunkId.ts))
+- Stable, semantic ID generation
+- Versioning support
+- Sequential fallback for non-semantic cases
 
 ### Design Patterns
 - **Step-based Pipeline:** Modular architecture for extensibility
@@ -440,17 +500,21 @@ Use extracted specs to train or prompt LLMs for generating:
 
 ### If continuing from Week 1:
 - ✅ **Week 1 is complete!** (Core extraction pipeline)
-- 📂 **Your data:** 50 components extracted in [artifacts/raw-json/](artifacts/raw-json/)
-- 📋 **Implementation details:** See [WEEK1_IMPLEMENTATION.md](WEEK1_IMPLEMENTATION.md)
-- 🎯 **Next phase:** Data normalization and chunking (see [CLAUDE.md](CLAUDE.md) for guidance)
+- 📂 **Your data:** 60+ components extracted in [artifacts/raw-json/](artifacts/raw-json/)
+- ✅ **Week 2 Phase 1 is complete!** (Schema foundation)
+- 🚧 **Currently working on:** Inference engine for metadata extraction
+- 🎯 **Next phase:** Natural language generation and transformation pipeline
 
 ### Key Documentation:
 - **[CLAUDE.md](CLAUDE.md)** - Project quick facts, commands, and contribution guide (for LLM assistance)
-- **[WEEK1_IMPLEMENTATION.md](WEEK1_IMPLEMENTATION.md)** - Detailed implementation plan and decisions
+- **[WEEK2_IMPLEMENTATION.md](WEEK2_IMPLEMENTATION.md)** - Week 2 implementation timeline
+- **[NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md)** - Advanced normalization strategy
+- **[W2_PHASE1_SETUP_COMPLETE.md](W2_PHASE1_SETUP_COMPLETE.md)** - Phase 1 completion status
+- **[docs/week1/documentation/](docs/week1/)** - Week 1 implementation docs
 - **[.env.example](.env.example)** - Configuration reference
 
 ---
 
-**Status:** ✅ **Week 1 Complete** | 🎯 Ready for Week 2 (Data Normalization)
+**Status:** ✅ **Week 1 Complete** | 🚧 **Week 2 Phase 1 Complete** | 📋 **Next: Inference Engine**
 
 For questions, issues, or feature requests, please open an issue on GitHub.

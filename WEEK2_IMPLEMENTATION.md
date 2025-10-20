@@ -1,8 +1,14 @@
 # Week 2 Implementation Guide: Knowledge Base & Advanced Retrieval
 
-**Duration:** Days 8-14 (7 days, ~56 hours)
+**Duration:** Days 8-19 (12 days, ~96 hours)
 **Status:** Ready to Start
 **Prerequisites:** Week 1 Complete (50 components extracted to `artifacts/raw-json/`)
+
+**⚠️ IMPORTANT:** This guide now follows the **advanced normalization strategy** from [NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md). Key changes:
+- Extended Phase 2A (Days 8-14 instead of 8-9)
+- 7 specialized chunk types (vs 4 basic types)
+- Inference engine + natural language generation
+- Adjusted Phase 2B/2C timelines (Days 15-19)
 
 ---
 
@@ -18,554 +24,290 @@ npm run cli -- search "accessible button with loading state"
 
 ---
 
-## Phase 2A: Data Normalization & Preparation
+## Phase 2A: Data Normalization & Preparation (Advanced Strategy)
 
-**Timeline:** Days 8-9 (16 hours)
-**Goal:** Clean, deduplicate, and chunk data for embedding generation
+**Timeline:** Days 8-14 (56 hours)
+**Goal:** Create semantically rich, intent-based chunks optimized for LLM retrieval
 
-### Milestone 2A.1: Normalization Pipeline (6 hours)
+**Strategy:** Advanced normalization with 7 specialized chunk types, natural language generation, and dual content strategy (embedding-optimized + API reference). See [NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md) for detailed implementation guide.
 
-#### Task: Create Normalized Data Schema
+### Milestone 2A.1: Schema Definition & Foundation (Days 8-9, 16 hours)
 
-**File:** `src/schemas/NormalizedDocSchema.ts`
+**Reference:** See [NORMALIZATION_GUIDE.md - Phase 1](NORMALIZATION_GUIDE.md#phase-1-days-1-7-codeexamplechunk-only) for detailed implementation guide.
 
-```typescript
-import { z } from 'zod';
-import { CodeExampleSchema } from './RAGResultSchema.js';
+#### Task: Create Advanced Chunk Schema
 
-/**
- * Standardized prop with resolved type conflicts
- */
-export const StandardizedPropSchema = z.object({
-  name: z.string(),
-  type: z.string(),                    // Most specific type found
-  description: z.string(),             // Longest/best description
-  defaultValue: z.string().optional(),
-  required: z.boolean().default(false),
-  deprecated: z.boolean().default(false),
+**File:** `src/schemas/NormalizedChunkSchema.ts`
 
-  // Structured type information
-  typeStructure: z.object({
-    kind: z.enum(['union', 'string', 'number', 'boolean', 'object', 'function']),
-    values: z.array(z.string()).optional(),        // For union types
-    properties: z.record(z.string()).optional()    // For object types
-  }).optional()
-});
+**Key Features:**
+- 7 specialized chunk types (vs 4 basic types)
+- Dual content strategy (natural language + API reference)
+- Type inference and natural language generation
+- Token counting and size optimization
 
-/**
- * Semantic relationship between components
- */
-export const RelatedComponentSchema = z.object({
-  name: z.string(),
-  relationship: z.enum(['variant', 'composition', 'family']),
-  confidence: z.number().min(0).max(1),  // Co-occurrence frequency
-  occurrences: z.number()                // How many times they appear together
-});
+**Chunk Types:**
+1. **CodeExampleChunk** - Executable examples with inferred sections, intents, and natural language explanations
+2. **CapabilityReferenceChunk** - Component capabilities (e.g., "Button supports 7 size options")
+3. **PropReferenceChunk** - Individual prop documentation with type parsing
+4. **ComponentOverviewChunk** - High-level component description
+5. **PropGroupChunk** - Props grouped by category (appearance, behavior, etc.)
+6. **CompositionPatternChunk** - How components work together
+7. **APIReferenceChunk** - Complete API summary
 
-/**
- * Normalized component (merged from multiple raw extractions)
- */
-export const NormalizedComponentSchema = z.object({
-  id: z.string(),                       // Canonical ID: "button"
-  canonicalName: z.string(),            // "Button"
-  aliases: z.array(z.string()),         // ["CloseButton", "IconButton"]
-  category: z.enum([
-    'form', 'layout', 'feedback', 'overlay',
-    'disclosure', 'navigation', 'media', 'data-display', 'other'
-  ]).optional(),
-
-  description: z.string(),              // Best description
-  sourceUrls: z.array(z.string()),      // All pages that mention this
-
-  props: z.array(StandardizedPropSchema),
-  codeExamples: z.array(CodeExampleSchema),
-  relatedComponents: z.array(RelatedComponentSchema),
-
-  metadata: z.object({
-    normalizedAt: z.string(),
-    sourceCount: z.number(),            // How many raw files merged
-    totalCodeExamples: z.number(),
-    deduplicatedExamples: z.number()
-  })
-});
-
-export type NormalizedComponent = z.infer<typeof NormalizedComponentSchema>;
-export type StandardizedProp = z.infer<typeof StandardizedPropSchema>;
-export type RelatedComponent = z.infer<typeof RelatedComponentSchema>;
-```
-
-#### Task: Implement Normalizer
-
-**File:** `src/steps/1-normalize-docs/normalizer.ts`
-
-**Key functions:**
+**Example: CodeExampleChunk Structure**
 
 ```typescript
-import { ComponentDoc } from '../../schemas/RAGResultSchema.js';
-import { NormalizedComponent } from '../../schemas/NormalizedDocSchema.js';
+interface CodeExampleChunk {
+  metadata: {
+    chunkId: string;           // "button-example-size-variants-v1"
+    chunkType: "code-example";
+    componentName: string;
+    sourceUrl: string;
+    tags: string[];            // ["sizing", "layout"]
+    complexity: "simple" | "moderate" | "complex";
+  };
 
-/**
- * Main normalization function
- */
-export async function normalizeComponents(
-  rawComponents: ComponentDoc[]
-): Promise<NormalizedComponent[]> {
-  // Step 1: Group by canonical name
-  const groups = groupByCanonicalName(rawComponents);
+  example: {
+    title: string;             // ✨ Inferred: "Size Variants"
+    intent: string;            // ✨ Inferred: "sizing"
+    difficulty: "basic" | "intermediate" | "advanced";
+  };
 
-  // Step 2: Merge each group
-  const normalized = groups.map(group => mergeComponentGroup(group));
+  content: {
+    explanation: string;       // ✨ Generated: "This example demonstrates..."
+    code: string;
+    demonstrates: string[];    // ✨ Generated: ["Using size prop...", ...]
+    keyPoints: string[];       // ✨ Generated: ["Size accepts...", ...]
+  };
 
-  // Step 3: Filter and score related components
-  normalized.forEach(comp => {
-    comp.relatedComponents = filterSemanticRelations(comp);
-  });
-
-  return normalized;
-}
-
-/**
- * Group components by canonical name
- * Example: "Button", "CloseButton", "IconButton" → one group
- */
-function groupByCanonicalName(components: ComponentDoc[]): ComponentDoc[][] {
-  const groups = new Map<string, ComponentDoc[]>();
-
-  for (const component of components) {
-    const canonical = extractCanonicalName(component.componentName);
-
-    if (!groups.has(canonical)) {
-      groups.set(canonical, []);
-    }
-    groups.get(canonical)!.push(component);
-  }
-
-  return Array.from(groups.values());
-}
-
-/**
- * Extract canonical name from variations
- * "CloseButton" → "Button"
- * "IconButton" → "Button"
- * "ModalOverlay" → "Modal"
- */
-function extractCanonicalName(name: string): string {
-  // Remove common suffixes
-  const suffixes = ['Button', 'Modal', 'Input', 'Select', 'Card'];
-
-  for (const suffix of suffixes) {
-    if (name.endsWith(suffix)) {
-      return suffix;
-    }
-  }
-
-  return name;
-}
-
-/**
- * Merge multiple component docs into one normalized doc
- */
-function mergeComponentGroup(group: ComponentDoc[]): NormalizedComponent {
-  const primary = group[0];
-  const canonical = extractCanonicalName(primary.componentName);
-
-  return {
-    id: canonical.toLowerCase(),
-    canonicalName: canonical,
-    aliases: group.map(c => c.componentName).filter(n => n !== canonical),
-
-    // Pick best description (longest, most informative)
-    description: pickBestDescription(group),
-
-    sourceUrls: group.map(c => c.sourceUrl),
-
-    // Merge and standardize props
-    props: mergeProps(group.flatMap(c => c.props || [])),
-
-    // Deduplicate code examples
-    codeExamples: deduplicateCodeExamples(group.flatMap(c => c.codeExamples || [])),
-
-    // Aggregate related components
-    relatedComponents: aggregateRelatedComponents(group),
-
-    metadata: {
-      normalizedAt: new Date().toISOString(),
-      sourceCount: group.length,
-      totalCodeExamples: group.reduce((sum, c) => sum + (c.codeExamples?.length || 0), 0),
-      deduplicatedExamples: 0  // Will be set after deduplication
-    }
+  codeMetadata: {
+    language: string;
+    imports: ImportStatement[];    // ✨ Extracted
+    components: string[];          // ✨ Extracted
+    props: PropUsage[];            // ✨ Extracted
+    hasInteractivity: boolean;     // ✨ Detected
+    hasState: boolean;             // ✨ Detected
+    complexity: number;            // ✨ Scored
   };
 }
+```
+
+**✨ = Inferred/Generated** (not present in raw data)
+
+See full schema definition in [src/schemas/NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts)
+
+#### Task: Implement Inference Engine
+
+**Files:** `src/steps/1-normalize/inference/`
+
+**Reference:** [NORMALIZATION_GUIDE.md - Days 2-3](NORMALIZATION_GUIDE.md#day-2-3-inference-engine-6-8-hours)
+
+Create inference utilities to extract missing metadata from code:
+
+**1. Section Inference** (`sectionInferrer.ts`)
+```typescript
+// Infer semantic section titles from code patterns
+// Examples:
+//   code.includes('size=') → "Size Variants"
+//   code.includes('variant=') → "Visual Variants"
+//   code.includes('loading') → "Loading States"
+//   code.includes('Icon') → "Button with Icons"
+```
+
+**2. Code Analysis** (`codeAnalyzer.ts`)
+```typescript
+// Extract structured information from code
+export function extractImports(code: string): ImportStatement[];
+export function extractComponentTags(code: string): string[];
+export function extractPropUsage(code: string): PropUsage[];
+```
+
+**3. Intent Classification** (`intentClassifier.ts`)
+```typescript
+// Classify code intent
+// Options: sizing | variants | states | composition | interaction
+export function classifyIntent(code: string): string;
+```
+
+**4. Difficulty Scoring** (`difficultyScorer.ts`)
+```typescript
+// Calculate example difficulty
+export function calculateDifficulty(compositionScore: number): 'basic' | 'intermediate' | 'advanced';
+```
+
+**Acceptance Criteria:**
+- [ ] 95%+ examples have semantic section titles (not generic "Example 1")
+- [ ] All imports extracted correctly from code
+- [ ] All JSX components detected
+- [ ] All prop usage patterns captured
+- [ ] Intent classification ≥85% accurate (manual review)
+
+---
+
+### Milestone 2A.2: Natural Language Generation (Days 10-11, 16 hours)
+
+**Reference:** [NORMALIZATION_GUIDE.md - Day 4](NORMALIZATION_GUIDE.md#day-4-natural-language-generator-4-6-hours)
+
+#### Task: Implement NLG Generators
+
+**Files:** `src/steps/1-normalize/generators/`
+
+Generate natural language content for embeddings:
+
+**1. Explanation Generator** (`explanationGenerator.ts`)
+```typescript
+// Generate human-readable explanations
+// Example: "This example demonstrates how to control button dimensions
+//          using the size prop, showing all 7 available size options..."
+export function generateExplanation(
+  code: string,
+  metadata: { intent: string; components: string[]; props: PropUsage[] }
+): string;
+```
+
+**2. Key Points Generator** (`keyPointsGenerator.ts`)
+```typescript
+// Extract teaching moments
+// Example: [
+//   "The size prop accepts: 'xs', 'sm', 'md', 'lg', 'xl'",
+//   "HStack with gap='6' provides consistent spacing"
+// ]
+export function generateKeyPoints(
+  code: string,
+  metadata: { props: PropUsage[]; components: string[] }
+): string[];
+```
+
+**3. Demonstrates Generator** (`demonstratesGenerator.ts`)
+```typescript
+// Convert structured data to natural language
+// Example: [
+//   "Using the size prop to control button dimensions",
+//   "Horizontal layout with HStack component"
+// ]
+export function generateDemonstrates(
+  props: PropUsage[],
+  components: string[],
+  intent: string
+): string[];
+```
+
+**Acceptance Criteria:**
+- [ ] 100% chunks have natural language explanations (50+ characters)
+- [ ] Key points are factually accurate (manual review of 20 samples)
+- [ ] Demonstrates list is comprehensive
+- [ ] No hallucinations or generic content
+
+---
+
+### Milestone 2A.3: Transformation Pipeline (Days 12-13, 16 hours)
+
+**Reference:** [NORMALIZATION_GUIDE.md - Days 5-7](NORMALIZATION_GUIDE.md#day-5-transform-pipeline-4-6-hours)
+
+#### Task: Implement Code Example Transformer
+
+**File:** `src/steps/1-normalize/transformers/codeExampleTransformer.ts`
+
+Orchestrate all inference and generation utilities:
+
+```typescript
+import { CodeExample } from '../../../schemas/RAGResultSchema.js';
+import { CodeExampleChunk } from '../../../schemas/NormalizedChunkSchema.js';
 
 /**
- * Deduplicate code examples by content hash
+ * Transform raw code example → enriched CodeExampleChunk
  */
-function deduplicateCodeExamples(examples: CodeExample[]): CodeExample[] {
-  const seen = new Set<string>();
-  const unique: CodeExample[] = [];
+export async function transformCodeExample(
+  rawExample: CodeExample,
+  componentName: string,
+  sourceUrl: string
+): Promise<CodeExampleChunk> {
+  // 1. Infer section title (if missing)
+  const title = rawExample.section || inferSectionTitle(rawExample.code, rawExample.section);
 
-  for (const example of examples) {
-    const hash = hashCode(example.code);
+  // 2. Classify intent
+  const intent = classifyIntent(rawExample.code);
 
-    if (!seen.has(hash)) {
-      seen.add(hash);
-      unique.push(example);
+  // 3. Extract code metadata
+  const imports = extractImports(rawExample.code);
+  const components = extractComponentTags(rawExample.code);
+  const props = extractPropUsage(rawExample.code);
+
+  // 4. Calculate difficulty
+  const compositionScore = getCompositionScore(rawExample.code);
+  const difficulty = calculateDifficulty(compositionScore);
+
+  // 5. Generate natural language
+  const explanation = generateExplanation(rawExample.code, { intent, components, props });
+  const keyPoints = generateKeyPoints(rawExample.code, { props, components });
+  const demonstrates = generateDemonstrates(props, components, intent);
+
+  // 6. Generate chunk ID
+  const chunkId = generateChunkId(componentName, 'code-example', title);
+
+  return {
+    metadata: {
+      chunkId,
+      chunkType: 'code-example',
+      componentName,
+      sourceUrl,
+      tags: [intent, ...components.map(c => c.toLowerCase())],
+      complexity: compositionScore < 10 ? 'simple' : compositionScore < 20 ? 'moderate' : 'complex',
+      // ... more metadata
+    },
+    example: { title, intent, difficulty },
+    content: { explanation, code: rawExample.code, demonstrates, keyPoints },
+    codeMetadata: {
+      imports,
+      components,
+      props,
+      hasInteractivity: detectInteractivity(rawExample.code),
+      hasState: detectState(rawExample.code),
+      complexity: compositionScore
     }
-  }
-
-  return unique;
-}
-
-/**
- * Simple string hash for deduplication
- */
-function hashCode(str: string): string {
-  return require('crypto')
-    .createHash('md5')
-    .update(str.trim())
-    .digest('hex');
-}
-
-/**
- * Filter related components to remove noise
- */
-function filterSemanticRelations(component: NormalizedComponent): RelatedComponent[] {
-  const rawRelated = component.relatedComponents;
-
-  return rawRelated.filter(rel => {
-    // Remove external libraries
-    if (isExternalLibrary(rel.name)) return false;
-
-    // Remove layout utilities (unless explicitly related)
-    if (isLayoutUtility(rel.name) && rel.confidence < 0.5) return false;
-
-    // Remove type definitions
-    if (isTypeDefinition(rel.name)) return false;
-
-    return true;
-  });
-}
-
-function isExternalLibrary(name: string): boolean {
-  const externalPatterns = [
-    /^Ri[A-Z]/,     // react-icons
-    /^Lu[A-Z]/,     // lucide-react
-    /^Hi[A-Z]/,     // heroicons
-    /^Md[A-Z]/,     // material icons
-    /Loader$/,      // react-spinners
-    /^zod$/i,
-    /^React$/
-  ];
-
-  return externalPatterns.some(pattern => pattern.test(name));
-}
-
-function isLayoutUtility(name: string): boolean {
-  return ['HStack', 'VStack', 'Stack', 'Box', 'Center', 'Container'].includes(name);
-}
-
-function isTypeDefinition(name: string): boolean {
-  return /^HTML[A-Z]/.test(name) || name.includes('Element');
+  };
 }
 ```
 
 **Acceptance Criteria:**
-- [ ] Merges related components (e.g., Button + CloseButton + IconButton)
-- [ ] Deduplicates code examples (hash-based comparison)
-- [ ] Filters out external libraries from relatedComponents
-- [ ] All output validates against `NormalizedComponentSchema`
-- [ ] Creates `artifacts/normalized/components.json`
+- [ ] All inference functions integrated
+- [ ] All generator functions integrated
+- [ ] Chunks validate against schema
+- [ ] 90%+ chunks are 200-500 tokens
+- [ ] Manual review: 20 chunks are accurate
 
----
+#### Task: CLI Integration
 
-### Milestone 2A.2: Semantic Chunking (6 hours)
-
-#### Task: Create Chunk Schema
-
-**File:** `src/schemas/ChunkSchema.ts`
+**File:** `src/steps/1-normalize/index.ts`
 
 ```typescript
-import { z } from 'zod';
+export async function runNormalization(componentName?: string) {
+  console.log('🚀 Starting advanced normalization pipeline...\n');
 
-export const DocumentChunkSchema = z.object({
-  id: z.string(),                      // "button-desc-001"
-  componentName: z.string(),           // "Button"
-  content: z.string(),                 // Actual text content
-  tokens: z.number(),                  // Estimated token count
+  // Load raw data
+  const rawComponent = await loadRawComponent(componentName);
 
-  type: z.enum(['description', 'prop', 'code_example', 'accessibility']),
+  // Transform code examples
+  const codeExampleChunks = await Promise.all(
+    rawComponent.codeExamples.map(ex =>
+      transformCodeExample(ex, rawComponent.componentName, rawComponent.sourceUrl)
+    )
+  );
 
-  metadata: z.object({
-    section: z.string().optional(),    // "Usage", "Props", "Examples"
-    propName: z.string().optional(),   // If type='prop'
-    propCategory: z.string().optional(), // "appearance", "behavior", etc.
-    language: z.string().optional(),   // If type='code_example'
-    hasCode: z.boolean().default(false),
-    relatedComponents: z.array(z.string()).optional(),
-    sourceUrl: z.string(),
-    componentId: z.string()            // Canonical component ID
-  })
-});
-
-export type DocumentChunk = z.infer<typeof DocumentChunkSchema>;
-```
-
-#### Task: Implement Chunker
-
-**File:** `src/steps/1-normalize-docs/chunker.ts`
-
-```typescript
-import { NormalizedComponent } from '../../schemas/NormalizedDocSchema.js';
-import { DocumentChunk } from '../../schemas/ChunkSchema.js';
-
-/**
- * Chunk a normalized component into semantic units
- */
-export function chunkComponent(component: NormalizedComponent): DocumentChunk[] {
-  const chunks: DocumentChunk[] = [];
-
-  // Chunk 1: Description (always whole)
-  chunks.push(createDescriptionChunk(component));
-
-  // Chunk 2-N: Props (grouped by category)
-  chunks.push(...chunkProps(component));
-
-  // Chunk N+1...: Code examples (NEVER split)
-  chunks.push(...chunkCodeExamples(component));
-
-  return chunks;
-}
-
-function createDescriptionChunk(component: NormalizedComponent): DocumentChunk {
-  const content = `${component.canonicalName}: ${component.description}`;
-
-  return {
-    id: `${component.id}-desc-001`,
-    componentName: component.canonicalName,
-    content,
-    tokens: estimateTokens(content),
-    type: 'description',
-    metadata: {
-      section: 'Overview',
-      sourceUrl: component.sourceUrls[0],
-      componentId: component.id,
-      hasCode: false
+  // Validate all chunks
+  codeExampleChunks.forEach(chunk => {
+    const result = validateChunk(chunk);
+    if (!result.success) {
+      console.error(`❌ Validation failed for ${chunk.metadata.chunkId}`);
+      console.error(result.error.format());
     }
-  };
-}
-
-function chunkProps(component: NormalizedComponent): DocumentChunk[] {
-  const chunks: DocumentChunk[] = [];
-
-  // Group props by category
-  const grouped = groupPropsByCategory(component.props);
-
-  for (const [category, props] of Object.entries(grouped)) {
-    // Split into chunks if too many props
-    const propChunks = splitPropsIntoChunks(props, {
-      targetTokens: 500,
-      maxTokens: 800
-    });
-
-    propChunks.forEach((propGroup, index) => {
-      const content = formatPropsAsText(propGroup);
-
-      chunks.push({
-        id: `${component.id}-props-${category.toLowerCase()}-${index + 1}`,
-        componentName: component.canonicalName,
-        content,
-        tokens: estimateTokens(content),
-        type: 'prop',
-        metadata: {
-          section: 'Props',
-          propCategory: category,
-          sourceUrl: component.sourceUrls[0],
-          componentId: component.id,
-          hasCode: false
-        }
-      });
-    });
-  }
-
-  return chunks;
-}
-
-function groupPropsByCategory(props: StandardizedProp[]): Record<string, StandardizedProp[]> {
-  return {
-    'Appearance': props.filter(p => /^(variant|color|size|rounded|style)/i.test(p.name)),
-    'Behavior': props.filter(p => /^(onClick|onChange|onSubmit|is[A-Z]|disabled|loading)/i.test(p.name)),
-    'Layout': props.filter(p => /^(width|height|padding|margin|gap|align)/i.test(p.name)),
-    'Accessibility': props.filter(p => /^(aria|role|tabIndex|title)/i.test(p.name)),
-    'Other': props.filter(p => {
-      const name = p.name;
-      return !/(variant|color|size|rounded|style|onClick|onChange|is[A-Z]|width|height|aria|role)/i.test(name);
-    })
-  };
-}
-
-function formatPropsAsText(props: StandardizedProp[]): string {
-  return props.map(prop => `
-${prop.name}${prop.required ? '*' : ''}: ${prop.type}
-  ${prop.description}
-  ${prop.defaultValue ? `Default: ${prop.defaultValue}` : ''}
-  `.trim()).join('\n\n');
-}
-
-function chunkCodeExamples(component: NormalizedComponent): DocumentChunk[] {
-  return component.codeExamples.map((example, index) => {
-    const title = example.title || `Example ${index + 1}`;
-    const content = `${title}\n\n${example.code}`;
-
-    return {
-      id: `${component.id}-example-${String(index + 1).padStart(3, '0')}`,
-      componentName: component.canonicalName,
-      content,
-      tokens: estimateTokens(content),
-      type: 'code_example',
-      metadata: {
-        section: example.section || 'Examples',
-        language: example.language || 'tsx',
-        hasCode: true,
-        relatedComponents: extractComponentsFromCode(example.code),
-        sourceUrl: component.sourceUrls[0],
-        componentId: component.id
-      }
-    };
   });
-}
 
-/**
- * Estimate tokens (rough heuristic: 1 token ≈ 4 characters)
- */
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+  // Save output
+  await saveChunks(componentName, codeExampleChunks);
 
-/**
- * Extract component names from code
- */
-function extractComponentsFromCode(code: string): string[] {
-  const components = new Set<string>();
-
-  // Match JSX tags: <Button>, <Modal.Header>, etc.
-  const tagRegex = /<([A-Z][a-zA-Z0-9]*)/g;
-  let match;
-
-  while ((match = tagRegex.exec(code)) !== null) {
-    components.add(match[1]);
-  }
-
-  return Array.from(components);
-}
-```
-
-**Acceptance Criteria:**
-- [ ] Description chunks are 100-500 tokens
-- [ ] Prop chunks are 400-800 tokens
-- [ ] Code example chunks are never split (complete functions)
-- [ ] All chunks have complete metadata
-- [ ] Chunks validate against `DocumentChunkSchema`
-- [ ] Total chunks: ~800-1000 for 50 components
-
----
-
-### Milestone 2A.3: CLI Integration (4 hours)
-
-#### Task: Create Normalization Command
-
-**File:** `src/steps/1-normalize-docs/index.ts`
-
-```typescript
-import fs from 'fs/promises';
-import path from 'path';
-import { ComponentDocSchema } from '../../schemas/RAGResultSchema.js';
-import { normalizeComponents } from './normalizer.js';
-import { chunkComponent } from './chunker.js';
-
-export async function runNormalization() {
-  console.log('🔄 Starting normalization pipeline...\n');
-
-  // Step 1: Load raw components
-  console.log('📂 Loading raw components...');
-  const rawDir = 'artifacts/raw-json';
-  const files = await fs.readdir(rawDir);
-
-  const rawComponents = [];
-  for (const file of files) {
-    if (!file.endsWith('.json')) continue;
-
-    const content = await fs.readFile(path.join(rawDir, file), 'utf8');
-    const parsed = JSON.parse(content);
-
-    // Validate
-    const validated = ComponentDocSchema.parse(parsed);
-    rawComponents.push(validated);
-  }
-
-  console.log(`✅ Loaded ${rawComponents.length} components\n`);
-
-  // Step 2: Normalize
-  console.log('⚙️  Normalizing and merging...');
-  const normalized = await normalizeComponents(rawComponents);
-
-  console.log(`✅ Created ${normalized.length} normalized components\n`);
-
-  // Step 3: Chunk
-  console.log('✂️  Chunking for embeddings...');
-  const allChunks = normalized.flatMap(comp => chunkComponent(comp));
-
-  console.log(`✅ Created ${allChunks.length} chunks\n`);
-
-  // Step 4: Save outputs
-  console.log('💾 Saving artifacts...');
-
-  // Create output directory
-  await fs.mkdir('artifacts/normalized', { recursive: true });
-
-  // Save normalized components
-  await fs.writeFile(
-    'artifacts/normalized/components.json',
-    JSON.stringify(normalized, null, 2)
-  );
-
-  // Save chunks
-  await fs.writeFile(
-    'artifacts/normalized/chunks.json',
-    JSON.stringify(allChunks, null, 2)
-  );
-
-  // Save metadata index
-  const metadata = allChunks.map((chunk, index) => ({
-    index,
-    ...chunk
-  }));
-
-  await fs.writeFile(
-    'artifacts/normalized/metadata.json',
-    JSON.stringify(metadata, null, 2)
-  );
-
-  console.log('✅ Saved to artifacts/normalized/\n');
-
-  // Print summary
-  console.log('📊 Summary:');
-  console.log(`   Raw components: ${rawComponents.length}`);
-  console.log(`   Normalized: ${normalized.length}`);
-  console.log(`   Total chunks: ${allChunks.length}`);
-  console.log(`   Avg chunks per component: ${(allChunks.length / normalized.length).toFixed(1)}`);
-
-  const chunksByType = {
-    description: allChunks.filter(c => c.type === 'description').length,
-    prop: allChunks.filter(c => c.type === 'prop').length,
-    code_example: allChunks.filter(c => c.type === 'code_example').length,
-    accessibility: allChunks.filter(c => c.type === 'accessibility').length
-  };
-
-  console.log('\n   Chunks by type:');
-  console.log(`   - Descriptions: ${chunksByType.description}`);
-  console.log(`   - Props: ${chunksByType.prop}`);
-  console.log(`   - Code examples: ${chunksByType.code_example}`);
-  console.log(`   - Accessibility: ${chunksByType.accessibility}`);
+  // Print quality metrics
+  printQualityReport(codeExampleChunks);
 }
 ```
 
@@ -573,32 +315,79 @@ export async function runNormalization() {
 
 ```typescript
 program
-  .command('1-normalize-docs')
-  .description('Normalize and chunk extracted documentation')
-  .action(async () => {
-    const { runNormalization } = await import('./steps/1-normalize-docs/index.js');
-    await runNormalization();
+  .command('1-normalize [component]')
+  .description('Normalize and enrich component documentation')
+  .action(async (component) => {
+    const { runNormalization } = await import('./steps/1-normalize/index.js');
+    await runNormalization(component);
   });
 ```
 
 **Usage:**
 ```bash
-npm run cli -- 1-normalize-docs
+# Process one component (Phase 1 scope)
+npm run cli -- 1-normalize Button
+
+# Later: Process all components (Phase 3)
+npm run cli -- 1-normalize
 ```
 
 **Acceptance Criteria:**
-- [ ] Command runs without errors
-- [ ] Creates `artifacts/normalized/components.json`
-- [ ] Creates `artifacts/normalized/chunks.json`
-- [ ] Creates `artifacts/normalized/metadata.json`
-- [ ] Prints summary statistics
+- [ ] Command processes Button component successfully
+- [ ] Creates `artifacts/normalized/Button-chunks.json`
+- [ ] Prints quality report (token distribution, inference success rate)
+- [ ] All chunks validate against schema
+- [ ] 12-18 chunks generated for Button (depending on examples)
+
+---
+
+### Milestone 2A.4: Validation & Quality Metrics (Day 14, 8 hours)
+
+**Reference:** [NORMALIZATION_GUIDE.md - Validation](NORMALIZATION_GUIDE.md#quality-assurance)
+
+#### Task: Implement Quality Checks
+
+**File:** `src/steps/1-normalize/quality.ts`
+
+```typescript
+// Automated quality checks
+export function validateChunkQuality(chunks: NormalizedChunk[]): QualityReport {
+  return {
+    tokenSizeDistribution: analyzeTokenSizes(chunks),
+    naturalLanguageCoverage: checkNaturalLanguage(chunks),
+    sectionInferenceSuccess: checkSemanticSections(chunks),
+    intentClassificationAccuracy: analyzeIntents(chunks)
+  };
+}
+```
+
+#### Task: Manual Review Process
+
+**Steps:**
+1. Run normalization on Button component
+2. Randomly select 20 chunks
+3. Verify each chunk against checklist:
+   - [ ] Explanation accurately describes code
+   - [ ] Key points are factually correct
+   - [ ] Section title is semantic
+   - [ ] Intent matches code purpose
+   - [ ] Chunk size is appropriate
+
+**Acceptance Criteria:**
+- [ ] 90%+ chunks in optimal token range (200-500)
+- [ ] 100% chunks have natural language explanations
+- [ ] 95%+ chunks have semantic section titles
+- [ ] 85%+ intent classifications accurate
+- [ ] Manual review: 18/20 chunks pass quality checks
 
 ---
 
 ## Phase 2B: Vector Store & Embeddings
 
-**Timeline:** Days 10-12 (24 hours)
-**Goal:** Generate embeddings and build HNSWLIB index
+**Timeline:** Days 15-17 (24 hours)
+**Goal:** Generate embeddings for normalized chunks and build HNSWLIB index
+
+**Note:** Phase 2B timeline adjusted to account for extended Phase 2A (Days 8-14)
 
 ### Milestone 2B.1: Embedding Generation (8 hours)
 
@@ -896,8 +685,10 @@ npm run cli -- 2-build-vector-store
 
 ## Phase 2C: LLM-Powered Re-ranking
 
-**Timeline:** Days 13-14 (16 hours)
+**Timeline:** Days 18-19 (16 hours)
 **Goal:** Implement two-stage retrieval with Groq API
+
+**Note:** Phase 2C timeline adjusted to account for extended Phase 2A (Days 8-14)
 
 ### Milestone 2C.1: Groq Integration (6 hours)
 
@@ -1229,29 +1020,42 @@ npm run cli -- search "modal dialog" --no-rerank
 
 ## Week 2 Deliverables Checklist
 
-### Phase 2A: Normalization ✅
-- [ ] `NormalizedDocSchema.ts` created
-- [ ] `normalizer.ts` merges related components
-- [ ] `chunker.ts` creates semantic chunks
-- [ ] `artifacts/normalized/components.json` created
-- [ ] `artifacts/normalized/chunks.json` created
-- [ ] ~800-1000 chunks generated
-- [ ] CLI command: `npm run cli -- 1-normalize-docs` works
+### Phase 2A: Advanced Normalization (Days 8-14) ✅
+- [ ] `NormalizedChunkSchema.ts` created (7 chunk types)
+- [ ] Inference engine implemented (4 modules)
+  - [ ] `sectionInferrer.ts` - 95%+ semantic sections
+  - [ ] `intentClassifier.ts` - 85%+ accuracy
+  - [ ] `codeAnalyzer.ts` - extracts imports/components/props
+  - [ ] `difficultyScorer.ts` - calculates basic/intermediate/advanced
+- [ ] Natural language generators implemented (3 modules)
+  - [ ] `explanationGenerator.ts` - 100% coverage
+  - [ ] `keyPointsGenerator.ts` - factually accurate
+  - [ ] `demonstratesGenerator.ts` - comprehensive
+- [ ] Transformation pipeline implemented
+  - [ ] `codeExampleTransformer.ts` - orchestrates all utilities
+- [ ] Quality validation implemented
+  - [ ] `quality.ts` - automated checks
+  - [ ] Manual review: 18/20 chunks pass
+- [ ] `artifacts/normalized/Button-chunks.json` created (12-18 chunks)
+- [ ] CLI command: `npm run cli -- 1-normalize Button` works
+- [ ] 90%+ chunks in optimal token range (200-500)
 
-### Phase 2B: Vector Store ✅
+### Phase 2B: Vector Store (Days 15-17) ✅
 - [ ] `EmbeddingService.ts` generates embeddings
 - [ ] `VectorStoreService.ts` manages HNSWLIB index
 - [ ] `stores/vector-index/index.bin` created
 - [ ] `stores/vector-index/metadata.json` created
 - [ ] Search returns results in <50ms
 - [ ] CLI command: `npm run cli -- 2-build-vector-store` works
+- [ ] Embeddings generated for Button chunks (12-18 embeddings)
 
-### Phase 2C: Retrieval ✅
+### Phase 2C: Retrieval (Days 18-19) ✅
 - [ ] `GroqService.ts` re-ranks documents
 - [ ] `RetrievalService.ts` implements two-stage retrieval
 - [ ] CLI command: `npm run cli -- search <query>` works
 - [ ] Re-ranking improves precision by >15%
 - [ ] Total retrieval time <2 seconds
+- [ ] Test query: "How do I make a button larger?" retrieves correct chunks
 
 ---
 
@@ -1416,27 +1220,47 @@ Once Week 2 is complete:
 ```
 src/
 ├── schemas/
-│   ├── NormalizedDocSchema.ts        # NEW
-│   └── ChunkSchema.ts                # NEW
+│   └── NormalizedChunkSchema.ts      # NEW - Advanced chunk types (7 types)
+│
+├── utils/
+│   ├── chunkId.ts                    # NEW - Stable ID generation
+│   └── tokenEstimator.ts             # NEW - Token counting
+│
 ├── services/
 │   ├── EmbeddingService.ts           # NEW
 │   ├── VectorStoreService.ts         # NEW
 │   ├── GroqService.ts                # NEW
 │   └── RetrievalService.ts           # NEW
+│
 └── steps/
-    ├── 1-normalize-docs/
-    │   ├── index.ts                  # NEW
-    │   ├── normalizer.ts             # NEW
-    │   └── chunker.ts                # NEW
+    ├── 1-normalize/                  # NEW - Advanced normalization
+    │   ├── inference/
+    │   │   ├── sectionInferrer.ts    # Infer section titles
+    │   │   ├── intentClassifier.ts   # Classify intent
+    │   │   ├── codeAnalyzer.ts       # Extract code metadata
+    │   │   └── difficultyScorer.ts   # Calculate difficulty
+    │   │
+    │   ├── generators/
+    │   │   ├── explanationGenerator.ts    # Generate explanations
+    │   │   ├── keyPointsGenerator.ts      # Generate key points
+    │   │   └── demonstratesGenerator.ts   # Generate demonstrates
+    │   │
+    │   ├── transformers/
+    │   │   ├── codeExampleTransformer.ts  # Phase 1 (Days 8-14)
+    │   │   ├── capabilityReferenceTransformer.ts  # Phase 2 (future)
+    │   │   └── propReferenceTransformer.ts        # Phase 2 (future)
+    │   │
+    │   ├── index.ts                  # Main CLI entrypoint
+    │   └── quality.ts                # Quality metrics
+    │
     └── 2-build-vector-store/
-        ├── index.ts                  # NEW
-        └── search.ts                 # NEW
+        ├── index.ts                  # Build vector store
+        └── search.ts                 # Search command
 
 artifacts/
 └── normalized/
-    ├── components.json               # NEW - Merged components
-    ├── chunks.json                   # NEW - Semantic chunks
-    └── metadata.json                 # NEW - Chunk metadata
+    ├── Button-chunks.json            # NEW - Phase 1 output (CodeExampleChunks)
+    └── {Component}-chunks.json       # NEW - Per-component normalized chunks
 
 stores/
 └── vector-index/
@@ -1445,9 +1269,14 @@ stores/
 
 tests/
 └── unit/
-    └── services/
-        ├── EmbeddingService.test.ts  # NEW
-        └── VectorStoreService.test.ts # NEW
+    ├── services/
+    │   ├── EmbeddingService.test.ts
+    │   └── VectorStoreService.test.ts
+    │
+    └── normalization/                # NEW
+        ├── inference.test.ts
+        ├── generators.test.ts
+        └── transformers.test.ts
 ```
 
 ---
