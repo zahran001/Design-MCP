@@ -15,13 +15,21 @@ import { z } from "zod";
 
 /**
  * Code example schema (Milestone B)
- * Represents a filtered, high-quality code example from documentation
+ * Represents a code example from documentation with quality classification
+ *
+ * UPDATED 2025-10-21: Two-tier classification system
+ * - All examples kept (no filtering by score)
+ * - Classified by complexity for downstream use (chunking, embedding priority)
  */
 export const CodeExampleSchema = z.object({
   code: z.string().min(1),
   language: z.string().optional(), // e.g., "tsx", "jsx", "typescript"
   title: z.string().optional(),     // Extracted from preceding heading
   section: z.string().optional(),   // Section name where code was found
+
+  // Classification metadata (added 2025-10-21)
+  score: z.number().int().min(0).optional(),  // Composition quality score (0-20+)
+  complexity: z.enum(['trivial', 'basic', 'intermediate', 'advanced']).optional(),
 });
 
 export type CodeExample = z.infer<typeof CodeExampleSchema>;

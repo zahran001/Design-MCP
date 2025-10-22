@@ -424,12 +424,31 @@ function isLowValueCode(code: string): boolean {
 }
 
 /**
+ * Composition score result with detailed breakdown
+ *
+ * UPDATED 2025-10-21: Returns object instead of number
+ * Enables two-tier classification system (all examples kept, classified by complexity)
+ */
+interface CompositionScoreResult {
+  score: number;
+  complexity: 'trivial' | 'basic' | 'intermediate' | 'advanced';
+  breakdown: {
+    jsx: number;
+    props: number;
+    functions: number;
+    components: number;
+    events: number;
+    hooks: number;
+    accessibility: number;
+  };
+}
+
+/**
  * Score code block for composition quality
  *
- * PURPOSE: Determine if a code example is valuable enough to include
+ * PURPOSE: Classify code examples by complexity for downstream processing
  *
- * STRATEGY: Award points for complexity indicators that make examples useful
- * for LLM training and developer reference
+ * STRATEGY: Award points for complexity indicators
  *
  * SCORING CRITERIA:
  *   +2 points: Contains JSX/TSX (React components)
@@ -440,37 +459,56 @@ function isLowValueCode(code: string): boolean {
  *   +2 points: Uses React hooks (useState, useEffect, etc.)
  *   +2 points: Includes accessibility attrs (aria-*, role, alt)
  *
- * THRESHOLD: Code must score ≥5 points to be kept
+ * COMPLEXITY MAPPING:
+ *   0-2 points  → trivial (basic JSX, shows API patterns)
+ *   3-6 points  → basic (props + simple function)
+ *   7-10 points → intermediate (hooks + events)
+ *   11+ points  → advanced (full composition)
  *
  * EXAMPLES:
- *   "<Button>Click</Button>"
- *   → Score: 2 (JSX only) → REJECTED
+ *   "<Button variant="primary">Click</Button>"
+ *   → Score: 2 (JSX only) → trivial → KEPT (shows API)
+ *
+ *   "const Demo = () => { return <Button colorScheme="blue">Click</Button> }"
+ *   → Score: 5 (JSX + Function + Props) → basic → KEPT
  *
  *   "const Demo = () => { const [count, setCount] = useState(0); return <Button onClick={() => setCount(count + 1)} aria-label="Increment">Count: {count}</Button> }"
- *   → Score: 13 (JSX + Function + Props + Hooks + Event + Accessibility) → ACCEPTED
+ *   → Score: 13 (JSX + Function + Props + Hooks + Event + Accessibility) → advanced → KEPT
  *
- * WHY: Filters out trivial snippets while keeping rich, educational examples
+ * CHANGE: All examples now KEPT, just classified differently
  */
-function getCompositionScore(code: string): number {
+function getCompositionScore(code: string): CompositionScoreResult {
   log('block to analyze for composition score:\n', code, '\n---');
   let score = 0;
   const checks: string[] = [];
+  const breakdown = {
+    jsx: 0,
+    props: 0,
+    functions: 0,
+    components: 0,
+    events: 0,
+    hooks: 0,
+    accessibility: 0,
+  };
 
   // JSX/TSX usage: +2
   if (/<[A-Z]/.test(code)) {
     score += 2;
+    breakdown.jsx = 2;
     checks.push('JSX (+2)');
   }
 
   // Multiple props: +2
   if (/\w+={[^}]*}.*\w+={/.test(code)) {
     score += 2;
+    breakdown.props = 2;
     checks.push('Multiple props (+2)');
   }
 
   // Function definition: +3
   if (/(function|const)\s+\w+\s*=.*=>|function\s+\w+\s*\(/.test(code)) {
     score += 3;
+    breakdown.functions = 3;
     checks.push('Function definition (+3)');
   }
 
@@ -478,29 +516,39 @@ function getCompositionScore(code: string): number {
   const componentMatches = code.match(/<[A-Z]\w+/g) || [];
   if (componentMatches.length > 2) {
     score += 3;
+    breakdown.components = 3;
     checks.push(`Multiple components (${componentMatches.length}) (+3)`);
   }
 
   // Event handlers: +1
   if (/on[A-Z]\w+={/.test(code)) {
     score += 1;
+    breakdown.events = 1;
     checks.push('Event handlers (+1)');
   }
 
   // Hooks (useState, etc.): +2
   if (/use[A-Z]\w+/.test(code)) {
     score += 2;
+    breakdown.hooks = 2;
     checks.push('Hooks (+2)');
   }
 
   // Accessibility attributes: +2
   if (/(aria-|role=|alt=)/.test(code)) {
     score += 2;
+    breakdown.accessibility = 2;
     checks.push('Accessibility (+2)');
   }
 
-  log('getCompositionScore - score:', score, '- checks:', checks.join(', '));
-  return score;
+  // Map score to complexity level
+  const complexity: CompositionScoreResult['complexity'] =
+    score >= 11 ? 'advanced' :
+    score >= 7 ? 'intermediate' :
+    score >= 3 ? 'basic' : 'trivial';
+
+  log('getCompositionScore - score:', score, '- complexity:', complexity, '- checks:', checks.join(', '));
+  return { score, complexity, breakdown };
 }
 
 // =============================================================================
@@ -796,8 +844,7 @@ async function extractCodeExamples(page: Page): Promise<{
   let filtered = {
     excluded: 0,   // Rejected due to section (Installation, Import, etc.)
     lowValue: 0,   // Rejected due to content heuristics
-    lowScore: 0,   // Rejected due to composition score < 5
-    accepted: 0,   // Passed all filters
+    accepted: 0,   // Passed all filters (including trivial examples)
   };
 
   for (let i = 0; i < count; i++) {
@@ -838,13 +885,11 @@ async function extractCodeExamples(page: Page): Promise<{
       continue;
     }
 
-    // Composition scoring
-    const score = getCompositionScore(code);
-    if (score < 5) {
-      log(`extractCodeExamples - block ${i + 1}: FILTERED (score ${score} < 5)`);
-      filtered.lowScore++;
-      continue;
-    }
+    // Composition scoring (CHANGED: classify instead of filter)
+    const scoreResult = getCompositionScore(code);
+
+    // REMOVED: if (score < 5) continue;
+    // All examples now kept, just classified by complexity
 
     // CODE ACCEPTED - track imports from this block separately
     if (importsInBlock.length > 0) {
@@ -858,8 +903,12 @@ async function extractCodeExamples(page: Page): Promise<{
       return match ? match[1] : undefined;
     });
 
-    // Build code example object
-    const example: CodeExample = { code };
+    // Build code example object with NEW classification fields
+    const example: CodeExample = {
+      code,
+      score: scoreResult.score,              // NEW
+      complexity: scoreResult.complexity,    // NEW
+    };
 
     if (language) {
       example.language = language;
@@ -871,7 +920,7 @@ async function extractCodeExamples(page: Page): Promise<{
 
     examples.push(example);
     filtered.accepted++;
-    log(`extractCodeExamples - block ${i + 1}: ACCEPTED (score ${score})`);
+    log(`extractCodeExamples - block ${i + 1}: ACCEPTED (score ${scoreResult.score}, complexity: ${scoreResult.complexity})`);
   }
 
   log('extractCodeExamples - filtering summary:', filtered);
@@ -1322,12 +1371,13 @@ const Demo = () => {
   console.log('Result:', isLowValueCode(goodCode));
   console.log('Expected: false (should accept)');
 
-  console.log('\nTest 8: getCompositionScore - Low Score');
+  console.log('\nTest 8: getCompositionScore - Low Score (Trivial)');
   const lowScoreCode = '<Button>Click</Button>';
-  console.log('Result:', getCompositionScore(lowScoreCode));
-  console.log('Expected: 2 (just JSX, below threshold of 5)');
+  const lowScoreResult = getCompositionScore(lowScoreCode);
+  console.log('Result:', lowScoreResult);
+  console.log('Expected: { score: 2, complexity: "trivial", breakdown: { jsx: 2, ... } }');
 
-  console.log('\nTest 9: getCompositionScore - High Score');
+  console.log('\nTest 9: getCompositionScore - High Score (Advanced)');
   const highScoreCode = `const Demo = () => {
   const [count, setCount] = useState(0);
   return (
@@ -1336,8 +1386,9 @@ const Demo = () => {
     </Button>
   );
 }`;
-  console.log('Result:', getCompositionScore(highScoreCode));
-  console.log('Expected: ≥5 (JSX+Function+Props+Hooks+Event+Accessibility = 13)');
+  const highScoreResult = getCompositionScore(highScoreCode);
+  console.log('Result:', highScoreResult);
+  console.log('Expected: { score: ≥11, complexity: "advanced", breakdown: { ... } }');
 
   // Test Batch 3: Array Processing
   console.log('\n' + '='.repeat(80));
