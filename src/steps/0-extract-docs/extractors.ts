@@ -1,51 +1,47 @@
 // =============================================================================
 // Week 1 Extractors - Component Documentation
 // =============================================================================
-// Updated: 2025-10-15
-// Reference: docs/week1/IMPLEMENTATION_PLAN.md
+// Updated: 2025-10-21 (Refactored - Phase 2)
+// Reference: docs/REFACTORING_GUIDE.md
 //
-// This file contains extraction logic for Chakra UI component documentation.
+// This file contains extraction orchestration for Chakra UI component documentation.
 // Implements Milestone B (Code Examples) and Milestone C (Props Tables).
 //
+// REFACTORING (2025-10-21):
+// Pure utilities extracted to separate modules for better testability:
+//   - utils/textProcessors.ts  → Text cleaning, normalization, JSX parsing
+//   - utils/codeAnalysis.ts    → Scoring, filtering, classification
+//   - utils/importParser.ts    → Import pattern extraction
+//   - utils/arrayUtils.ts      → Deduplication, relationship detection
+//
+// This file now focuses on:
+//   - Playwright DOM interaction
+//   - Orchestration of extraction pipeline
+//   - Public API (extractComponent)
+//
 // ARCHITECTURE:
-// This file is organized into 6 functional batches that build upon each other:
+//   Batch 1-3: EXTRACTED to utils/ (pure functions, testable without browser)
+//   Batch 4: Playwright Interaction (kept here - requires browser)
+//   Batch 5: Main Extraction (orchestration)
+//   Batch 6: Integration (public API)
 //
-//   Batch 1: Text Processing Utilities
-//            Low-level string manipulation (cleaning, normalizing, parsing)
-//
-//   Batch 2: Code Quality Filters
-//            Business logic to determine if code examples are valuable
-//
-//   Batch 3: Array Processing
-//            Deduplication and relationship detection across code examples
-//
-//   Batch 4: Playwright Interaction
-//            Browser DOM queries to extract context (headings, structure)
-//
-//   Batch 5: Main Extraction
-//            Orchestration layer that combines Batches 1-4 to extract code
-//
-//   Batch 6: Integration
-//            Public API (extractComponent) that produces final ComponentDoc
-//
-// FLOW:
-// 1. extractComponent() is called with a Playwright page + URL
-// 2. Extract basic metadata (component name, description)
-// 3. Call extractCodeExamples() to get all code blocks with quality filtering
-// 4. Call detectRelatedComponents() to find cross-component relationships
-// 5. Return structured ComponentDoc or null if page has no useful content
-//
-// QUALITY STRATEGY:
-// We use a multi-stage filtering approach to only keep high-value code:
+// QUALITY STRATEGY (Updated 2025-10-21):
+// Multi-stage classification (NO filtering by score):
 //   - Section filtering: Skip installation/import sections
 //   - Content heuristics: Skip package.json, bare imports, install commands
-//   - Composition scoring: Only keep code with ≥5 points (see getCompositionScore)
+//   - Composition scoring: CLASSIFY all examples (trivial/basic/intermediate/advanced)
 //   - Deduplication: Remove semantically identical code blocks
 //
 // =============================================================================
 
 import type { Page } from 'playwright';
 import type { ComponentDoc, CodeExample, Prop, ImportPattern } from '../../schemas/RAGResultSchema.js';
+
+// Import pure utility modules (Phase 2 refactoring)
+import { cleanHeadingText, normalizeCode, extractComponentTags } from './utils/textProcessors.js';
+import { getCompositionScore, isInExcludedSection, isLowValueCode } from './utils/codeAnalysis.js';
+import { extractImports } from './utils/importParser.js';
+import { dedupeCodeExamples, detectRelatedComponents, dedupeImportPatterns } from './utils/arrayUtils.js';
 
 // Enable debug logging (set to false in production)
 // Usage: DEBUG=true npm run cli -- 0-extract-docs
@@ -60,600 +56,20 @@ function log(...args: any[]) {
 }
 
 // =============================================================================
-// Batch 1: Text Processing Utilities
+// Batch 1-3: EXTRACTED TO UTILS/ (2025-10-21)
+// =============================================================================
+// Pure functions moved to separate modules for better testability:
+//   - utils/textProcessors.ts  → cleanHeadingText, normalizeCode, extractComponentTags
+//   - utils/codeAnalysis.ts    → getCompositionScore, isInExcludedSection, isLowValueCode
+//   - utils/importParser.ts    → extractImports
+//   - utils/arrayUtils.ts      → dedupeCodeExamples, detectRelatedComponents, dedupeImportPatterns
+//
+// These functions are now imported at the top of this file.
 // =============================================================================
 
-/**
- * Clean CSS class pollution from heading text
- *
- * PROBLEM: Chakra UI's MDX renderer sometimes injects inline CSS into text nodes
- * Example raw text: ".css-vfo6uh{color:var(--chakra-colors-fg);}Usage"
- *
- * SOLUTION: Use regex to strip out any .css-xxx{...} patterns
- * Result: "Usage"
- *
- * WHY: We need clean section names for:
- *   1. Filtering excluded sections (e.g., "Installation")
- *   2. Storing in CodeExample.section field
- *   3. Human-readable debug logs
- */
-function cleanHeadingText(text: string): string {
-  log('cleanHeadingText - input:', text);
-
-  // Remove CSS class definitions (pattern: .css-xxx{...})
-  // Regex breakdown: \.css-[a-z0-9]+ matches class name, \{[^}]*\} matches style rules
-  const cleaned = text.replace(/\.css-[a-z0-9]+\{[^}]*\}/gi, '').trim();
-
-  log('cleanHeadingText - output:', cleaned);
-  return cleaned;
-}
-
-/**
- * Normalize code for deduplication
- *
- * PROBLEM: Same code example may appear multiple times with minor differences:
- *   - Different comments: "// Example 1" vs "// Demo code"
- *   - Different string content: "Click me" vs "Submit form"
- *   - Different whitespace/formatting
- *
- * SOLUTION: Create a canonical form by removing/normalizing non-structural elements
- *
- * TRANSFORMATIONS:
- *   1. Strip line comments (//)
- *   2. Strip block comments (slash-star ... star-slash)
- *   3. Normalize all string literals to "" (preserves structure, ignores content)
- *   4. Collapse all whitespace to single spaces
- *
- * EXAMPLE:
- *   Input:  const Demo = () => { // Comment  return <Button>Click</Button> }
- *   Output: const Demo = () => { return <Button>""</Button> }
- *
- * Used by: dedupeCodeExamples() to detect semantic duplicates
- */
-function normalizeCode(code: string): string {
-  log('normalizeCode - input length:', code.length);
-
-  const normalized = code
-    .replace(/\/\/.*$/gm, '')             // Remove line comments (// ...)
-    .replace(/\/\*[\s\S]*?\*\//g, '')     // Remove block comments
-    .replace(/["']([^"']+)["']/g, '""')   // Normalize all strings to ""
-    .replace(/\s+/g, ' ')                  // Collapse whitespace
-    .trim();
-
-  log('normalizeCode - output length:', normalized.length);
-  log('normalized code preview:', normalized.slice(0, 100) + (normalized.length > 100 ? '...' : ''));
-  return normalized;
-}
-
-/**
- * Extract component tags from code examples
- *
- * PURPOSE: Parse JSX code to find all React component usages
- *
- * HOW IT WORKS:
- *   1. Use regex to match JSX opening tags that start with uppercase letters
- *   2. Capture the component name (excluding HTML tags like <div>, <span>)
- *   3. Return unique, sorted list of component names
- *
- * REGEX PATTERN: /<([A-Z][A-Za-z0-9]*)/g
- *   - < = literal less-than (JSX tag start)
- *   - ([A-Z][A-Za-z0-9]*) = capture group: uppercase letter + alphanumeric
- *   - /g = global flag (find all matches)
- *
- * EXAMPLES:
- *   Input:  "<Button><Icon /><Text>Hello</Text></Button>"
- *   Output: ["Button", "Icon", "Text"]
- *
- *   Input:  "<div><button>HTML</button></div>"
- *   Output: [] (no uppercase components)
- *
- * Used by: detectRelatedComponents() to build component relationship graph
- */
-function extractComponentTags(code: string): string[] {
-  log('extractComponentTags - analyzing code...');
-
-  const tagPattern = /<([A-Z][A-Za-z0-9]*)/g;
-  const found = new Set<string>();
-
-  const matches = code.matchAll(tagPattern);
-  for (const match of matches) {
-    found.add(match[1]);  // match[1] is the captured component name
-  }
-
-  const tags = Array.from(found).sort();
-  log('extractComponentTags - found tags:', tags);
-
-  return tags;
-}
-
-/**
- * Extract import patterns from code
- *
- * PURPOSE: Parse all import statements to understand dependency patterns
- *
- * PATTERNS DETECTED:
- *   - Named: import { A, B } from 'pkg'
- *   - Default: import X from 'pkg'
- *   - Namespace: import * as X from 'pkg'
- *   - Default+Named: import X, { A, B } from 'pkg'  [CRITICAL - very common in React]
- *   - Type: import type { X } from 'pkg'
- *   - Type Default: import type X from 'pkg'
- *   - Side-effect: import 'pkg'  [CSS, polyfills]
- *
- * CATEGORIZATION:
- *   - isChakra: true if source contains 'chakra'
- *   - Tracks third-party deps: React, framer-motion, react-hook-form, etc.
- *
- * Used by: extractCodeExamples() to build global import patterns
- */
-function extractImports(code: string, section?: string): ImportPattern[] {
-  log('extractImports - analyzing code for imports...');
-
-  const patterns: ImportPattern[] = [];
-
-  // Pattern 1: Default + Named imports - import X, { A, B } from 'pkg'
-  // CRITICAL: Must be checked FIRST (most specific pattern)
-  // Example: import React, { useState, useEffect } from 'react'
-  const defaultNamedRegex = /import\s+(\w+)\s*,\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
-  for (const match of code.matchAll(defaultNamedRegex)) {
-    const defaultImport = match[1];
-    const rawNamedImports = match[2];
-    const source = match[3];
-
-    // Parse named imports (handles "type X" syntax)
-    const namedImports = rawNamedImports
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s && s !== 'type')
-      .map(s => s.replace(/^type\s+/, ''));
-
-    patterns.push({
-      source,
-      imports: namedImports,
-      type: 'default-named',
-      section,
-      isChakra: source.includes('chakra'),
-      defaultImport,
-    });
-  }
-
-  // Pattern 2: Type-only imports - import type { X } from 'pkg'
-  // Must be checked BEFORE regular named imports
-  const typeRegex = /import\s+type\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
-  for (const match of code.matchAll(typeRegex)) {
-    const imports = match[1].split(',').map(s => s.trim()).filter(Boolean);
-    const source = match[2];
-
-    // Skip if already captured as default+named
-    if (patterns.some(p => p.source === source && p.type === 'default-named')) {
-      continue;
-    }
-
-    patterns.push({
-      source,
-      imports,
-      type: 'type',
-      section,
-      isChakra: source.includes('chakra'),
-    });
-  }
-
-  // Pattern 3: Type default imports - import type X from 'pkg'
-  const typeDefaultRegex = /^import\s+type\s+(\w+)\s+from\s*['"]([^'"]+)['"]/gm;
-  for (const match of code.matchAll(typeDefaultRegex)) {
-    const importName = match[1];
-    const source = match[2];
-
-    // Skip if already captured
-    if (patterns.some(p => p.source === source)) {
-      continue;
-    }
-
-    patterns.push({
-      source,
-      imports: [importName],
-      type: 'type-default',
-      section,
-      isChakra: source.includes('chakra'),
-    });
-  }
-
-  // Pattern 4: Named imports - import { A, B } from 'pkg'
-  const namedRegex = /import\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"]/g;
-  for (const match of code.matchAll(namedRegex)) {
-    const rawImports = match[1];
-    const source = match[2];
-
-    // Skip if already captured
-    if (patterns.some(p => p.source === source)) {
-      continue;
-    }
-
-    // Parse individual imports (handles "type X" syntax in mixed imports)
-    const imports = rawImports
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s && s !== 'type')
-      .map(s => s.replace(/^type\s+/, ''));
-
-    if (imports.length > 0) {
-      patterns.push({
-        source,
-        imports,
-        type: 'named',
-        section,
-        isChakra: source.includes('chakra'),
-      });
-    }
-  }
-
-  // Pattern 5: Namespace imports - import * as X from 'pkg'
-  const namespaceRegex = /import\s*\*\s*as\s+(\w+)\s*from\s*['"]([^'"]+)['"]/g;
-  for (const match of code.matchAll(namespaceRegex)) {
-    const source = match[2];
-
-    // Skip if already captured
-    if (patterns.some(p => p.source === source)) {
-      continue;
-    }
-
-    patterns.push({
-      source: match[2],
-      imports: [match[1]],
-      type: 'namespace',
-      section,
-      isChakra: match[2].includes('chakra'),
-    });
-  }
-
-  // Pattern 6: Default imports - import X from 'pkg'
-  const defaultRegex = /^import\s+(\w+)\s+from\s*['"]([^'"]+)['"]/gm;
-  for (const match of code.matchAll(defaultRegex)) {
-    const importName = match[1];
-    const source = match[2];
-
-    // Skip if already captured
-    if (patterns.some(p => p.source === source)) {
-      continue;
-    }
-
-    patterns.push({
-      source,
-      imports: [importName],
-      type: 'default',
-      section,
-      isChakra: source.includes('chakra'),
-    });
-  }
-
-  // Pattern 7: Side-effect imports - import 'pkg'
-  const sideEffectRegex = /^import\s+['"]([^'"]+)['"]/gm;
-  for (const match of code.matchAll(sideEffectRegex)) {
-    const source = match[1];
-
-    // Skip if already captured (avoid double-counting)
-    if (patterns.some(p => p.source === source)) {
-      continue;
-    }
-
-    patterns.push({
-      source,
-      imports: [],  // No imports for side-effect only
-      type: 'side-effect',
-      section,
-      isChakra: source.includes('chakra'),
-    });
-  }
-
-  log('extractImports - found', patterns.length, 'import patterns');
-  return patterns;
-}
-
 // =============================================================================
-// Batch 2: Code Quality Filters
+// Batch 4: Playwright Interaction (KEPT HERE - requires browser)
 // =============================================================================
-
-/**
- * Check if code block is in an excluded section (low-value content)
- */
-function isInExcludedSection(sectionName: string): boolean {
-  const excluded = [
-    'installation',
-    'import',
-    'setup',
-    'getting started',
-    'prerequisites',
-    'migration',
-  ];
-
-  const lower = sectionName.toLowerCase();
-  const isExcluded = excluded.some(ex => lower.includes(ex));
-
-  log('isInExcludedSection - section:', sectionName, '- excluded:', isExcluded);
-  return isExcluded;
-}
-
-/**
- * Check if code is low-value based on content heuristics
- */
-function isLowValueCode(code: string): boolean {
-  const trimmed = code.trim();
-  const lines = trimmed.split('\n');
-  const lineCount = lines.length;
-
-  log('isLowValueCode - analyzing', lineCount, 'lines');
-
-  // Skip if < 3 lines
-  if (lineCount < 3) {
-    log('isLowValueCode - REJECT: too short (<3 lines)');
-    return true;
-  }
-
-  // Skip installation commands
-  if (/(npm|yarn|pnpm|bun) (install|add|i)/.test(trimmed)) {
-    log('isLowValueCode - REJECT: installation command');
-    return true;
-  }
-
-  // Skip bare import statements
-  if (lineCount <= 3 && /^import\s+.*from\s+['"]/.test(trimmed)) {
-    log('isLowValueCode - REJECT: bare import statement');
-    return true;
-  }
-
-  // Skip package.json snippets
-  if (/["']dependencies["']|["']devDependencies["']/.test(trimmed)) {
-    log('isLowValueCode - REJECT: package.json snippet');
-    return true;
-  }
-
-  // Skip config files
-  if (/["']compilerOptions["']|["']include["']/.test(trimmed)) {
-    log('isLowValueCode - REJECT: config file');
-    return true;
-  }
-
-  // Skip bare JSX without function wrapper (< 5 lines)
-  if (lineCount < 5 && /^<[A-Z]/.test(trimmed) && !/^(function|const|export)/.test(trimmed)) {
-    log('isLowValueCode - REJECT: bare JSX without wrapper');
-    return true;
-  }
-
-  log('isLowValueCode - ACCEPT: passed all filters');
-  return false;
-}
-
-/**
- * Composition score result with detailed breakdown
- *
- * UPDATED 2025-10-21: Returns object instead of number
- * Enables two-tier classification system (all examples kept, classified by complexity)
- */
-interface CompositionScoreResult {
-  score: number;
-  complexity: 'trivial' | 'basic' | 'intermediate' | 'advanced';
-  breakdown: {
-    jsx: number;
-    props: number;
-    functions: number;
-    components: number;
-    events: number;
-    hooks: number;
-    accessibility: number;
-  };
-}
-
-/**
- * Score code block for composition quality
- *
- * PURPOSE: Classify code examples by complexity for downstream processing
- *
- * STRATEGY: Award points for complexity indicators
- *
- * SCORING CRITERIA:
- *   +2 points: Contains JSX/TSX (React components)
- *   +2 points: Uses multiple props (shows component configuration)
- *   +3 points: Defines a function (complete, executable example)
- *   +3 points: Uses 3+ different components (composition patterns)
- *   +1 point:  Has event handlers (interactivity)
- *   +2 points: Uses React hooks (useState, useEffect, etc.)
- *   +2 points: Includes accessibility attrs (aria-*, role, alt)
- *
- * COMPLEXITY MAPPING:
- *   0-2 points  → trivial (basic JSX, shows API patterns)
- *   3-6 points  → basic (props + simple function)
- *   7-10 points → intermediate (hooks + events)
- *   11+ points  → advanced (full composition)
- *
- * EXAMPLES:
- *   "<Button variant="primary">Click</Button>"
- *   → Score: 2 (JSX only) → trivial → KEPT (shows API)
- *
- *   "const Demo = () => { return <Button colorScheme="blue">Click</Button> }"
- *   → Score: 5 (JSX + Function + Props) → basic → KEPT
- *
- *   "const Demo = () => { const [count, setCount] = useState(0); return <Button onClick={() => setCount(count + 1)} aria-label="Increment">Count: {count}</Button> }"
- *   → Score: 13 (JSX + Function + Props + Hooks + Event + Accessibility) → advanced → KEPT
- *
- * CHANGE: All examples now KEPT, just classified differently
- */
-function getCompositionScore(code: string): CompositionScoreResult {
-  log('block to analyze for composition score:\n', code, '\n---');
-  let score = 0;
-  const checks: string[] = [];
-  const breakdown = {
-    jsx: 0,
-    props: 0,
-    functions: 0,
-    components: 0,
-    events: 0,
-    hooks: 0,
-    accessibility: 0,
-  };
-
-  // JSX/TSX usage: +2
-  if (/<[A-Z]/.test(code)) {
-    score += 2;
-    breakdown.jsx = 2;
-    checks.push('JSX (+2)');
-  }
-
-  // Multiple props: +2
-  if (/\w+={[^}]*}.*\w+={/.test(code)) {
-    score += 2;
-    breakdown.props = 2;
-    checks.push('Multiple props (+2)');
-  }
-
-  // Function definition: +3
-  if (/(function|const)\s+\w+\s*=.*=>|function\s+\w+\s*\(/.test(code)) {
-    score += 3;
-    breakdown.functions = 3;
-    checks.push('Function definition (+3)');
-  }
-
-  // Multiple components: +3
-  const componentMatches = code.match(/<[A-Z]\w+/g) || [];
-  if (componentMatches.length > 2) {
-    score += 3;
-    breakdown.components = 3;
-    checks.push(`Multiple components (${componentMatches.length}) (+3)`);
-  }
-
-  // Event handlers: +1
-  if (/on[A-Z]\w+={/.test(code)) {
-    score += 1;
-    breakdown.events = 1;
-    checks.push('Event handlers (+1)');
-  }
-
-  // Hooks (useState, etc.): +2
-  if (/use[A-Z]\w+/.test(code)) {
-    score += 2;
-    breakdown.hooks = 2;
-    checks.push('Hooks (+2)');
-  }
-
-  // Accessibility attributes: +2
-  if (/(aria-|role=|alt=)/.test(code)) {
-    score += 2;
-    breakdown.accessibility = 2;
-    checks.push('Accessibility (+2)');
-  }
-
-  // Map score to complexity level
-  const complexity: CompositionScoreResult['complexity'] =
-    score >= 11 ? 'advanced' :
-    score >= 7 ? 'intermediate' :
-    score >= 3 ? 'basic' : 'trivial';
-
-  log('getCompositionScore - score:', score, '- complexity:', complexity, '- checks:', checks.join(', '));
-  return { score, complexity, breakdown };
-}
-
-// =============================================================================
-// Batch 3: Array Processing
-// =============================================================================
-
-/**
- * Deduplicate code examples by normalized content
- */
-function dedupeCodeExamples(examples: CodeExample[]): CodeExample[] {
-  log('dedupeCodeExamples - input count:', examples.length);
-
-  const seen = new Set<string>();
-  const unique: CodeExample[] = [];
-
-  for (const example of examples) {
-    const normalized = normalizeCode(example.code);
-    if (!seen.has(normalized)) {
-      seen.add(normalized);
-      unique.push(example);
-    } else {
-      log('dedupeCodeExamples - skipping duplicate');
-    }
-  }
-
-  log('dedupeCodeExamples - output count:', unique.length, '(removed', examples.length - unique.length, 'duplicates)');
-  return unique;
-}
-
-/**
- * Extract component tags from code examples for related components tracking
- */
-function detectRelatedComponents(componentName: string, codeExamples: CodeExample[]): string[] {
-  log('detectRelatedComponents - component:', componentName, '- examples:', codeExamples.length);
-
-  const found = new Set<string>();
-
-  for (const example of codeExamples) {
-    const tags = extractComponentTags(example.code);
-
-    for (const tag of tags) {
-      // Don't include the component itself
-      if (tag !== componentName) {
-        found.add(tag);
-      }
-    }
-  }
-
-  const related = Array.from(found).sort();
-  log('detectRelatedComponents - found:', related);
-
-  return related;
-}
-
-/**
- * Deduplicate import patterns by source and type
- *
- * PURPOSE: Merge imports from the same package/source
- *
- * STRATEGY:
- *   - Group by source + type (e.g., "@chakra-ui/react:named")
- *   - Merge import lists
- *   - Remove duplicates
- *   - Sort for consistency
- *
- * EXAMPLE:
- *   Input:
- *     [{ source: 'react', imports: ['useState'], type: 'named' },
- *      { source: 'react', imports: ['useEffect'], type: 'named' }]
- *
- *   Output:
- *     [{ source: 'react', imports: ['useEffect', 'useState'], type: 'named' }]
- */
-function dedupeImportPatterns(patterns: ImportPattern[]): ImportPattern[] {
-  log('dedupeImportPatterns - input count:', patterns.length);
-
-  const map = new Map<string, ImportPattern>();
-
-  for (const pattern of patterns) {
-    // Key: source + type (section is intentionally excluded for grouping)
-    const key = `${pattern.source}:${pattern.type}`;
-    const existing = map.get(key);
-
-    if (existing) {
-      // Merge imports from same source+type
-      const combinedImports = new Set([...existing.imports, ...pattern.imports]);
-      existing.imports = Array.from(combinedImports).sort();
-
-      // Keep section if present
-      if (!existing.section && pattern.section) {
-        existing.section = pattern.section;
-      }
-    } else {
-      map.set(key, {
-        ...pattern,
-        imports: [...pattern.imports].sort(), // Sort for consistency
-      });
-    }
-  }
-
-  const deduped = Array.from(map.values());
-  log('dedupeImportPatterns - output count:', deduped.length, '(removed', patterns.length - deduped.length, 'duplicates)');
-
-  return deduped;
-}
 
 // =============================================================================
 // Batch 4: Playwright Interaction
@@ -781,7 +197,7 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
  *
  * PURPOSE: Main orchestrator that combines all extraction logic from Batches 1-4
  *
- * UPDATED: Now also extracts import patterns from ALL code blocks
+ * UPDATED (2025-10-21): Now classifies ALL examples instead of filtering by score
  *
  * EXECUTION FLOW:
  *   1. Find all <pre> elements in <main> (Chakra's code block container)
@@ -789,12 +205,13 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
  *      a. Extract code text from nested <code> element
  *      b. Find preceding heading using findPrecedingHeading()
  *      c. Extract imports (ALWAYS, even if code will be filtered)
- *      d. Apply 3-stage filtering pipeline (see below)
- *      e. Extract language from class attribute (e.g., "language-tsx")
- *      f. Build CodeExample object with code, language, section
+ *      d. Apply 2-stage filtering pipeline (see below)
+ *      e. Classify by composition score and complexity
+ *      f. Extract language from class attribute (e.g., "language-tsx")
+ *      g. Build CodeExample object with code, score, complexity, language, section
  *   3. Deduplicate examples using normalizeCode()
  *   4. Deduplicate import patterns by source+type
- *   5. Return filtered examples + import patterns
+ *   5. Return classified examples + import patterns
  *
  * FILTERING PIPELINE (in order):
  *   Stage 1: Section-based filtering
@@ -809,18 +226,21 @@ async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args:
  *            - package.json or config file snippets
  *            (see isLowValueCode)
  *
- *   Stage 3: Composition scoring
- *            Skip if score < 5 points
+ *   Stage 3: Composition scoring (CLASSIFICATION ONLY - NO FILTERING)
+ *            ALL examples are kept and classified by complexity:
+ *            - trivial (score 0-2): Simple JSX, shows API patterns like <Button variant="primary">
+ *            - basic (score 3-6): Props + functions
+ *            - intermediate (score 7-10): Hooks + events
+ *            - advanced (score 11+): Full composition
  *            (see getCompositionScore for scoring rubric)
  *
  * METRICS: Tracks counts for debugging:
  *   - excluded: Filtered by section
  *   - lowValue: Filtered by content heuristics
- *   - lowScore: Filtered by composition score
- *   - accepted: Passed all filters
+ *   - accepted: Passed all filters (includes ALL complexity levels)
  *
  * RETURN: Object containing:
- *   - examples: Deduplicated high-quality code examples
+ *   - examples: Deduplicated code examples with score + complexity metadata
  *   - importPatterns: Imports from accepted examples only
  *   - allImportPatterns: Imports from ALL blocks (including filtered)
  */
