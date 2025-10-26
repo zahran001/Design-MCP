@@ -684,30 +684,54 @@ When preparing chunks for embedding/RAG, consider filtering:
 ---
 
 ### Stage 3: Enhanced Pattern Matching
-**Status:** ⏳ Pending
-**Started:** -
+**Status:** 🔄 In Progress
+**Started:** 2025-10-26
 **Completed:** -
 
 #### Objectives:
-- [ ] Enhance import detection (default, namespace)
-- [ ] Improve prop extraction (template literals, expressions)
-- [ ] Add prop normalization
-- [ ] Better composite component handling
+- [x] Create enhanced pattern matching utilities
+- [ ] Enhance import detection (default, namespace) - **In Progress**
+- [ ] Improve prop extraction (template literals, expressions) - **In Progress**
+- [ ] Add prop normalization - **Done in patternMatchers.ts**
+- [ ] Better composite component handling - **Done in patternMatchers.ts**
 - [ ] Comprehensive pattern tests
 
+#### Files Created:
+- [x] `inference/patternMatchers.ts` - Enhanced pattern matching utilities (15 functions)
+
 #### Files to Modify:
-- [ ] `inference/codeAnalyzer.ts`
-- [ ] `inference/sectionInferrer.ts`
-- [ ] `inference/intentClassifier.ts`
+- [ ] `inference/codeAnalyzer.ts` - **Next: integrate enhanced import/prop extraction**
+- [ ] `inference/sectionInferrer.ts` - **Next: use centralized patterns from Stage 1**
+- [ ] `inference/intentClassifier.ts` - **Next: improve classification logic**
 
 #### Files to Create:
-- [ ] `inference/patternMatchers.ts`
-- [ ] Enhanced test suites
+- [ ] `inference/__tests__/patternMatchers.test.ts` - Comprehensive tests
+- [ ] Enhanced test suites for modified files
+
+#### Progress So Far:
+**patternMatchers.ts includes:**
+- `extractAllImports()` - Handles default, named, namespace, and mixed imports
+- `extractPropValue()` - Extracts prop values with metadata (static, dynamic, template literals)
+- `normalizePropValue()` - Normalizes size aliases (xs→extra-small, sm→small, etc.)
+- `parseCompositeComponent()` - Parses Menu.Item, Checkbox.Root patterns
+- `extractPropNames()` - Robust prop name extraction
+- `hasSpreadProps()` - Detects spread operator usage
+- `filterEventHandlers()` - Filters event handler props
+- `groupImportsBySource()` - Merges imports from same source
+- `matchesValuePattern()` - Pattern matching for conditional/union/static values
 
 #### Test Results:
 ```
-[Pending]
+[Not yet run - tests pending]
 ```
+
+#### Next Steps (Fresh Session):
+1. Update `codeAnalyzer.ts` to use enhanced pattern matching
+2. Update `sectionInferrer.ts` to use Stage 1 centralized patterns
+3. Update `intentClassifier.ts` with improved logic
+4. Write comprehensive tests (estimate: 100+ tests)
+5. Run all tests and fix issues
+6. Update progress tracker with final results
 
 ---
 
