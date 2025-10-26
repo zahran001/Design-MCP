@@ -26,6 +26,7 @@ playwright-report/
 
 # Project specific
 artifacts/normalized/*
+!artifacts/normalized/.gitkeep
 artifacts/raw-json/*
 !artifacts/raw-json/.gitkeep
 stores/*
