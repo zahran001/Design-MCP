@@ -35,19 +35,19 @@ interface RawExtractedData {
  * Main orchestrator function that:
  * 1. Loads raw JSON files (one component or all)
  * 2. Transforms each code example using the transformer
- * 3. Aggregates all chunks into a single output file
+ * 3. Saves chunks to separate files per component
  * 4. Reports statistics (intents, tokens, quality metrics)
  *
- * Output: artifacts/normalized/all-code-examples.json
+ * Output: artifacts/normalized/{ComponentName}.json (one file per component)
  *
  * @param componentName - Optional component name (e.g., "Button"). If not provided, processes all components.
  *
  * @example
- * // Normalize just Button
+ * // Normalize just Button → creates Button.json
  * await normalizeCodeExamples("Button");
  *
  * @example
- * // Normalize all components
+ * // Normalize all components → creates one .json per component
  * await normalizeCodeExamples();
  */
 export async function normalizeCodeExamples(componentName?: string): Promise<void> {
@@ -61,11 +61,17 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
   // ==========================================================================
 
   const rawJsonDir = path.join(process.cwd(), 'artifacts', 'raw-json');
-  const outputFile = path.join(process.cwd(), 'artifacts', 'normalized', 'all-code-examples.json');
+  const outputDir = path.join(process.cwd(), 'artifacts', 'normalized');
 
   // Check if raw-json directory exists
   if (!fs.existsSync(rawJsonDir)) {
     throw new Error(`Raw JSON directory not found: ${rawJsonDir}`);
+  }
+
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+    console.log(`📁 Created output directory: ${outputDir}`);
   }
 
   // Find files to process
@@ -92,6 +98,7 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
 
   const allChunks: CodeExampleChunk[] = [];
   const componentStats = new Map<string, number>(); // Track examples per component
+  const savedFiles: string[] = []; // Track saved output files
   let totalExamples = 0;
   let totalErrors = 0;
 
@@ -117,7 +124,8 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
       continue;
     }
 
-    // Transform each code example
+    // Transform each code example for this component
+    const componentChunks: CodeExampleChunk[] = [];
     let successCount = 0;
     for (let i = 0; i < rawData.codeExamples.length; i++) {
       const example = rawData.codeExamples[i];
@@ -128,7 +136,7 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
           rawData.componentName,
           rawData.sourceUrl
         );
-        allChunks.push(chunk);
+        componentChunks.push(chunk);
         successCount++;
         totalExamples++;
       } catch (error) {
@@ -139,6 +147,17 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
       }
     }
 
+    // Save this component's chunks to a separate file
+    if (componentChunks.length > 0) {
+      const outputFile = path.join(outputDir, `${rawData.componentName}.json`);
+      fs.writeFileSync(outputFile, JSON.stringify(componentChunks, null, 2), 'utf-8');
+      savedFiles.push(outputFile);
+      console.log(`   💾 Saved ${componentChunks.length} chunks to ${rawData.componentName}.json`);
+
+      // Also accumulate for statistics
+      allChunks.push(...componentChunks);
+    }
+
     componentStats.set(rawData.componentName, successCount);
     console.log(`   ✅ Transformed ${successCount}/${exampleCount} examples`);
   }
@@ -146,19 +165,10 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
   console.log();
 
   // ==========================================================================
-  // Step 3: Save Normalized Chunks
+  // Step 3: Summary
   // ==========================================================================
 
-  // Ensure output directory exists
-  const outputDir = path.dirname(outputFile);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-    console.log(`📁 Created output directory: ${outputDir}`);
-  }
-
-  // Save all chunks to single file
-  fs.writeFileSync(outputFile, JSON.stringify(allChunks, null, 2), 'utf-8');
-  console.log(`💾 Saved normalized chunks: ${outputFile}`);
+  console.log(`✅ Saved ${savedFiles.length} component file(s) to: ${outputDir}`);
   console.log();
 
   // ==========================================================================
@@ -236,7 +246,12 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
   }
 
   console.log('='.repeat(80));
-  console.log(`📄 Output: ${outputFile}`);
+  console.log(`📄 Output Directory: ${outputDir}`);
+  console.log(`📄 Files Created: ${savedFiles.length}`);
+  if (savedFiles.length > 0 && savedFiles.length <= 10) {
+    // Show individual files if count is reasonable
+    savedFiles.forEach(f => console.log(`   - ${path.basename(f)}`));
+  }
   console.log('='.repeat(80));
 }
 
