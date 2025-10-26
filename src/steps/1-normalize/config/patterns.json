@@ -1,0 +1,56 @@
+{
+  "version": "1.0.0",
+  "description": "Regex patterns for code analysis and inference",
+  "imports": {
+    "named": "import\\s*\\{([^}]+)\\}\\s*from\\s*['\"]([^'\"]+)['\"]",
+    "default": "import\\s+(\\w+)\\s+from\\s*['\"]([^'\"]+)['\"]",
+    "namespace": "import\\s*\\*\\s*as\\s+(\\w+)\\s+from\\s*['\"]([^'\"]+)['\"]",
+    "mixed": "import\\s+(\\w+)\\s*,\\s*\\{([^}]+)\\}\\s*from\\s*['\"]([^'\"]+)['\"]"
+  },
+  "components": {
+    "jsx": "<([A-Z][A-Za-z0-9]*(?:\\.[A-Z][A-Za-z0-9]*)*)",
+    "composite": "([A-Z][A-Za-z0-9]+)\\.([A-Z][A-Za-z0-9]+)"
+  },
+  "props": {
+    "stringLiteral": "(\\w+)\\s*=\\s*['\"]([^'\"]+)['\"]",
+    "expression": "(\\w+)\\s*=\\s*\\{([^}]+)\\}",
+    "boolean": "\\b(\\w+)(?=\\s|>|\\/)",
+    "templateLiteral": "(\\w+)\\s*=\\s*\\{`([^`]+)`\\}"
+  },
+  "hooks": {
+    "pattern": "\\b(use[A-Z]\\w+)\\s*\\(",
+    "state": "\\b(useState|useReducer)\\b",
+    "effect": "\\b(useEffect|useLayoutEffect)\\b"
+  },
+  "eventHandlers": {
+    "pattern": "\\b(on[A-Z]\\w+)\\s*=",
+    "common": ["onClick", "onChange", "onSubmit", "onFocus", "onBlur", "onKeyDown", "onKeyUp"]
+  },
+  "sections": {
+    "size": {
+      "prop": "size\\s*=",
+      "multipleValues": "size\\s*=\\s*['\"]([^'\"]+)['\"]"
+    },
+    "variant": {
+      "prop": "variant\\s*=",
+      "multipleValues": "variant\\s*=\\s*['\"]([^'\"]+)['\"]"
+    },
+    "color": {
+      "prop": "(colorPalette|colorScheme)\\s*=",
+      "multipleValues": "(colorPalette|colorScheme)\\s*=\\s*['\"]([^'\"]+)['\"]"
+    },
+    "loading": "\\b(loading|isLoading)(\\s*=|\\s+|\\s*>|\\s*\\/)|<Spinner|<CircularProgress",
+    "disabled": "\\b(disabled|isDisabled)(\\s*=|\\s+|\\s*>|\\s*\\/)",
+    "invalid": "\\b(error|invalid|isInvalid)(\\s*=|\\s+|\\s*>|\\s*\\/)",
+    "icon": "<Icon|leftIcon|rightIcon|startElement|endElement",
+    "interactive": "onClick.*useState",
+    "form": "<Form|onSubmit|useForm"
+  },
+  "states": {
+    "loading": ["loading", "isLoading"],
+    "disabled": ["disabled", "isDisabled"],
+    "invalid": ["error", "invalid", "isInvalid"],
+    "readOnly": ["readOnly", "isReadOnly"],
+    "required": ["required", "isRequired"]
+  }
+}

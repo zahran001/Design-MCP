@@ -1,0 +1,131 @@
+{
+  "version": "1.0.0",
+  "description": "Component category mappings for Chakra UI components",
+  "categories": {
+    "form-controls": [
+      "Button",
+      "Input",
+      "Checkbox",
+      "Radio",
+      "Select",
+      "Switch",
+      "Slider",
+      "Field",
+      "Textarea",
+      "PinInput",
+      "NumberInput",
+      "Editable",
+      "Checkbox-Card",
+      "Close-Button",
+      "File-Upload",
+      "Native-Select",
+      "Password-Input",
+      "Radio-Card",
+      "Segmented-Control"
+    ],
+    "layout": [
+      "Stack",
+      "HStack",
+      "VStack",
+      "Box",
+      "Container",
+      "Flex",
+      "Grid",
+      "SimpleGrid",
+      "Center",
+      "Wrap",
+      "AspectRatio",
+      "Spacer",
+      "Divider",
+      "AbsoluteCenter",
+      "Bleed",
+      "Float",
+      "For",
+      "Group",
+      "Separator",
+      "Show"
+    ],
+    "typography": [
+      "Text",
+      "Heading",
+      "Code",
+      "Em",
+      "Strong",
+      "Blockquote",
+      "Mark",
+      "Highlight"
+    ],
+    "feedback": [
+      "Alert",
+      "Toast",
+      "Progress",
+      "Spinner",
+      "Skeleton",
+      "CircularProgress",
+      "LinearProgress",
+      "Status"
+    ],
+    "overlay": [
+      "Modal",
+      "Drawer",
+      "Popover",
+      "Tooltip",
+      "Menu",
+      "Dialog",
+      "Overlay",
+      "Portal",
+      "Hover-Card"
+    ],
+    "disclosure": [
+      "Accordion",
+      "Tabs",
+      "Collapsible",
+      "Disclosure"
+    ],
+    "navigation": [
+      "Breadcrumb",
+      "Link",
+      "Stepper",
+      "Steps",
+      "Pagination"
+    ],
+    "data-display": [
+      "Table",
+      "List",
+      "Tag",
+      "Badge",
+      "Card",
+      "Stat",
+      "Avatar",
+      "Data-List",
+      "Empty-State",
+      "Kbd",
+      "Rating",
+      "Timeline"
+    ],
+    "media": [
+      "Image",
+      "Icon",
+      "Avatar"
+    ],
+    "other": [
+      "Animation",
+      "Aspect-Ratio",
+      "Bleed",
+      "Clipboard",
+      "Code-Block",
+      "Collapsible",
+      "Color-Mode",
+      "Color-Picker",
+      "Color-Swatch",
+      "Editable",
+      "Environment-Provider",
+      "Field",
+      "Fieldset",
+      "Number-Input",
+      "Pin-Input",
+      "Provider",
+      "Theme"
+    ]
+  }
+}

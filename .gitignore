@@ -25,6 +25,10 @@ test-results/
 playwright-report/
 
 # Project specific
+artifacts/metrics/*
+!artifacts/metrics/.gitkeep
+artifacts/logs/*
+!artifacts/logs/.gitkeep
 artifacts/normalized/*
 !artifacts/normalized/.gitkeep
 artifacts/raw-json/*
