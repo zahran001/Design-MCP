@@ -21,10 +21,29 @@
 import type { CodeAnalysis } from './codeAnalyzer.js';
 
 /**
+ * Intent types (expanded in Stage 3)
+ */
+export type IntentType =
+  | 'sizing'              // Demonstrates size options
+  | 'variants'            // Demonstrates visual style variants
+  | 'states'              // Demonstrates component states
+  | 'composition'         // Demonstrates basic component composition
+  | 'interaction'         // Demonstrates user interaction handling
+  | 'theming'             // Demonstrates theming/color modes (NEW)
+  | 'accessibility'       // Demonstrates accessibility features (NEW)
+  | 'responsive'          // Demonstrates responsive design (NEW)
+  | 'animation'           // Demonstrates animations/transitions (NEW)
+  | 'forms'               // Demonstrates form integration/validation (NEW)
+  | 'advanced-composition' // Demonstrates complex nested patterns (NEW)
+  | 'hooks-integration'   // Demonstrates component hooks usage (NEW)
+  | 'custom-styling'      // Demonstrates custom CSS/sx prop (NEW)
+  | 'generic';            // Default/fallback intent
+
+/**
  * Intent classification result
  */
 export interface IntentClassification {
-  intent: 'sizing' | 'variants' | 'states' | 'composition' | 'interaction' | 'generic';
+  intent: IntentType;
   confidence: number;      // 0.0-1.0
   indicators: string[];    // What led to this classification (for debugging)
 }
@@ -149,7 +168,97 @@ export function classifyIntent(
     };
   }
 
-  // Priority 6: Check section title for hints (LOW-MEDIUM CONFIDENCE)
+  // =========================================================================
+  // NEW INTENT CLASSIFICATIONS (Stage 3 Enhancement)
+  // =========================================================================
+
+  // Priority 6: Accessibility intent (HIGH CONFIDENCE)
+  if (code.match(/\b(aria-|ariaLabel|ariaDescribedBy|role=|screenReader|keyboardNav|tabIndex)/)) {
+    indicators.push('accessibility_attributes');
+    return {
+      intent: 'accessibility',
+      confidence: 0.9,
+      indicators
+    };
+  }
+
+  // Priority 7: Theming intent (MEDIUM-HIGH CONFIDENCE)
+  if (code.match(/\b(theme|createTheme|useTheme|ThemeProvider|colorMode|darkMode|lightMode)/)) {
+    indicators.push('theming_api_usage');
+    return {
+      intent: 'theming',
+      confidence: 0.85,
+      indicators
+    };
+  }
+
+  // Priority 8: Responsive design intent (MEDIUM CONFIDENCE)
+  const responsiveProps = analysis.props.filter(p =>
+    p.prop.match(/^(base|sm|md|lg|xl|2xl|breakpoint|hideBelow|hideFrom)$/)
+  );
+  if (responsiveProps.length > 0 || code.match(/\b(responsive|breakpoint|mobile|desktop)/)) {
+    indicators.push('responsive_props_or_keywords');
+    return {
+      intent: 'responsive',
+      confidence: 0.8,
+      indicators
+    };
+  }
+
+  // Priority 9: Forms/Validation intent (MEDIUM-HIGH CONFIDENCE)
+  if (code.match(/\b(validation|validator|useForm|register|handleSubmit|isInvalid|required)/)) {
+    indicators.push('form_validation_keywords');
+    return {
+      intent: 'forms',
+      confidence: 0.85,
+      indicators
+    };
+  }
+
+  // Priority 10: Animation intent (MEDIUM CONFIDENCE)
+  if (code.match(/\b(animation|transition|keyframes|animate|motion|framer)/)) {
+    indicators.push('animation_keywords');
+    return {
+      intent: 'animation',
+      confidence: 0.8,
+      indicators
+    };
+  }
+
+  // Priority 11: Component hooks integration (MEDIUM-HIGH CONFIDENCE)
+  const componentHooks = analysis.hooks.filter(h => h.startsWith('use') && h !== 'useState' && h !== 'useEffect' && h !== 'useReducer' && h !== 'useCallback' && h !== 'useMemo' && h !== 'useRef');
+  if (componentHooks.length > 0) {
+    indicators.push(`component_hook_${componentHooks[0]}`);
+    return {
+      intent: 'hooks-integration',
+      confidence: 0.85,
+      indicators
+    };
+  }
+
+  // Priority 12: Custom styling intent (MEDIUM CONFIDENCE)
+  if (code.match(/\bsx=\{|css=\{|styled\(/)) {
+    indicators.push('custom_styling_api');
+    return {
+      intent: 'custom-styling',
+      confidence: 0.8,
+      indicators
+    };
+  }
+
+  // Priority 13: Advanced composition (MEDIUM CONFIDENCE)
+  // Complex patterns: 4+ components OR 3+ subcomponents OR nested composition
+  const hasNestedComposition = code.match(/<\w+[^>]*>\s*<\w+[^>]*>\s*<\w+[^>]*>/);
+  if (analysis.components.length >= 4 || subcomponents.length >= 3 || hasNestedComposition) {
+    indicators.push('advanced_composition_pattern');
+    return {
+      intent: 'advanced-composition',
+      confidence: 0.75,
+      indicators
+    };
+  }
+
+  // Priority 14: Check section title for hints (LOW-MEDIUM CONFIDENCE)
   // This catches cases where patterns didn't match but section title is semantic
   const titleLower = sectionTitle.toLowerCase();
 
@@ -193,6 +302,79 @@ export function classifyIntent(
     indicators.push('interaction_in_title');
     return {
       intent: 'interaction',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  // NEW: Title hints for new intent types
+  if (titleLower.includes('accessibility') || titleLower.includes('aria') || titleLower.includes('keyboard')) {
+    indicators.push('accessibility_in_title');
+    return {
+      intent: 'accessibility',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('theme') || titleLower.includes('color mode') || titleLower.includes('dark mode')) {
+    indicators.push('theming_in_title');
+    return {
+      intent: 'theming',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('responsive') || titleLower.includes('breakpoint') || titleLower.includes('mobile')) {
+    indicators.push('responsive_in_title');
+    return {
+      intent: 'responsive',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('animation') || titleLower.includes('transition')) {
+    indicators.push('animation_in_title');
+    return {
+      intent: 'animation',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('form') || titleLower.includes('validation')) {
+    indicators.push('forms_in_title');
+    return {
+      intent: 'forms',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('hook')) {
+    indicators.push('hooks_in_title');
+    return {
+      intent: 'hooks-integration',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('styling') || titleLower.includes('custom') || titleLower.includes('sx')) {
+    indicators.push('custom_styling_in_title');
+    return {
+      intent: 'custom-styling',
+      confidence: 0.7,
+      indicators
+    };
+  }
+
+  if (titleLower.includes('advanced') || titleLower.includes('complex') || titleLower.includes('nested')) {
+    indicators.push('advanced_in_title');
+    return {
+      intent: 'advanced-composition',
       confidence: 0.7,
       indicators
     };

@@ -159,6 +159,171 @@ export function inferSectionTitle(
     };
   }
 
+  // =========================================================================
+  // NEW PATTERNS (Stage 3 Enhancement)
+  // =========================================================================
+
+  // Pattern 11: Accessibility features (HIGH PRIORITY)
+  if (code.match(/\b(aria-|ariaLabel|ariaDescribedBy|role=|screenReader|keyboardNav|tabIndex)/)) {
+    return {
+      title: 'Accessibility',
+      confidence: 0.9,
+      method: 'pattern_match',
+      matchedPattern: 'accessibility_features'
+    };
+  }
+
+  // Pattern 12: Responsive design (MEDIUM PRIORITY)
+  if (code.match(/\b(base|sm|md|lg|xl|2xl|breakpoint|responsive|mobile|desktop|hideBelow|hideFrom)/)) {
+    return {
+      title: 'Responsive Design',
+      confidence: 0.85,
+      method: 'pattern_match',
+      matchedPattern: 'responsive_props'
+    };
+  }
+
+  // Pattern 13: Form validation (MEDIUM PRIORITY)
+  if (code.match(/\b(validation|validator|error|isInvalid|required|pattern|min|max|validate|useForm|register)/)) {
+    return {
+      title: 'Form Validation',
+      confidence: 0.85,
+      method: 'pattern_match',
+      matchedPattern: 'form_validation'
+    };
+  }
+
+  // Pattern 14: Theming/Custom styling (MEDIUM PRIORITY)
+  if (code.match(/\b(theme|createTheme|useTheme|ThemeProvider|colorMode|darkMode|lightMode|css=)/)) {
+    return {
+      title: 'Theming',
+      confidence: 0.85,
+      method: 'pattern_match',
+      matchedPattern: 'theming_customization'
+    };
+  }
+
+  // Pattern 15: Custom styling with sx prop (MEDIUM PRIORITY)
+  if (code.match(/\bsx=\{/)) {
+    return {
+      title: 'Custom Styling',
+      confidence: 0.8,
+      method: 'pattern_match',
+      matchedPattern: 'sx_prop_styling'
+    };
+  }
+
+  // Pattern 16: Animation/Transitions (LOW-MEDIUM PRIORITY)
+  if (code.match(/\b(animation|transition|keyframes|animate|motion|framer)/)) {
+    return {
+      title: 'Animations',
+      confidence: 0.8,
+      method: 'pattern_match',
+      matchedPattern: 'animation_transition'
+    };
+  }
+
+  // Pattern 17: Controlled vs Uncontrolled (MEDIUM PRIORITY)
+  if (code.match(/\b(value|onChange|defaultValue|uncontrolled|controlled)/)) {
+    const hasValue = code.includes('value=');
+    const hasDefaultValue = code.includes('defaultValue=');
+    if (hasValue && !hasDefaultValue) {
+      return {
+        title: 'Controlled Component',
+        confidence: 0.75,
+        method: 'pattern_match',
+        matchedPattern: 'controlled_pattern'
+      };
+    } else if (hasDefaultValue && !hasValue) {
+      return {
+        title: 'Uncontrolled Component',
+        confidence: 0.75,
+        method: 'pattern_match',
+        matchedPattern: 'uncontrolled_pattern'
+      };
+    }
+  }
+
+  // Pattern 18: Component hooks usage (MEDIUM PRIORITY)
+  if (componentName && code.match(new RegExp(`use${componentName}`, 'i'))) {
+    return {
+      title: 'Using Component Hooks',
+      confidence: 0.85,
+      method: 'pattern_match',
+      matchedPattern: 'component_hooks'
+    };
+  }
+
+  // Pattern 19: Ref forwarding (LOW PRIORITY)
+  if (code.match(/\b(ref=|useRef|forwardRef|createRef)/)) {
+    return {
+      title: 'Ref Forwarding',
+      confidence: 0.75,
+      method: 'pattern_match',
+      matchedPattern: 'ref_usage'
+    };
+  }
+
+  // Pattern 20: Indeterminate state (LOW PRIORITY)
+  if (code.match(/\b(indeterminate|isIndeterminate|partial)/)) {
+    return {
+      title: 'Indeterminate State',
+      confidence: 0.85,
+      method: 'pattern_match',
+      matchedPattern: 'indeterminate_state'
+    };
+  }
+
+  // Pattern 21: Conditional rendering (LOW PRIORITY)
+  if (code.match(/\{\s*\w+\s*\?\s*<|&&\s*</)) {
+    return {
+      title: 'Conditional Rendering',
+      confidence: 0.7,
+      method: 'pattern_match',
+      matchedPattern: 'conditional_render'
+    };
+  }
+
+  // Pattern 22: Data mapping/rendering (MEDIUM PRIORITY)
+  if (code.match(/\.(map|filter|reduce)\s*\(.*?=>\s*</)) {
+    return {
+      title: 'Rendering Lists',
+      confidence: 0.8,
+      method: 'pattern_match',
+      matchedPattern: 'data_mapping'
+    };
+  }
+
+  // Pattern 23: Event handling (MEDIUM PRIORITY)
+  if (code.match(/\b(onPress|onHover|onFocus|onBlur|onKeyDown|onKeyUp)/)) {
+    return {
+      title: 'Event Handling',
+      confidence: 0.75,
+      method: 'pattern_match',
+      matchedPattern: 'event_handlers'
+    };
+  }
+
+  // Pattern 24: Read-only state (LOW PRIORITY)
+  if (code.match(/\b(readOnly|isReadOnly|readonly)/)) {
+    return {
+      title: 'Read-Only State',
+      confidence: 0.8,
+      method: 'pattern_match',
+      matchedPattern: 'readonly_state'
+    };
+  }
+
+  // Pattern 25: Required fields (MEDIUM PRIORITY)
+  if (code.match(/\b(required|isRequired|\*|mandatory)/)) {
+    return {
+      title: 'Required Fields',
+      confidence: 0.75,
+      method: 'pattern_match',
+      matchedPattern: 'required_fields'
+    };
+  }
+
   // Use existing section if provided and not generic
   if (existingSection && !isGenericSection(existingSection)) {
     return {

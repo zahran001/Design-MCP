@@ -155,7 +155,7 @@ function extractSizingData(
     p.component === componentName && p.prop === 'size'
   );
 
-  const sizes = sizeProp?.values || [];
+  const sizes = sizeProp?.rawValues || [];
 
   // Find layout component (HStack, VStack, Stack, Flex, etc.)
   const layoutComponent = analysis.components.find(c =>
@@ -167,7 +167,11 @@ function extractSizingData(
   if (layoutComponent) {
     const layoutPropUsages = analysis.props.filter(p => p.component === layoutComponent);
     layoutPropUsages.forEach(p => {
-      layoutProps[p.prop] = p.values[0]; // Use first value
+      // Use rawValues for backward compatibility (string values)
+      const firstValue = p.rawValues?.[0] || p.values[0]?.raw;
+      if (firstValue) {
+        layoutProps[p.prop] = firstValue;
+      }
     });
   }
 
@@ -194,7 +198,7 @@ function extractVariantsData(
     p.component === componentName && p.prop === 'variant'
   );
 
-  const variants = variantProp?.values || [];
+  const variants = variantProp?.rawValues || [];
 
   // Get other styling props (exclude variant and common layout props)
   const excludeProps = new Set(['variant', 'children', 'key', 'className', 'style']);
@@ -203,7 +207,7 @@ function extractVariantsData(
   analysis.props
     .filter(p => p.component === componentName && !excludeProps.has(p.prop))
     .forEach(p => {
-      otherProps[p.prop] = p.values;
+      otherProps[p.prop] = p.rawValues || [];
     });
 
   return {
@@ -282,8 +286,14 @@ function extractCompositionData(
     ? 'subcomponent composition'
     : 'multi-component';
 
-  // Get all imports
-  const imports = analysis.imports.flatMap(imp => imp.imports);
+  // Get all imports (handle both old and new format)
+  const imports = analysis.imports.flatMap(imp => {
+    const allImports: string[] = [];
+    if (imp.defaultImport) allImports.push(imp.defaultImport);
+    if (imp.namedImports) allImports.push(...imp.namedImports);
+    if (imp.namespaceImport) allImports.push(imp.namespaceImport);
+    return allImports;
+  });
 
   return {
     primaryComponent: componentName,
@@ -345,7 +355,7 @@ function extractGenericData(
   analysis.props
     .filter(p => p.component === componentName)
     .forEach(p => {
-      props[p.prop] = p.values;
+      props[p.prop] = p.rawValues || [];
     });
 
   return {

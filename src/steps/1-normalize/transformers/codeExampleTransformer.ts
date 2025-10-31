@@ -11,14 +11,14 @@
 //
 // =============================================================================
 
-import { analyzeCode } from '../inference/codeAnalyzer.js';
+import { analyzeCode, type EnhancedImport } from '../inference/codeAnalyzer.js';
 import { inferSectionTitle } from '../inference/sectionInferrer.js';
 import { classifyIntent } from '../inference/intentClassifier.js';
 import { extractTemplateData } from '../generators/templateDataExtractor.js';
 import { generateContent } from '../generators/explanationGenerator.js';
 import { generateChunkId } from '../../../utils/chunkId.js';
 import { estimateChunkTokens } from '../../../utils/tokenEstimator.js';
-import type { CodeExampleChunk, ComponentCategory } from '../../../schemas/NormalizedChunkSchema.js';
+import type { CodeExampleChunk, ComponentCategory, ImportStatement, PropUsage } from '../../../schemas/NormalizedChunkSchema.js';
 
 /**
  * Raw code example from extracted JSON
@@ -28,6 +28,48 @@ export interface RawCodeExample {
   score?: number;
   complexity?: string;
   section?: string;
+}
+
+/**
+ * Convert EnhancedImport to schema-expected ImportStatement format
+ */
+function convertToSchemaImports(enhancedImports: EnhancedImport[]): ImportStatement[] {
+  return enhancedImports.map(imp => {
+    const imports: string[] = [];
+    let type: 'default' | 'named' | 'namespace' = 'named';
+
+    if (imp.defaultImport) {
+      imports.push(imp.defaultImport);
+      type = 'default';
+    }
+
+    if (imp.namedImports && imp.namedImports.length > 0) {
+      imports.push(...imp.namedImports);
+      type = imp.defaultImport ? 'named' : 'named'; // Mixed becomes named for schema
+    }
+
+    if (imp.namespaceImport) {
+      imports.push(imp.namespaceImport);
+      type = 'namespace';
+    }
+
+    return {
+      source: imp.source,
+      imports,
+      type
+    };
+  });
+}
+
+/**
+ * Convert enhanced PropUsage to schema-expected format (with string[] values)
+ */
+function convertToSchemaProps(props: import('../inference/codeAnalyzer.js').PropUsage[]): PropUsage[] {
+  return props.map(p => ({
+    component: p.component,
+    prop: p.prop,
+    values: p.rawValues || p.values.map(v => v.raw)
+  }));
 }
 
 /**
@@ -161,12 +203,9 @@ export function transformCodeExample(
 
     codeMetadata: {
       language: 'tsx',
-      imports: analysis.imports.map(imp => ({
-        ...imp,
-        type: 'named' as const // Default to named imports for POC
-      })),
+      imports: convertToSchemaImports(analysis.imports),
       components: analysis.components,
-      props: analysis.props,
+      props: convertToSchemaProps(analysis.props),
       hooks: analysis.hooks.length > 0 ? analysis.hooks : undefined, // Optional field
       hasInteractivity: analysis.hasInteractivity,
       hasState: analysis.hasState,

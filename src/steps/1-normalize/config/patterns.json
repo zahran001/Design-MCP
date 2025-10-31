@@ -29,22 +29,138 @@
   "sections": {
     "size": {
       "prop": "size\\s*=",
-      "multipleValues": "size\\s*=\\s*['\"]([^'\"]+)['\"]"
+      "multipleValues": "size\\s*=\\s*['\"]([^'\"]+)['\"]",
+      "title": "Size Variants",
+      "confidence": 0.95
     },
     "variant": {
       "prop": "variant\\s*=",
-      "multipleValues": "variant\\s*=\\s*['\"]([^'\"]+)['\"]"
+      "multipleValues": "variant\\s*=\\s*['\"]([^'\"]+)['\"]",
+      "title": "Visual Variants",
+      "confidence": 0.95
     },
     "color": {
       "prop": "(colorPalette|colorScheme)\\s*=",
-      "multipleValues": "(colorPalette|colorScheme)\\s*=\\s*['\"]([^'\"]+)['\"]"
+      "multipleValues": "(colorPalette|colorScheme)\\s*=\\s*['\"]([^'\"]+)['\"]",
+      "title": "Color Palettes",
+      "confidence": 0.95
     },
-    "loading": "\\b(loading|isLoading)(\\s*=|\\s+|\\s*>|\\s*\\/)|<Spinner|<CircularProgress",
-    "disabled": "\\b(disabled|isDisabled)(\\s*=|\\s+|\\s*>|\\s*\\/)",
-    "invalid": "\\b(error|invalid|isInvalid)(\\s*=|\\s+|\\s*>|\\s*\\/)",
-    "icon": "<Icon|leftIcon|rightIcon|startElement|endElement",
-    "interactive": "onClick.*useState",
-    "form": "<Form|onSubmit|useForm"
+    "loading": {
+      "pattern": "\\b(loading|isLoading)(\\s*=|\\s+|\\s*>|\\s*\\/)|<Spinner|<CircularProgress",
+      "title": "Loading State",
+      "confidence": 0.9
+    },
+    "disabled": {
+      "pattern": "\\b(disabled|isDisabled)(\\s*=|\\s+|\\s*>|\\s*\\/)",
+      "title": "Disabled State",
+      "confidence": 0.9
+    },
+    "invalid": {
+      "pattern": "\\b(error|invalid|isInvalid)(\\s*=|\\s+|\\s*>|\\s*\\/)",
+      "title": "Error State",
+      "confidence": 0.85
+    },
+    "icon": {
+      "pattern": "<Icon|leftIcon|rightIcon|startElement|endElement",
+      "title": "With Icons",
+      "confidence": 0.85
+    },
+    "interactive": {
+      "pattern": "onClick.*useState",
+      "title": "Interactive Example",
+      "confidence": 0.8
+    },
+    "form": {
+      "pattern": "<Form|onSubmit|useForm",
+      "title": "Form Integration",
+      "confidence": 0.8
+    },
+    "composition": {
+      "pattern": "\\.\\w+",
+      "minCount": 2,
+      "title": "Composition Structure",
+      "confidence": 0.75
+    },
+    "accessibility": {
+      "pattern": "\\b(aria-|ariaLabel|ariaDescribedBy|role=|screenReader|keyboardNav|tabIndex)",
+      "title": "Accessibility",
+      "confidence": 0.9
+    },
+    "responsive": {
+      "pattern": "\\b(base|sm|md|lg|xl|2xl|breakpoint|responsive|mobile|desktop|hideBelow|hideFrom)",
+      "title": "Responsive Design",
+      "confidence": 0.85
+    },
+    "formValidation": {
+      "pattern": "\\b(validation|validator|error|isInvalid|required|pattern|min|max|validate|useForm|register)",
+      "title": "Form Validation",
+      "confidence": 0.85
+    },
+    "theming": {
+      "pattern": "\\b(theme|createTheme|useTheme|ThemeProvider|colorMode|darkMode|lightMode|css=)",
+      "title": "Theming",
+      "confidence": 0.85
+    },
+    "customStyling": {
+      "pattern": "\\bsx=\\{",
+      "title": "Custom Styling",
+      "confidence": 0.8
+    },
+    "animation": {
+      "pattern": "\\b(animation|transition|keyframes|animate|motion|framer)",
+      "title": "Animations",
+      "confidence": 0.8
+    },
+    "controlled": {
+      "pattern": "value=",
+      "title": "Controlled Component",
+      "confidence": 0.75
+    },
+    "uncontrolled": {
+      "pattern": "defaultValue=",
+      "title": "Uncontrolled Component",
+      "confidence": 0.75
+    },
+    "componentHooks": {
+      "pattern": "use[A-Z]",
+      "title": "Using Component Hooks",
+      "confidence": 0.85
+    },
+    "refForwarding": {
+      "pattern": "\\b(ref=|useRef|forwardRef|createRef)",
+      "title": "Ref Forwarding",
+      "confidence": 0.75
+    },
+    "indeterminate": {
+      "pattern": "\\b(indeterminate|isIndeterminate|partial)",
+      "title": "Indeterminate State",
+      "confidence": 0.85
+    },
+    "conditionalRendering": {
+      "pattern": "\\{\\s*\\w+\\s*\\?\\s*<|&&\\s*<",
+      "title": "Conditional Rendering",
+      "confidence": 0.7
+    },
+    "dataMapping": {
+      "pattern": "\\.(map|filter|reduce)\\s*\\(.*?=>\\s*<",
+      "title": "Rendering Lists",
+      "confidence": 0.8
+    },
+    "eventHandling": {
+      "pattern": "\\b(onPress|onHover|onFocus|onBlur|onKeyDown|onKeyUp)",
+      "title": "Event Handling",
+      "confidence": 0.75
+    },
+    "readOnly": {
+      "pattern": "\\b(readOnly|isReadOnly|readonly)",
+      "title": "Read-Only State",
+      "confidence": 0.8
+    },
+    "requiredFields": {
+      "pattern": "\\b(required|isRequired|\\*|mandatory)",
+      "title": "Required Fields",
+      "confidence": 0.75
+    }
   },
   "states": {
     "loading": ["loading", "isLoading"],
@@ -52,5 +168,77 @@
     "invalid": ["error", "invalid", "isInvalid"],
     "readOnly": ["readOnly", "isReadOnly"],
     "required": ["required", "isRequired"]
+  },
+  "intents": {
+    "sizing": {
+      "description": "Demonstrates size options",
+      "priority": 1,
+      "confidence": 0.95
+    },
+    "variants": {
+      "description": "Demonstrates visual style variants",
+      "priority": 2,
+      "confidence": 0.95
+    },
+    "states": {
+      "description": "Demonstrates component states",
+      "priority": 3,
+      "confidence": 0.9
+    },
+    "composition": {
+      "description": "Demonstrates basic component composition",
+      "priority": 4,
+      "confidence": 0.8
+    },
+    "interaction": {
+      "description": "Demonstrates user interaction handling",
+      "priority": 5,
+      "confidence": 0.8
+    },
+    "accessibility": {
+      "description": "Demonstrates accessibility features",
+      "priority": 6,
+      "confidence": 0.9
+    },
+    "theming": {
+      "description": "Demonstrates theming/color modes",
+      "priority": 7,
+      "confidence": 0.85
+    },
+    "responsive": {
+      "description": "Demonstrates responsive design",
+      "priority": 8,
+      "confidence": 0.8
+    },
+    "forms": {
+      "description": "Demonstrates form integration/validation",
+      "priority": 9,
+      "confidence": 0.85
+    },
+    "animation": {
+      "description": "Demonstrates animations/transitions",
+      "priority": 10,
+      "confidence": 0.8
+    },
+    "hooks-integration": {
+      "description": "Demonstrates component hooks usage",
+      "priority": 11,
+      "confidence": 0.85
+    },
+    "custom-styling": {
+      "description": "Demonstrates custom CSS/sx prop",
+      "priority": 12,
+      "confidence": 0.8
+    },
+    "advanced-composition": {
+      "description": "Demonstrates complex nested patterns",
+      "priority": 13,
+      "confidence": 0.75
+    },
+    "generic": {
+      "description": "Default/fallback intent",
+      "priority": 99,
+      "confidence": 0.4
+    }
   }
 }
