@@ -2,6 +2,7 @@
 // Section Title Inference
 // =============================================================================
 // Created: 2025-10-22
+// Updated: 2025-10-30 (Phase 3 - Migrated to centralized patterns)
 // Reference: NORMALIZATION_GUIDE.md - Phase 1 POC
 //
 // Infers semantic section titles from code patterns.
@@ -16,6 +17,8 @@
 // - 0.3-0.5: Fallback to generic title
 //
 // =============================================================================
+
+import { SECTION_PATTERNS, hasMultipleValues, testPattern } from '../config/patterns.config.js';
 
 /**
  * Section inference result with confidence score
@@ -74,76 +77,78 @@ export function inferSectionTitle(
   }
 
   // Pattern 3: Multiple colorPalette/colorScheme values (HIGH CONFIDENCE)
-  if (hasMultipleValues(code, 'colorPalette') || hasMultipleValues(code, 'colorScheme')) {
+  if (hasMultipleValues(code, 'color')) {
     return {
-      title: 'Color Palettes',
-      confidence: 0.95,
+      title: SECTION_PATTERNS.color.title,
+      confidence: SECTION_PATTERNS.color.confidence,
       method: 'pattern_match',
       matchedPattern: 'multiple_color_values'
     };
   }
 
   // Pattern 4: Loading state (MEDIUM CONFIDENCE)
-  if (code.match(/\b(loading|isLoading)(\s*=|\s+|\s*>|\s*\/)|<Spinner|<CircularProgress/)) {
+  if (testPattern(code, SECTION_PATTERNS.loading.pattern)) {
     return {
-      title: 'Loading State',
-      confidence: 0.9,
+      title: SECTION_PATTERNS.loading.title,
+      confidence: SECTION_PATTERNS.loading.confidence,
       method: 'pattern_match',
       matchedPattern: 'loading_indicator'
     };
   }
 
   // Pattern 5: Disabled state (MEDIUM CONFIDENCE)
-  if (code.match(/\b(disabled|isDisabled)(\s*=|\s+|\s*>|\s*\/)/)) {
+  if (testPattern(code, SECTION_PATTERNS.disabled.pattern)) {
     return {
-      title: 'Disabled State',
-      confidence: 0.9,
+      title: SECTION_PATTERNS.disabled.title,
+      confidence: SECTION_PATTERNS.disabled.confidence,
       method: 'pattern_match',
       matchedPattern: 'disabled_prop'
     };
   }
 
   // Pattern 6: Error/Invalid state (MEDIUM CONFIDENCE)
-  if (code.match(/\b(error|invalid|isInvalid)(\s*=|\s+|\s*>|\s*\/)/)) {
+  if (testPattern(code, SECTION_PATTERNS.invalid.pattern)) {
     return {
-      title: 'Error State',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.invalid.title,
+      confidence: SECTION_PATTERNS.invalid.confidence,
       method: 'pattern_match',
       matchedPattern: 'error_state'
     };
   }
 
   // Pattern 7: With icons (MEDIUM CONFIDENCE)
-  if (code.match(/<Icon|leftIcon|rightIcon|startElement|endElement/)) {
+  if (testPattern(code, SECTION_PATTERNS.icon.pattern)) {
     const title = componentName
       ? `${componentName} with Icons`
-      : 'With Icons';
+      : SECTION_PATTERNS.icon.title;
     return {
       title,
-      confidence: 0.85,
+      confidence: SECTION_PATTERNS.icon.confidence,
       method: 'pattern_match',
       matchedPattern: 'icon_usage'
     };
   }
 
   // Pattern 8: Interactive/onClick (LOW-MEDIUM CONFIDENCE)
-  if (code.includes('onClick') && code.match(/\buseState\b/)) {
+  // Note: Using separate checks instead of combined pattern because useState
+  // may appear before or after onClick in the code
+  if (code.includes('onClick') && /\buseState\b/.test(code)) {
     return {
-      title: 'Interactive Example',
-      confidence: 0.8,
+      title: SECTION_PATTERNS.interactive.title,
+      confidence: SECTION_PATTERNS.interactive.confidence,
       method: 'pattern_match',
       matchedPattern: 'interactive_with_state'
     };
   }
 
   // Pattern 9: Form integration (LOW-MEDIUM CONFIDENCE)
-  if (code.match(/<Form|onSubmit|useForm/)) {
+  if (testPattern(code, SECTION_PATTERNS.form.pattern)) {
     const title = componentName
       ? `${componentName} in Forms`
-      : 'Form Integration';
+      : SECTION_PATTERNS.form.title;
     return {
       title,
-      confidence: 0.8,
+      confidence: SECTION_PATTERNS.form.confidence,
       method: 'pattern_match',
       matchedPattern: 'form_usage'
     };
@@ -164,161 +169,160 @@ export function inferSectionTitle(
   // =========================================================================
 
   // Pattern 11: Accessibility features (HIGH PRIORITY)
-  if (code.match(/\b(aria-|ariaLabel|ariaDescribedBy|role=|screenReader|keyboardNav|tabIndex)/)) {
+  if (testPattern(code, SECTION_PATTERNS.accessibility.pattern)) {
     return {
-      title: 'Accessibility',
-      confidence: 0.9,
+      title: SECTION_PATTERNS.accessibility.title,
+      confidence: SECTION_PATTERNS.accessibility.confidence,
       method: 'pattern_match',
       matchedPattern: 'accessibility_features'
     };
   }
 
   // Pattern 12: Responsive design (MEDIUM PRIORITY)
-  if (code.match(/\b(base|sm|md|lg|xl|2xl|breakpoint|responsive|mobile|desktop|hideBelow|hideFrom)/)) {
+  if (testPattern(code, SECTION_PATTERNS.responsive.pattern)) {
     return {
-      title: 'Responsive Design',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.responsive.title,
+      confidence: SECTION_PATTERNS.responsive.confidence,
       method: 'pattern_match',
       matchedPattern: 'responsive_props'
     };
   }
 
   // Pattern 13: Form validation (MEDIUM PRIORITY)
-  if (code.match(/\b(validation|validator|error|isInvalid|required|pattern|min|max|validate|useForm|register)/)) {
+  if (testPattern(code, SECTION_PATTERNS.formValidation.pattern)) {
     return {
-      title: 'Form Validation',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.formValidation.title,
+      confidence: SECTION_PATTERNS.formValidation.confidence,
       method: 'pattern_match',
       matchedPattern: 'form_validation'
     };
   }
 
   // Pattern 14: Theming/Custom styling (MEDIUM PRIORITY)
-  if (code.match(/\b(theme|createTheme|useTheme|ThemeProvider|colorMode|darkMode|lightMode|css=)/)) {
+  if (testPattern(code, SECTION_PATTERNS.theming.pattern)) {
     return {
-      title: 'Theming',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.theming.title,
+      confidence: SECTION_PATTERNS.theming.confidence,
       method: 'pattern_match',
       matchedPattern: 'theming_customization'
     };
   }
 
   // Pattern 15: Custom styling with sx prop (MEDIUM PRIORITY)
-  if (code.match(/\bsx=\{/)) {
+  if (testPattern(code, SECTION_PATTERNS.customStyling.pattern)) {
     return {
-      title: 'Custom Styling',
-      confidence: 0.8,
+      title: SECTION_PATTERNS.customStyling.title,
+      confidence: SECTION_PATTERNS.customStyling.confidence,
       method: 'pattern_match',
       matchedPattern: 'sx_prop_styling'
     };
   }
 
   // Pattern 16: Animation/Transitions (LOW-MEDIUM PRIORITY)
-  if (code.match(/\b(animation|transition|keyframes|animate|motion|framer)/)) {
+  if (testPattern(code, SECTION_PATTERNS.animation.pattern)) {
     return {
-      title: 'Animations',
-      confidence: 0.8,
+      title: SECTION_PATTERNS.animation.title,
+      confidence: SECTION_PATTERNS.animation.confidence,
       method: 'pattern_match',
       matchedPattern: 'animation_transition'
     };
   }
 
   // Pattern 17: Controlled vs Uncontrolled (MEDIUM PRIORITY)
-  if (code.match(/\b(value|onChange|defaultValue|uncontrolled|controlled)/)) {
-    const hasValue = code.includes('value=');
-    const hasDefaultValue = code.includes('defaultValue=');
-    if (hasValue && !hasDefaultValue) {
-      return {
-        title: 'Controlled Component',
-        confidence: 0.75,
-        method: 'pattern_match',
-        matchedPattern: 'controlled_pattern'
-      };
-    } else if (hasDefaultValue && !hasValue) {
-      return {
-        title: 'Uncontrolled Component',
-        confidence: 0.75,
-        method: 'pattern_match',
-        matchedPattern: 'uncontrolled_pattern'
-      };
-    }
+  const hasControlled = testPattern(code, SECTION_PATTERNS.controlled.pattern);
+  const hasUncontrolled = testPattern(code, SECTION_PATTERNS.uncontrolled.pattern);
+
+  if (hasControlled && !hasUncontrolled) {
+    return {
+      title: SECTION_PATTERNS.controlled.title,
+      confidence: SECTION_PATTERNS.controlled.confidence,
+      method: 'pattern_match',
+      matchedPattern: 'controlled_pattern'
+    };
+  } else if (hasUncontrolled && !hasControlled) {
+    return {
+      title: SECTION_PATTERNS.uncontrolled.title,
+      confidence: SECTION_PATTERNS.uncontrolled.confidence,
+      method: 'pattern_match',
+      matchedPattern: 'uncontrolled_pattern'
+    };
   }
 
   // Pattern 18: Component hooks usage (MEDIUM PRIORITY)
-  if (componentName && code.match(new RegExp(`use${componentName}`, 'i'))) {
+  if (testPattern(code, SECTION_PATTERNS.componentHooks.pattern)) {
     return {
-      title: 'Using Component Hooks',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.componentHooks.title,
+      confidence: SECTION_PATTERNS.componentHooks.confidence,
       method: 'pattern_match',
       matchedPattern: 'component_hooks'
     };
   }
 
   // Pattern 19: Ref forwarding (LOW PRIORITY)
-  if (code.match(/\b(ref=|useRef|forwardRef|createRef)/)) {
+  if (testPattern(code, SECTION_PATTERNS.refForwarding.pattern)) {
     return {
-      title: 'Ref Forwarding',
-      confidence: 0.75,
+      title: SECTION_PATTERNS.refForwarding.title,
+      confidence: SECTION_PATTERNS.refForwarding.confidence,
       method: 'pattern_match',
       matchedPattern: 'ref_usage'
     };
   }
 
   // Pattern 20: Indeterminate state (LOW PRIORITY)
-  if (code.match(/\b(indeterminate|isIndeterminate|partial)/)) {
+  if (testPattern(code, SECTION_PATTERNS.indeterminate.pattern)) {
     return {
-      title: 'Indeterminate State',
-      confidence: 0.85,
+      title: SECTION_PATTERNS.indeterminate.title,
+      confidence: SECTION_PATTERNS.indeterminate.confidence,
       method: 'pattern_match',
       matchedPattern: 'indeterminate_state'
     };
   }
 
   // Pattern 21: Conditional rendering (LOW PRIORITY)
-  if (code.match(/\{\s*\w+\s*\?\s*<|&&\s*</)) {
+  if (testPattern(code, SECTION_PATTERNS.conditionalRendering.pattern)) {
     return {
-      title: 'Conditional Rendering',
-      confidence: 0.7,
+      title: SECTION_PATTERNS.conditionalRendering.title,
+      confidence: SECTION_PATTERNS.conditionalRendering.confidence,
       method: 'pattern_match',
       matchedPattern: 'conditional_render'
     };
   }
 
   // Pattern 22: Data mapping/rendering (MEDIUM PRIORITY)
-  if (code.match(/\.(map|filter|reduce)\s*\(.*?=>\s*</)) {
+  if (testPattern(code, SECTION_PATTERNS.dataMapping.pattern)) {
     return {
-      title: 'Rendering Lists',
-      confidence: 0.8,
+      title: SECTION_PATTERNS.dataMapping.title,
+      confidence: SECTION_PATTERNS.dataMapping.confidence,
       method: 'pattern_match',
       matchedPattern: 'data_mapping'
     };
   }
 
   // Pattern 23: Event handling (MEDIUM PRIORITY)
-  if (code.match(/\b(onPress|onHover|onFocus|onBlur|onKeyDown|onKeyUp)/)) {
+  if (testPattern(code, SECTION_PATTERNS.eventHandling.pattern)) {
     return {
-      title: 'Event Handling',
-      confidence: 0.75,
+      title: SECTION_PATTERNS.eventHandling.title,
+      confidence: SECTION_PATTERNS.eventHandling.confidence,
       method: 'pattern_match',
       matchedPattern: 'event_handlers'
     };
   }
 
   // Pattern 24: Read-only state (LOW PRIORITY)
-  if (code.match(/\b(readOnly|isReadOnly|readonly)/)) {
+  if (testPattern(code, SECTION_PATTERNS.readOnly.pattern)) {
     return {
-      title: 'Read-Only State',
-      confidence: 0.8,
+      title: SECTION_PATTERNS.readOnly.title,
+      confidence: SECTION_PATTERNS.readOnly.confidence,
       method: 'pattern_match',
       matchedPattern: 'readonly_state'
     };
   }
 
   // Pattern 25: Required fields (MEDIUM PRIORITY)
-  if (code.match(/\b(required|isRequired|\*|mandatory)/)) {
+  if (testPattern(code, SECTION_PATTERNS.requiredFields.pattern)) {
     return {
-      title: 'Required Fields',
-      confidence: 0.75,
+      title: SECTION_PATTERNS.requiredFields.title,
+      confidence: SECTION_PATTERNS.requiredFields.confidence,
       method: 'pattern_match',
       matchedPattern: 'required_fields'
     };
@@ -339,35 +343,6 @@ export function inferSectionTitle(
     confidence: 0.3,
     method: 'fallback'
   };
-}
-
-/**
- * Check if a prop has multiple distinct values in the code
- *
- * Used to detect "variants" examples that show multiple options
- *
- * @param code - Source code
- * @param propName - Prop to check (e.g., "size", "variant")
- * @returns True if multiple distinct values found
- *
- * @example
- * hasMultipleValues('<Button size="xs"/><Button size="lg"/>', 'size')
- * // Returns: true
- *
- * hasMultipleValues('<Button size="md"/>', 'size')
- * // Returns: false
- */
-function hasMultipleValues(code: string, propName: string): boolean {
-  // Match: propName="value" or propName='value'
-  const regex = new RegExp(`${propName}=["']([^"']+)["']`, 'g');
-  const values = new Set<string>();
-  let match;
-
-  while ((match = regex.exec(code)) !== null) {
-    values.add(match[1]);
-  }
-
-  return values.size >= 2;
 }
 
 /**

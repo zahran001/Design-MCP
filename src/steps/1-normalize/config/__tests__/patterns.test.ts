@@ -168,26 +168,26 @@ describe('patterns.config', () => {
     });
 
     it('should detect loading patterns', () => {
-      expect(SECTION_PATTERNS.loading.test('<Button loading>Click</Button>')).toBe(true);
-      expect(SECTION_PATTERNS.loading.test('<Button isLoading>Click</Button>')).toBe(true);
-      expect(SECTION_PATTERNS.loading.test('<Spinner />')).toBe(true);
+      expect(SECTION_PATTERNS.loading.pattern.test('<Button loading>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.loading.pattern.test('<Button isLoading>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.loading.pattern.test('<Spinner />')).toBe(true);
     });
 
     it('should detect disabled patterns', () => {
-      expect(SECTION_PATTERNS.disabled.test('<Button disabled>Click</Button>')).toBe(true);
-      expect(SECTION_PATTERNS.disabled.test('<Button isDisabled>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.disabled.pattern.test('<Button disabled>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.disabled.pattern.test('<Button isDisabled>Click</Button>')).toBe(true);
     });
 
     it('should detect invalid/error patterns', () => {
-      expect(SECTION_PATTERNS.invalid.test('<Input error>Text</Input>')).toBe(true);
-      expect(SECTION_PATTERNS.invalid.test('<Input invalid>Text</Input>')).toBe(true);
-      expect(SECTION_PATTERNS.invalid.test('<Input isInvalid>Text</Input>')).toBe(true);
+      expect(SECTION_PATTERNS.invalid.pattern.test('<Input error>Text</Input>')).toBe(true);
+      expect(SECTION_PATTERNS.invalid.pattern.test('<Input invalid>Text</Input>')).toBe(true);
+      expect(SECTION_PATTERNS.invalid.pattern.test('<Input isInvalid>Text</Input>')).toBe(true);
     });
 
     it('should detect icon patterns', () => {
-      expect(SECTION_PATTERNS.icon.test('<Icon />')).toBe(true);
-      expect(SECTION_PATTERNS.icon.test('<Button leftIcon={icon}>Click</Button>')).toBe(true);
-      expect(SECTION_PATTERNS.icon.test('<Button startElement={icon}>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.icon.pattern.test('<Icon />')).toBe(true);
+      expect(SECTION_PATTERNS.icon.pattern.test('<Button leftIcon={icon}>Click</Button>')).toBe(true);
+      expect(SECTION_PATTERNS.icon.pattern.test('<Button startElement={icon}>Click</Button>')).toBe(true);
     });
   });
 

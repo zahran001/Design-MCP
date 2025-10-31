@@ -17,9 +17,10 @@ describe('analyzeCode', () => {
       const result = analyzeCode(code);
 
       expect(result.imports).toHaveLength(1);
-      expect(result.imports[0]).toEqual({
+      expect(result.imports[0]).toMatchObject({
         source: '@chakra-ui/react',
-        imports: ['Button', 'HStack']
+        type: 'named',
+        namedImports: expect.arrayContaining(['Button', 'HStack'])
       });
     });
 
@@ -76,16 +77,20 @@ describe('analyzeCode', () => {
 
       const result = analyzeCode(code);
 
-      expect(result.props).toContainEqual({
-        component: 'Button',
-        prop: 'size',
-        values: ['xs']
-      });
-      expect(result.props).toContainEqual({
-        component: 'Button',
-        prop: 'variant',
-        values: ['solid']
-      });
+      expect(result.props).toContainEqual(
+        expect.objectContaining({
+          component: 'Button',
+          prop: 'size',
+          rawValues: expect.arrayContaining(['xs'])
+        })
+      );
+      expect(result.props).toContainEqual(
+        expect.objectContaining({
+          component: 'Button',
+          prop: 'variant',
+          rawValues: expect.arrayContaining(['solid'])
+        })
+      );
     });
 
     it('should group multiple values for same prop', () => {
@@ -102,10 +107,10 @@ describe('analyzeCode', () => {
       );
 
       expect(sizeProp).toBeDefined();
-      expect(sizeProp!.values).toContain('xs');
-      expect(sizeProp!.values).toContain('sm');
-      expect(sizeProp!.values).toContain('md');
-      expect(sizeProp!.values).toHaveLength(3);
+      expect(sizeProp!.rawValues).toContain('xs');
+      expect(sizeProp!.rawValues).toContain('sm');
+      expect(sizeProp!.rawValues).toContain('md');
+      expect(sizeProp!.rawValues).toHaveLength(3);
     });
 
     it('should extract expression props', () => {
@@ -113,16 +118,20 @@ describe('analyzeCode', () => {
 
       const result = analyzeCode(code);
 
-      expect(result.props).toContainEqual({
-        component: 'Button',
-        prop: 'onClick',
-        values: ['handleClick']
-      });
-      expect(result.props).toContainEqual({
-        component: 'Button',
-        prop: 'loading',
-        values: ['isLoading']
-      });
+      expect(result.props).toContainEqual(
+        expect.objectContaining({
+          component: 'Button',
+          prop: 'onClick',
+          rawValues: expect.arrayContaining(['handleClick'])
+        })
+      );
+      expect(result.props).toContainEqual(
+        expect.objectContaining({
+          component: 'Button',
+          prop: 'loading',
+          rawValues: expect.arrayContaining(['isLoading'])
+        })
+      );
     });
   });
 
@@ -187,8 +196,8 @@ const Demo = () => {
 
       // Check imports
       expect(result.imports).toHaveLength(1);
-      expect(result.imports[0].imports).toContain('Button');
-      expect(result.imports[0].imports).toContain('HStack');
+      expect(result.imports[0].namedImports).toContain('Button');
+      expect(result.imports[0].namedImports).toContain('HStack');
 
       // Check components
       expect(result.components).toContain('HStack');
@@ -199,9 +208,9 @@ const Demo = () => {
         p => p.component === 'Button' && p.prop === 'size'
       );
       expect(sizeProp).toBeDefined();
-      expect(sizeProp!.values).toHaveLength(5);
-      expect(sizeProp!.values).toContain('xs');
-      expect(sizeProp!.values).toContain('xl');
+      expect(sizeProp!.rawValues).toHaveLength(5);
+      expect(sizeProp!.rawValues).toContain('xs');
+      expect(sizeProp!.rawValues).toContain('xl');
 
       // Check flags
       expect(result.hasInteractivity).toBe(false);

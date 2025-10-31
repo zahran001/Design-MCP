@@ -281,9 +281,9 @@ export function parseCompositeComponent(componentName: string): {
 export function extractPropNames(tagContent: string): string[] {
   const propNames: string[] = [];
 
-  // Remove component name and closing /
+  // Clean up the tag content (remove only trailing / or >)
+  // Note: tagContent is already just the props string (component name already removed by caller)
   const propsOnly = tagContent
-    .replace(/^<?\w+(?:\.\w+)?\s*/, '') // Remove opening tag + component name
     .replace(/\/?>?\s*$/, '');           // Remove closing / or >
 
   if (!propsOnly.trim()) return [];

@@ -189,13 +189,29 @@ function detectCompositeComponents(components: string[]): CompositeInfo[] {
 function extractPropsEnhanced(code: string): PropUsage[] {
   const propMap = new Map<string, PropValue[]>();
 
-  // Find all opening tags with props
-  const tagRegex = /<(\w+(?:\.\w+)*)\s+([^>]+)>/g;
-  let tagMatch;
+  // Find all opening tags with props using a more robust approach
+  // This handles arrow functions (=>) and nested braces in prop values
+  const componentTagRegex = /<(\w+(?:\.\w+)*)\s+/g;
+  let componentMatch;
 
-  while ((tagMatch = tagRegex.exec(code)) !== null) {
-    const component = tagMatch[1];
-    const propsString = tagMatch[2];
+  while ((componentMatch = componentTagRegex.exec(code)) !== null) {
+    const component = componentMatch[1];
+    const startIdx = componentMatch.index + componentMatch[0].length;
+
+    // Find the closing > by tracking brace depth
+    let braceDepth = 0;
+    let propsEndIdx = startIdx;
+    for (let i = startIdx; i < code.length; i++) {
+      const char = code[i];
+      if (char === '{') braceDepth++;
+      else if (char === '}') braceDepth--;
+      else if (char === '>' && braceDepth === 0) {
+        propsEndIdx = i;
+        break;
+      }
+    }
+
+    const propsString = code.substring(startIdx, propsEndIdx);
 
     // Extract prop names first
     const propNames = extractPropNames(propsString);
