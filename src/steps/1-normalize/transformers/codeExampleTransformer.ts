@@ -18,6 +18,11 @@ import { extractTemplateData } from '../generators/templateDataExtractor.js';
 import { generateContent } from '../generators/explanationGenerator.js';
 import { generateChunkId } from '../../../utils/chunkId.js';
 import { estimateChunkTokens } from '../../../utils/tokenEstimator.js';
+import { getCategoryFromComponent } from '../config/categories.config.js';
+import { validateRawCodeExample, formatValidationErrors } from '../schemas/RawCodeExampleSchema.js';
+import { createAppropriateFallback } from '../utils/fallbackChunks.js';
+import { createContext, addWarning, addPatternMatch, recordMetric, recordConfidence } from '../utils/transformationContext.js';
+import { logSuccess, logFailure } from '../utils/transformationMetrics.js';
 import type { CodeExampleChunk, ComponentCategory, ImportStatement, PropUsage } from '../../../schemas/NormalizedChunkSchema.js';
 
 /**
@@ -76,209 +81,236 @@ function convertToSchemaProps(props: import('../inference/codeAnalyzer.js').Prop
  * Transform a raw code example into a normalized CodeExampleChunk
  *
  * Orchestrates the complete transformation pipeline:
- * 1. Code analysis (extract imports, components, props, hooks)
- * 2. Section inference (detect semantic title from patterns)
- * 3. Intent classification (sizing, variants, states, etc.)
- * 4. Natural language generation (explanation, demonstrates, keyPoints)
- * 5. Chunk assembly (metadata + content + codeMetadata)
+ * 1. Input validation (with fallback generation on failure)
+ * 2. Code analysis (extract imports, components, props, hooks)
+ * 3. Section inference (detect semantic title from patterns)
+ * 4. Intent classification (sizing, variants, states, etc.)
+ * 5. Natural language generation (explanation, demonstrates, keyPoints)
+ * 6. Chunk assembly (metadata + content + codeMetadata)
+ * 7. Metrics logging (timing, confidence, patterns, warnings)
  *
  * @param rawExample - Raw code example from extracted JSON
  * @param componentName - Component name (e.g., "Button")
  * @param sourceUrl - Source documentation URL
+ * @param exampleIndex - Optional 1-based index of this example (for context tracking)
+ * @param totalExamples - Optional total number of examples (for context tracking)
  * @returns Complete normalized CodeExampleChunk
  *
  * @example
  * const chunk = transformCodeExample(
  *   { code: "<Button size='xs'>...</Button>", complexity: "intermediate" },
  *   "Button",
- *   "https://chakra-ui.com/docs/components/button"
+ *   "https://chakra-ui.com/docs/components/button",
+ *   1,
+ *   16
  * );
  */
 export function transformCodeExample(
   rawExample: RawCodeExample,
   componentName: string,
-  sourceUrl: string
+  sourceUrl: string,
+  exampleIndex?: number,
+  totalExamples?: number
 ): CodeExampleChunk {
-  // ==========================================================================
-  // Step 1: Run Inference Pipeline
-  // ==========================================================================
+  // Create transformation context for metrics tracking
+  const ctx = createContext(componentName, exampleIndex, totalExamples);
 
-  // Analyze code structure
-  const analysis = analyzeCode(rawExample.code);
+  try {
+    // ==========================================================================
+    // Step 0: Input Validation
+    // ==========================================================================
 
-  // Infer semantic section title
-  const section = inferSectionTitle(
-    rawExample.code,
-    rawExample.section,
-    componentName
-  );
+    const validation = validateRawCodeExample(rawExample);
 
-  // Classify intent/purpose
-  const intent = classifyIntent(
-    rawExample.code,
-    analysis,
-    section.title
-  );
+    if (!validation.success) {
+      const errors = formatValidationErrors(validation.error);
+      const errorMsg = `Input validation failed: ${errors.join(', ')}`;
 
-  // ==========================================================================
-  // Step 2: Generate Natural Language Content
-  // ==========================================================================
+      // Log validation failure
+      console.warn(`   ⚠️  Validation failed for ${componentName}: ${errorMsg}`);
 
-  // Extract template data
-  const templateData = extractTemplateData(
-    intent.intent,
-    analysis,
-    componentName
-  );
+      // Log failure and return fallback chunk
+      const fallbackError = new Error(errorMsg);
+      logFailure(ctx, fallbackError);
 
-  // Generate natural language
-  const content = generateContent(templateData);
+      return createAppropriateFallback(
+        rawExample,
+        componentName,
+        sourceUrl,
+        fallbackError
+      );
+    }
 
-  // ==========================================================================
-  // Step 3: Generate Metadata
-  // ==========================================================================
+    // Use validated data
+    const validatedExample = validation.data;
 
-  // Generate unique chunk ID
-  const chunkId = generateChunkId(
-    componentName,
-    'code-example',
-    section.title,
-    '1' // Version
-  );
+    // ==========================================================================
+    // Step 1: Run Inference Pipeline
+    // ==========================================================================
 
-  // Determine component category (smart defaults)
-  const category = getCategoryFromComponent(componentName);
+    // Analyze code structure (with timing)
+    const analysisStart = Date.now();
+    const analysis = analyzeCode(validatedExample.code);
+    recordMetric(ctx, 'analysisTimeMs', Date.now() - analysisStart);
 
-  // Generate tags (just intent for POC)
-  // TODO: Future enhancement - derive multiple tags from intent + patterns
-  // See: POC_NORMALIZATION_DECISIONS.md#future-enhancements
-  const tags = [intent.intent];
+    // Infer semantic section title (with timing)
+    const inferenceStart = Date.now();
+    const section = inferSectionTitle(
+      validatedExample.code,
+      validatedExample.section,
+      componentName
+    );
 
-  // Get complexity from raw JSON (fallback to intermediate)
-  const complexity = rawExample.complexity || 'intermediate';
+    // Classify intent/purpose
+    const intent = classifyIntent(
+      validatedExample.code,
+      analysis,
+      section.title
+    );
+    recordMetric(ctx, 'inferenceTimeMs', Date.now() - inferenceStart);
 
-  // Estimate token count (for quality metrics, not stored in chunk)
-  const tokens = estimateChunkTokens({
-    explanation: content.explanation,
-    code: rawExample.code,
-    demonstrates: content.demonstrates,
-    keyPoints: content.keyPoints
-  });
+    // Record confidence scores
+    recordConfidence(ctx, 'section', section.confidence);
+    recordConfidence(ctx, 'intent', intent.confidence);
 
-  // Log token count for debugging
-  if (tokens < 200 || tokens > 500) {
-    console.log(`   ⚠️  Token count outside optimal range: ${tokens} tokens`);
-  }
+    // Add pattern matches
+    if (section.matchedPattern) {
+      addPatternMatch(ctx, section.matchedPattern);
+    }
+    intent.indicators.forEach(ind => addPatternMatch(ctx, ind));
 
-  // ==========================================================================
-  // Step 4: Assemble Complete Chunk
-  // ==========================================================================
+    // Warn on low confidence
+    if (section.confidence < 0.5) {
+      addWarning(ctx, 'inference', `Low section confidence: ${section.confidence.toFixed(2)}`);
+    }
+    if (intent.confidence < 0.6) {
+      addWarning(ctx, 'inference', `Low intent confidence: ${intent.confidence.toFixed(2)}`);
+    }
 
-  const chunk: CodeExampleChunk = {
-    metadata: {
-      chunkId,
-      chunkType: 'code-example',
+    // ==========================================================================
+    // Step 2: Generate Natural Language Content
+    // ==========================================================================
+
+    const generationStart = Date.now();
+
+    // Extract template data
+    const templateData = extractTemplateData(
+      intent.intent,
+      analysis,
+      componentName
+    );
+
+    // Generate natural language
+    const content = generateContent(templateData);
+
+    recordMetric(ctx, 'generationTimeMs', Date.now() - generationStart);
+
+    // ==========================================================================
+    // Step 3: Generate Metadata
+    // ==========================================================================
+
+    // Generate unique chunk ID
+    const chunkId = generateChunkId(
       componentName,
-      sourceUrl,
-      version: '3.27.1',
-      tags,
-      category,
-      complexity: complexity as 'simple' | 'intermediate' | 'advanced',
-      relatedChunks: []
-      // Note: tokens=${tokens} (not stored in schema, logged above if outside range)
-    },
+      'code-example',
+      section.title,
+      '1' // Version
+    );
 
-    example: {
-      title: section.title,
-      intent: intent.intent,
-      difficulty: complexity as 'basic' | 'intermediate' | 'advanced'
-    },
+    // Determine component category (from configuration)
+    const category = getCategoryFromComponent(componentName);
 
-    content: {
+    // Generate tags (just intent for POC)
+    // TODO: Future enhancement - derive multiple tags from intent + patterns
+    // See: POC_NORMALIZATION_DECISIONS.md#future-enhancements
+    const tags = [intent.intent];
+
+    // Get complexity from raw JSON (fallback to intermediate)
+    const complexity = validatedExample.complexity || 'intermediate';
+
+    // Estimate token count (for quality metrics)
+    const tokens = estimateChunkTokens({
       explanation: content.explanation,
-      code: rawExample.code,
+      code: validatedExample.code,
       demonstrates: content.demonstrates,
       keyPoints: content.keyPoints
-    },
+    });
 
-    codeMetadata: {
-      language: 'tsx',
-      imports: convertToSchemaImports(analysis.imports),
-      components: analysis.components,
-      props: convertToSchemaProps(analysis.props),
-      hooks: analysis.hooks.length > 0 ? analysis.hooks : undefined, // Optional field
-      hasInteractivity: analysis.hasInteractivity,
-      hasState: analysis.hasState,
-      complexity: rawExample.score || 5
+    // Record token count metric
+    recordMetric(ctx, 'tokenCount', tokens);
+
+    // Warn on token count outside optimal range
+    if (tokens < 200) {
+      addWarning(ctx, 'generation', `Token count too low: ${tokens} tokens`);
+      console.log(`   ⚠️  Token count outside optimal range: ${tokens} tokens`);
+    } else if (tokens > 500) {
+      addWarning(ctx, 'generation', `Token count too high: ${tokens} tokens`);
+      console.log(`   ⚠️  Token count outside optimal range: ${tokens} tokens`);
     }
-  };
 
-  return chunk;
-}
+    // ==========================================================================
+    // Step 4: Assemble Complete Chunk
+    // ==========================================================================
 
-/**
- * Determine component category using smart defaults
- *
- * Uses regex patterns to classify components into categories.
- * Falls back to "other" if no pattern matches.
- *
- * TODO: Future enhancement - load from configuration file
- * See: POC_NORMALIZATION_DECISIONS.md#future-enhancements
- *
- * @param componentName - Component name (e.g., "Button", "HStack")
- * @returns Component category
- *
- * @example
- * getCategoryFromComponent("Button") // Returns: "form-controls"
- * getCategoryFromComponent("HStack") // Returns: "layout"
- * getCategoryFromComponent("Unknown") // Returns: "other"
- */
-function getCategoryFromComponent(componentName: string): ComponentCategory {
-  // Form controls
-  if (/Button|Input|Checkbox|Radio|Select|Switch|Slider|Field|Textarea|PinInput|NumberInput|Editable/i.test(componentName)) {
-    return 'form-controls';
+    const chunk: CodeExampleChunk = {
+      metadata: {
+        chunkId,
+        chunkType: 'code-example',
+        componentName,
+        sourceUrl,
+        version: '3.27.1',
+        tags,
+        category,
+        complexity: complexity as 'simple' | 'intermediate' | 'advanced',
+        relatedChunks: []
+      },
+
+      example: {
+        title: section.title,
+        intent: intent.intent,
+        difficulty: complexity as 'basic' | 'intermediate' | 'advanced'
+      },
+
+      content: {
+        explanation: content.explanation,
+        code: validatedExample.code,
+        demonstrates: content.demonstrates,
+        keyPoints: content.keyPoints
+      },
+
+      codeMetadata: {
+        language: 'tsx',
+        imports: convertToSchemaImports(analysis.imports),
+        components: analysis.components,
+        props: convertToSchemaProps(analysis.props),
+        hooks: analysis.hooks.length > 0 ? analysis.hooks : undefined, // Optional field
+        hasInteractivity: analysis.hasInteractivity,
+        hasState: analysis.hasState,
+        complexity: validatedExample.score || 5
+      }
+    };
+
+    // Log successful transformation
+    logSuccess(ctx);
+
+    return chunk;
+
+  } catch (error) {
+    // Handle unexpected errors during transformation
+    const err = error instanceof Error ? error : new Error(String(error));
+    const enhancedError = Object.assign(err, { phase: 'transformation' });
+
+    // Log failure with metrics
+    logFailure(ctx, enhancedError);
+
+    // Generate and return fallback chunk
+    const fallbackChunk = createAppropriateFallback(
+      rawExample,
+      componentName,
+      sourceUrl,
+      enhancedError
+    );
+
+    return fallbackChunk;
   }
-
-  // Layout
-  if (/Stack|HStack|VStack|Box|Container|Flex|Grid|SimpleGrid|Center|Wrap|AspectRatio|Spacer|Divider|AbsoluteCenter|Bleed/i.test(componentName)) {
-    return 'layout';
-  }
-
-  // Typography
-  if (/Text|Heading|Code|Em|Strong|Blockquote|Mark|Highlight/i.test(componentName)) {
-    return 'typography';
-  }
-
-  // Feedback
-  if (/Alert|Toast|Progress|Spinner|Skeleton|CircularProgress|LinearProgress/i.test(componentName)) {
-    return 'feedback';
-  }
-
-  // Overlay
-  if (/Modal|Drawer|Popover|Tooltip|Menu|Dialog|Overlay|Portal/i.test(componentName)) {
-    return 'overlay';
-  }
-
-  // Disclosure
-  if (/Accordion|Tabs|Collapsible|Disclosure/i.test(componentName)) {
-    return 'disclosure';
-  }
-
-  // Navigation
-  if (/Breadcrumb|Link|Stepper|Steps|Pagination/i.test(componentName)) {
-    return 'navigation';
-  }
-
-  // Data display
-  if (/Table|List|Tag|Badge|Card|Stat|Avatar|Image|Icon/i.test(componentName)) {
-    return 'data-display';
-  }
-
-  // Media
-  if (/Image|Icon|Avatar/i.test(componentName)) {
-    return 'media';
-  }
-
-  // Default fallback
-  return 'other';
 }

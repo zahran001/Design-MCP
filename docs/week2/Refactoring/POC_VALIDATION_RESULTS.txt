@@ -1,0 +1,118 @@
+════════════════════════════════════════════════════════════════════════════════
+POC VALIDATION METRICS ANALYSIS
+════════════════════════════════════════════════════════════════════════════════
+
+📊 OVERALL STATISTICS
+────────────────────────────────────────────────────────────────────────────────
+  Total transformations:     103
+  Success rate:              94.2% (97/103)
+  Failure rate:              5.8% (6/103)
+
+  Total time:                99ms
+  Average time per example:  1.0ms
+  Min/Max time:              0ms / 5ms
+
+  Total warnings:            84
+  Avg warnings per example:  0.82
+
+🎯 SECTION INFERENCE ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+  Semantic sections:         84/97 (86.6%)
+  Target:                    >95%
+  Status:                    ⚠️  ACCEPTABLE
+
+  Avg confidence score:      68.0%
+  Low confidence (<50%):     29 (29.9%)
+  Medium confidence (50-80%): 14 (14.4%)
+  High confidence (>80%):    54 (55.7%)
+
+🎨 INTENT CLASSIFICATION ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+  Specific intents:          84/97 (86.6%)
+  Target:                    >75%
+  Status:                    ✅ PASS
+
+  Avg confidence score:      76.4%
+  Low confidence (<60%):     13 (13.4%)
+  Medium confidence (60-80%): 14 (14.4%)
+  High confidence (>80%):    70 (72.2%)
+
+🔍 PATTERN DISTRIBUTION
+────────────────────────────────────────────────────────────────────────────────
+  Top 15 patterns matched:
+     1. icon_usage                           15 (14.6%)
+     2. 4_components_used                    15 (14.6%)
+     3. no_specific_pattern_matched          13 (12.6%)
+     4. multiple_variant_values              10 (9.7%)
+     5. subcomponent_composition             10 (9.7%)
+     6. responsive_props                      9 (8.7%)
+     7. 6_components_used                     9 (8.7%)
+     8. 3_components_used                     8 (7.8%)
+     9. state_keyword_in_code                 7 (6.8%)
+    10. form_validation                       7 (6.8%)
+    11. advanced_composition_pattern          7 (6.8%)
+    12. multiple_size_values                  6 (5.8%)
+    13. disabled_prop                         6 (5.8%)
+    14. loading_indicator                     4 (3.9%)
+    15. state_prop_loading                    4 (3.9%)
+
+📝 TOKEN COUNT ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+  Average tokens:            223
+  Min/Max tokens:            83 / 482
+
+  Optimal range (200-500):   55/97 (56.7%)
+  Too low (<200):            42/97 (43.3%)
+  Too high (>500):           0/97 (0.0%)
+  Target:                    >70% in optimal range
+  Status:                    ⚠️  NEEDS IMPROVEMENT
+
+⚡ PERFORMANCE BREAKDOWN
+────────────────────────────────────────────────────────────────────────────────
+  Avg analysis time:         0.3ms
+  Avg inference time:        0.2ms
+  Avg generation time:       0.1ms
+  Avg total time:            1.0ms
+
+  Target per example:        <500ms
+  Status:                    ✅ PASS
+
+📦 PER-COMPONENT BREAKDOWN
+────────────────────────────────────────────────────────────────────────────────
+  Component               Examples  Success  Avg Time   Tokens   Warnings
+  ────────────────────────────────────────────────────────────────────────────
+  Number Input                  17     94%        0ms     221         9
+  Button                        16    100%        1ms     192        13
+  Pin Input                     14     93%        1ms     238         9
+  Icon Button                   10    100%        1ms     215         4
+  Heading                        8     75%        1ms     156         6
+  Flex                           8    100%        1ms     210        15
+  Box                            7    100%        1ms     163        14
+  Text                           6    100%        1ms     173         7
+  List                           6     83%        1ms     237         0
+  Fieldset                       4     75%        1ms     288         0
+  Code                           4    100%        2ms     231         3
+  Grid                           3    100%        2ms     241         4
+
+⚠️  WARNING ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+  Top 10 warning types:
+     1. [generation] Token count too low                    42 (40.8%)
+     2. [inference] Low section confidence                  29 (28.2%)
+     3. [inference] Low intent confidence                   13 (12.6%)
+
+════════════════════════════════════════════════════════════════════════════════
+📋 SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+  Key Metrics:
+    • Section Inference Accuracy:   86.6% ⚠️
+    • Intent Classification Accuracy: 86.6% ✅
+    • Optimal Token Count:          56.7% ⚠️
+    • Success Rate:                 94.2% ⚠️
+    • Avg Performance:              1ms ✅
+
+  Components Analyzed:      12
+  Total Examples:           103
+
+════════════════════════════════════════════════════════════════════════════════

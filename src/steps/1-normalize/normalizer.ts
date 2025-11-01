@@ -130,21 +130,19 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
     for (let i = 0; i < rawData.codeExamples.length; i++) {
       const example = rawData.codeExamples[i];
 
-      try {
-        const chunk = transformCodeExample(
-          example,
-          rawData.componentName,
-          rawData.sourceUrl
-        );
-        componentChunks.push(chunk);
-        successCount++;
-        totalExamples++;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.warn(`   ⚠️  Failed to transform example ${i + 1}: ${errorMessage}`);
-        totalErrors++;
-        // Continue processing other examples
-      }
+      // Transform with context (index + total for metrics tracking)
+      // Note: Transformer now handles all errors internally with fallback generation
+      const chunk = transformCodeExample(
+        example,
+        rawData.componentName,
+        rawData.sourceUrl,
+        i + 1,                          // Example index (1-based)
+        rawData.codeExamples.length     // Total examples for this component
+      );
+
+      componentChunks.push(chunk);
+      successCount++;
+      totalExamples++;
     }
 
     // Save this component's chunks to a separate file
