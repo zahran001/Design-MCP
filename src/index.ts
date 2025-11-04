@@ -2,6 +2,7 @@
 
 import { program } from "commander";
 import { ChakraDocsSpider } from "./steps/0-extract-docs/crawler.js";
+import { normalizeCodeExamples } from "./steps/1-normalize/normalizer.js";
 
 program
   .version("0.1.0")
@@ -37,6 +38,23 @@ program
       process.exit(1);
     } finally {
       await spider.close();
+    }
+  });
+
+program
+  .command("1-normalize [component]")
+  .description("Normalize code examples for one or all components")
+  .action(async (component?: string) => {
+    console.log();
+    try {
+      await normalizeCodeExamples(component);
+      console.log();
+      console.log("✅ Normalization completed successfully!");
+    } catch (error) {
+      console.error();
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("❌ Error during normalization:", errorMessage);
+      process.exit(1);
     }
   });
 

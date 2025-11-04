@@ -159,3 +159,46 @@ export function generateSequentialId(
 
   return `${component}-${typeAbbrev}-${paddedIndex}-v${version}`;
 }
+
+/**
+ * Generate chunk ID with collision handling
+ *
+ * If the generated ID already exists in the Set, appends a counter suffix
+ *
+ * @param componentName - Component name
+ * @param chunkType - Type of chunk
+ * @param descriptor - Semantic descriptor
+ * @param existingIds - Set of already used IDs
+ * @param version - Schema version (default: "1")
+ * @returns Unique chunk ID
+ *
+ * @example
+ * const ids = new Set(["button-example-size-variants-v1"]);
+ * generateUniqueChunkId("Button", "code-example", "size-variants", ids)
+ * // Returns: "button-example-size-variants-v1-2" (collision handled)
+ */
+export function generateUniqueChunkId(
+  componentName: string,
+  chunkType: ChunkType,
+  descriptor: string,
+  existingIds: Set<string>,
+  version: string = '1'
+): string {
+  const baseId = generateChunkId(componentName, chunkType, descriptor, version);
+
+  // No collision - return base ID
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+
+  // Collision detected - append counter
+  let counter = 2;
+  let uniqueId = `${baseId}-${counter}`;
+
+  while (existingIds.has(uniqueId)) {
+    counter++;
+    uniqueId = `${baseId}-${counter}`;
+  }
+
+  return uniqueId;
+}

@@ -39,15 +39,26 @@ Design-MCP is a specialized web scraping and data extraction pipeline that:
 The project follows a **step-based pipeline architecture**:
 
 ```
-Step 0: Extract Documentation
+✅ Step 0: Extract Documentation (COMPLETE)
 ├── Crawling (Playwright-based web automation)
 ├── Extraction (CSS selectors & DOM parsing)
 └── Storage (JSON artifacts)
 
-Future Steps:
-├── Step 1: Transform & Normalize
-├── Step 2: Chunk & Embed
-└── Step 3: Vector Store Integration
+✅ Step 1: Normalize & Transform (PARTIAL - CodeExampleChunk Complete)
+├── Code analysis & pattern detection
+├── Intent classification & section inference
+├── Natural language generation
+└── Normalized chunk output (387 chunks from 50 components)
+
+📋 Step 2: Embed & Vector Store (NEXT - POC MVP Target)
+├── Embedding generation
+├── Vector store integration
+└── Batch ingestion
+
+📋 Step 3: Search & Retrieval (PLANNED)
+├── Vector similarity search
+├── Metadata filtering
+└── Query interface
 ```
 
 ### Current Implementation Status
@@ -67,29 +78,33 @@ Future Steps:
 - ✅ Related components detection
 - ✅ Quality validation suite (smoke tests + sample viewer)
 
-**📊 Extraction Quality (60+ Chakra UI components):**
-- Schema validation: 100% (60/60 files)
-- Description coverage: 100% (60/60 components)
-- Code examples: 96% (58/60 components, 400+ total examples)
-- Props extraction: 38% (42/110 pages, 588 total props)
+**📊 Extraction Quality (49 Chakra UI components):**
+- Schema validation: 100% (49/49 files)
+- Description coverage: 100% (49/49 components)
+- Code examples: High coverage (400+ total examples)
+- Props extraction: 588 total props extracted
   - Avg 14.0 props per component (for components with props tables)
   - Pattern detection: Handles simple, composite, and no-props patterns
   - Dot notation for composite components (e.g., "Root.collection")
 - Avg 7.1 code examples per component (filtered from ~40 raw blocks)
 
-**🚧 Week 2 Phase 1 Complete - Schema Foundation:**
-- ✅ Advanced normalization schemas (7 specialized chunk types)
-- ✅ Dual content strategy (embedding-optimized + API reference)
-- ✅ Chunk ID generation utilities (stable, semantic IDs)
-- ✅ Token counting and size optimization
-- ✅ Type guards and validation helpers
-- 📋 Ready for: Inference engine, natural language generation, transformation pipeline
+**✅ Week 2 Phase 2A Complete - CodeExampleChunk Transformer:**
+- ✅ Advanced normalization schemas (7 chunk types defined)
+- ✅ **CodeExampleChunk transformer fully implemented** (1/7 chunk types)
+- ✅ Inference engine (code analyzer, section inferrer, intent classifier)
+- ✅ Natural language generation (template-based explanation generator)
+- ✅ Configuration system (categories, patterns, transformer config)
+- ✅ Error handling & fallback generation
+- ✅ Metrics tracking & logging (JSONL format)
+- ✅ **470 tests passing** across 15 test suites
+- ✅ **387 normalized chunks** created from 50 components
 
-**🎯 Next: Week 2 Phase 2:**
-- Inference engine (section detection, intent classification)
-- Natural language generation (code explanations)
-- Transformation pipeline (raw JSON → normalized chunks)
-- Vector store integration
+**🎯 Next: Week 2 Phase 2B - Vector DB POC (MVP):**
+- Embedding generation for CodeExampleChunk
+- Vector store integration (Qdrant)
+- Basic search implementation
+- POC validation with real queries
+- **After POC:** Decide which additional chunk types to implement based on retrieval results
 
 ## Project Structure
 
@@ -98,40 +113,54 @@ Design-MCP/
 ├── src/
 │   ├── index.ts                               # CLI entry point
 │   ├── schemas/
-│   │   ├── RAGResultSchema.ts                 # Week 1: Extraction schemas
-│   │   ├── NormalizedChunkSchema.ts           # Week 2: Normalization schemas (7 chunk types)
-│   │   └── testing/
-│   │       ├── test-schema.ts                 # Schema validation tests
-│   │       └── test-normalized-schema.ts      # Normalized chunk tests
+│   │   ├── RAGResultSchema.ts                 # Extraction schemas (Step 0)
+│   │   └── NormalizedChunkSchema.ts           # Normalization schemas (7 chunk types defined)
 │   ├── steps/
-│   │   └── 0-extract-docs/
-│   │       ├── crawler.ts                     # BFS web crawler
-│   │       ├── extractors.ts                  # DOM extraction logic
-│   │       ├── test-extraction/
-│   │       │   ├── smoke-test.ts              # Quality validation suite
-│   │       │   └── sample-viewer.ts           # Random sample inspector
-│   │       └── test-props/
-│   │           ├── test-props.ts              # Props extraction tests
-│   │           └── verify-props.ts            # Props verification
+│   │   ├── 0-extract-docs/                    # ✅ COMPLETE
+│   │   │   ├── crawler.ts                     # BFS web crawler
+│   │   │   ├── extractors.ts                  # DOM extraction logic
+│   │   │   └── test-extraction/               # Quality validation suite
+│   │   └── 1-normalize/                       # ✅ PARTIAL (CodeExampleChunk complete)
+│   │       ├── config/                        # Configuration system
+│   │       │   ├── categories.config.ts       # Component category mappings
+│   │       │   ├── patterns.config.ts         # Pattern detection rules
+│   │       │   └── transformer.config.ts      # Transformer behavior settings
+│   │       ├── inference/                     # Inference engine
+│   │       │   ├── codeAnalyzer.ts            # Extract imports, props, hooks
+│   │       │   ├── sectionInferrer.ts         # Detect semantic section titles
+│   │       │   ├── intentClassifier.ts        # Classify intent (6 types)
+│   │       │   └── patternMatchers.ts         # Pattern matching utilities
+│   │       ├── generators/                    # Content generation
+│   │       │   ├── templateDataExtractor.ts   # Extract data for templates
+│   │       │   └── explanationGenerator.ts    # Generate natural language
+│   │       ├── transformers/                  # Chunk transformers
+│   │       │   └── codeExampleTransformer.ts  # ✅ CodeExampleChunk (complete)
+│   │       ├── utils/                         # Error handling & metrics
+│   │       │   ├── fallbackChunks.ts          # Graceful degradation
+│   │       │   ├── transformerErrors.ts       # Custom error types
+│   │       │   ├── transformationContext.ts   # Metrics tracking
+│   │       │   └── transformationMetrics.ts   # JSONL logging
+│   │       └── normalizer.ts                  # Main orchestrator
 │   └── utils/
 │       ├── textProcessor.ts                   # Text chunking & normalization
-│       └── chunkId.ts                         # Stable chunk ID generation
+│       ├── chunkId.ts                         # Stable chunk ID generation
+│       └── tokenEstimator.ts                  # Token counting
 ├── artifacts/
-│   └── raw-json/                              # Extracted component data (60+ components)
-├── stores/                                     # Future: vector store data
-├── docs/
-│   └── week1/
-│       ├── documentation/                      # Week 1 implementation docs
-│       └── testing/                           # Quality evaluation guides
+│   ├── raw-json/                              # ✅ 49 extracted component files
+│   ├── normalized/                            # ✅ 50 normalized files (387 chunks)
+│   ├── metrics/                               # ✅ Transformation metrics (JSONL)
+│   └── logs/                                  # ✅ Error logs
+├── docs/                                       # 📂 ARCHIVED (historical documentation)
+│   ├── week1/                                 # Week 1 implementation docs
+│   └── week2/                                 # Week 2 phase docs (archived)
 ├── scripts/                                    # Build & utility scripts
 ├── .env.example                               # Environment configuration template
 ├── Dockerfile                                 # Multi-stage Docker build
 ├── package.json                               # Dependencies & scripts
 ├── tsconfig.json                              # TypeScript configuration
 ├── CLAUDE.md                                  # Project quick facts & contribution guide
-├── NORMALIZATION_GUIDE.md                     # Week 2: Advanced normalization strategy
-├── WEEK2_IMPLEMENTATION.md                    # Week 2: Implementation timeline
-└── W2_PHASE1_SETUP_COMPLETE.md                # Week 2 Phase 1: Setup status
+├── NORMALIZATION_TECHNICAL_GUIDE.md           # Technical implementation details
+└── NORMALIZATION_USAGE_GUIDE.md               # Usage, design decisions, testing
 ```
 
 ## Installation
@@ -204,11 +233,15 @@ CRAWL_DELAY=1000
 # Build TypeScript
 npm run build
 
-# Extract documentation (Step 0) - uses settings from .env
+# Step 0: Extract documentation - uses settings from .env
 npm run cli -- 0-extract-docs
 
 # With CLI options (override .env settings)
 npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/overview -m 50
+
+# Step 1: Normalize code examples (creates semantic chunks)
+npm run cli -- 1-normalize                    # Process all components
+npm run cli -- 1-normalize Button             # Process single component
 
 # Development mode (no build required)
 npm run dev
@@ -224,8 +257,27 @@ Options:
 
 Example:
 ```bash
-npm run cli 0-extract-docs -- --start-url https://chakra-ui.com/docs/components/concepts/overview --max-pages 25
+npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/overview -m 50
 ```
+
+**`1-normalize [component]`** - Transform raw JSON into normalized chunks
+
+Transforms code examples from `artifacts/raw-json/` into semantic chunks with:
+- Intent classification (sizing, variants, states, composition, etc.)
+- Natural language explanations
+- Structured metadata for vector search
+
+Example:
+```bash
+npm run cli -- 1-normalize Button             # Single component
+npm run cli -- 1-normalize                    # All components
+```
+
+Output: `artifacts/normalized/{ComponentName}.json` (one file per component)
+
+**Future commands** (not yet implemented):
+- `2-embed [component]` - Generate embeddings for vector search
+- `3-search "query"` - Search normalized chunks
 
 ### Quality Evaluation Commands
 
@@ -331,31 +383,36 @@ Example output structure:
 
 **📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
 
-### 🚧 Week 2: Knowledge Base & Advanced Retrieval (IN PROGRESS)
+### ✅ Week 2 Phase 2A Complete: CodeExampleChunk Normalization
 
-**Phase 2A: Data Normalization & Preparation (Days 8-14)** - ✅ Day 1 Complete
-- [x] **Day 1:** Advanced chunk schema definition (7 types)
-- [x] **Day 1:** Chunk ID generation utilities
-- [x] **Day 1:** Schema validation and testing
-- [ ] **Days 2-3:** Inference engine (section detection, intent classification)
-- [ ] **Days 4-5:** Natural language generation (code explanations)
-- [ ] **Days 6-7:** Transformation pipeline (raw JSON → normalized chunks)
+**Phase 2A: CodeExampleChunk Transformer (Complete)**
+- [x] Advanced chunk schema definition (7 types defined, 1 implemented)
+- [x] Chunk ID generation utilities
+- [x] Inference engine (code analyzer, section inferrer, intent classifier)
+- [x] Natural language generation (template-based)
+- [x] Transformation pipeline (raw JSON → CodeExampleChunk)
+- [x] Configuration system (categories, patterns, behavior)
+- [x] Error handling & fallback generation
+- [x] Metrics tracking & JSONL logging
+- [x] **470 tests passing** across 15 test suites
+- [x] **387 normalized chunks** from 50 components
 
-**Phase 2B: Vector Store Setup (Days 15-17)**
-- [ ] Local embedding generation (Sentence-BERT)
-- [ ] Vector store integration (Chroma/Qdrant)
-- [ ] Bulk import pipeline
-- [ ] Validation and quality checks
+**📋 Phase 2B: Vector DB POC (NEXT - MVP Target)**
+- [ ] Embedding generation for CodeExampleChunk
+- [ ] Vector store integration (Qdrant)
+- [ ] Basic vector search implementation
+- [ ] Query interface (CLI)
+- [ ] POC validation with real queries
 
-**Phase 2C: Retrieval & Re-ranking (Days 18-19)**
-- [ ] Vector similarity search
-- [ ] LLM re-ranking integration
-- [ ] CLI search command
-- [ ] Evaluation metrics
+**🔮 Future (Post-POC):**
+- [ ] Evaluate retrieval quality
+- [ ] Decide which additional chunk types to implement
+- [ ] Extend normalization to selected chunk types
+- [ ] LLM re-ranking (if needed)
 
-**📋 Current Focus:** Inference Engine Implementation
-**📖 Detailed Plan:** See [WEEK2_IMPLEMENTATION.md](WEEK2_IMPLEMENTATION.md)
-**🎯 Strategy Guide:** See [NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md)
+**📖 Technical Documentation:**
+- [NORMALIZATION_TECHNICAL_GUIDE.md](NORMALIZATION_TECHNICAL_GUIDE.md) - Implementation deep-dive
+- [NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md) - Usage & design decisions
 
 ### Week 3+: Advanced Features (PLANNED)
 - [ ] Two-stage retrieval optimization
@@ -400,16 +457,28 @@ Example output structure:
 - Formatted output for human inspection
 - Quality verification workflow
 
+**Normalization Pipeline** ([src/steps/1-normalize/](src/steps/1-normalize/))
+- **Transformer**: CodeExampleChunk fully implemented (1/7 chunk types)
+- **Inference Engine**: Code analyzer, section inferrer, intent classifier
+- **Content Generation**: Template-based explanation generator
+- **Configuration**: External JSON configs for categories, patterns, behavior
+- **Error Handling**: Graceful fallbacks, detailed logging
+- **Metrics**: JSONL-based transformation tracking
+
 **Normalization Schemas** ([src/schemas/NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts))
-- 7 specialized chunk types for semantic search
+- 7 specialized chunk types defined (CodeExampleChunk implemented)
 - Dual content strategy (embedding-optimized + API reference)
-- Type inference and natural language generation support
-- Token counting and size optimization
+- Type-safe with Zod validation
 
 **Chunk ID Generation** ([src/utils/chunkId.ts](src/utils/chunkId.ts))
 - Stable, semantic ID generation
 - Versioning support
 - Sequential fallback for non-semantic cases
+
+**Quality Assurance**
+- 470 passing tests across 15 test suites
+- Configuration-driven pattern matching
+- Fallback generation for error recovery
 
 ### Design Patterns
 - **Step-based Pipeline:** Modular architecture for extensibility
@@ -498,23 +567,21 @@ Use extracted specs to train or prompt LLMs for generating:
 3. **Review samples:** `npm run quality:samples`
 4. **Adjust configuration** in `.env` if targeting different docs
 
-### If continuing from Week 1:
-- ✅ **Week 1 is complete!** (Core extraction pipeline)
-- 📂 **Your data:** 60+ components extracted in [artifacts/raw-json/](artifacts/raw-json/)
-- ✅ **Week 2 Phase 1 is complete!** (Schema foundation)
-- 🚧 **Currently working on:** Inference engine for metadata extraction
-- 🎯 **Next phase:** Natural language generation and transformation pipeline
+### If continuing from Week 2 Phase 2A:
+- ✅ **Step 0: Extraction is complete!** (49 components in [artifacts/raw-json/](artifacts/raw-json/))
+- ✅ **Step 1: Normalization is complete!** (CodeExampleChunk transformer - 387 chunks created)
+- 📋 **Next: Step 2 - Vector DB POC** (Embedding + search with CodeExampleChunk)
+- 🎯 **Goal:** Validate retrieval quality before building more chunk types
 
 ### Key Documentation:
-- **[CLAUDE.md](CLAUDE.md)** - Project quick facts, commands, and contribution guide (for LLM assistance)
-- **[WEEK2_IMPLEMENTATION.md](WEEK2_IMPLEMENTATION.md)** - Week 2 implementation timeline
-- **[NORMALIZATION_GUIDE.md](NORMALIZATION_GUIDE.md)** - Advanced normalization strategy
-- **[W2_PHASE1_SETUP_COMPLETE.md](W2_PHASE1_SETUP_COMPLETE.md)** - Phase 1 completion status
-- **[docs/week1/documentation/](docs/week1/)** - Week 1 implementation docs
+- **[CLAUDE.md](CLAUDE.md)** - Project quick facts & contribution guide
+- **[NORMALIZATION_TECHNICAL_GUIDE.md](NORMALIZATION_TECHNICAL_GUIDE.md)** - Technical implementation details
+- **[NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md)** - Usage, design decisions, testing
 - **[.env.example](.env.example)** - Configuration reference
+- **[docs/](docs/)** - Archived historical documentation
 
 ---
 
-**Status:** ✅ **Week 1 Complete** | 🚧 **Week 2 Phase 1 Complete** | 📋 **Next: Inference Engine**
+**Status:** ✅ **Step 0 Complete** | ✅ **Step 1 Partial (1/7 chunk types)** | 📋 **Next: Step 2 POC (Embedding + Search)**
 
 For questions, issues, or feature requests, please open an issue on GitHub.
