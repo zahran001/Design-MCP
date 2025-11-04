@@ -1,8 +1,18 @@
 # Week 2 Normalization - Technical Deep-Dive
 
-**Phase:** Week 2 - Normalization (POC Phase 1 Complete)
-**Status:** ✅ CodeExampleChunk Pipeline Implemented
-**Last Updated:** 2025-10-23
+**Phase:** Week 2 Phase 2A - CodeExampleChunk Normalization
+**Status:** ✅ COMPLETE - Production-Ready Transformer
+**Last Updated:** 2025-11-04
+
+**Implementation Status:**
+- ✅ **CodeExampleChunk**: Fully implemented (1/7 chunk types)
+- ❌ ComponentOverviewChunk, CapabilityReferenceChunk, PropReferenceChunk: Not started
+- ❌ PropGroupChunk, CompositionPatternChunk, APIReferenceChunk: Not started
+
+**Quality Metrics:**
+- 470 tests passing across 15 test suites
+- 387 normalized chunks from 50 components
+- Configuration-driven architecture (categories, patterns, behavior)
 
 ---
 
@@ -11,9 +21,9 @@
 The normalization pipeline transforms raw extracted JSON (Week 1) into semantically rich, embedding-optimized chunks for vector search. This guide provides technical implementation details for the **CodeExampleChunk** transformation pipeline.
 
 **Key Innovation:** Adds an **intelligence layer** on top of raw data through:
-- Inference (section titles, intents)
-- Classification (categories, complexity)
-- Natural language generation (explanations, key points)
+- Inference (section titles, intents via pattern matching)
+- Classification (6 intent types, 10 component categories)
+- Natural language generation (template-based explanations, key points)
 
 ---
 
@@ -43,24 +53,41 @@ Raw JSON (artifacts/raw-json/*.json)
          ↓
     Aggregate all chunks
          ↓
-Output: artifacts/normalized/all-code-examples.json
+Output: artifacts/normalized/{ComponentName}.json (one file per component)
 ```
+
+**Note:** Output changed from single aggregated file to per-component files for easier inspection and incremental processing.
 
 ### Module Organization
 
 ```
 src/steps/1-normalize/
+├── config/                          # 📋 Configuration system
+│   ├── categories.config.ts         # Component category mappings (JSON-based)
+│   ├── patterns.config.ts           # Pattern detection rules (externalized)
+│   └── transformer.config.ts        # Behavior settings (thresholds, logging)
+│
 ├── transformers/
-│   └── codeExampleTransformer.ts    # Transform ONE example → ONE chunk
+│   └── codeExampleTransformer.ts    # ✅ Transform ONE example → ONE chunk
 │
 ├── generators/
-│   ├── templateDataExtractor.ts     # Extract template data
-│   └── explanationGenerator.ts      # Generate natural language
+│   ├── templateDataExtractor.ts     # Extract data for templates
+│   └── explanationGenerator.ts      # Generate natural language (6 templates)
 │
 ├── inference/
 │   ├── codeAnalyzer.ts              # Analyze code structure
-│   ├── sectionInferrer.ts           # Infer section titles
-│   └── intentClassifier.ts          # Classify intent
+│   ├── sectionInferrer.ts           # Infer section titles (12 patterns)
+│   ├── intentClassifier.ts          # Classify intent (6 types)
+│   └── patternMatchers.ts           # Reusable pattern matching utilities
+│
+├── utils/                           # Error handling & metrics
+│   ├── fallbackChunks.ts            # Graceful degradation
+│   ├── transformerErrors.ts         # Custom error types
+│   ├── transformationContext.ts     # Metrics tracking
+│   └── transformationMetrics.ts     # JSONL logging
+│
+├── schemas/
+│   └── RawCodeExampleSchema.ts      # Input validation (Zod)
 │
 └── normalizer.ts                    # Main orchestrator
 ```
@@ -820,12 +847,36 @@ function extractSizingData(analysis: CodeAnalysis, componentName: string): Sizin
 
 ## Version History
 
+- **v2.0.0** (2025-11-04) - Week 2 Phase 2A Complete
+  - CodeExampleChunk transformation pipeline production-ready
+  - Configuration system implemented (categories, patterns, transformer config)
+  - Error handling & fallback generation
+  - Metrics tracking & JSONL logging
+  - **470 tests passing** across 15 test suites
+  - Successfully processed **50 components** (387 normalized chunks)
+  - Per-component output files for easier inspection
+
 - **v1.0.0** (2025-10-23) - POC Phase 1 Complete
-  - CodeExampleChunk transformation pipeline implemented
-  - 88/88 tests passing
+  - Initial CodeExampleChunk transformation pipeline
+  - 88 tests passing
   - Successfully processed Button component (16 examples)
   - 75% semantic sections, 75% specific intents
 
 ---
 
-**Next:** See [NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md) for usage, design decisions, and testing guide.
+## Next Steps
+
+**Immediate:** Vector DB POC (Step 2)
+- Embedding generation for CodeExampleChunk
+- Qdrant vector store integration
+- Basic search implementation
+- Validate retrieval quality
+
+**After POC:** Expand based on retrieval results
+- Evaluate which chunk types are needed
+- Implement prioritized transformers
+- Extend normalization pipeline
+
+**Documentation:**
+- See [NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md) for usage & testing
+- See [README.md](README.md) for project overview & CLI commands
