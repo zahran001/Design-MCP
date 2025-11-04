@@ -77,7 +77,9 @@ describe('createMinimalChunk', () => {
     const chunk = createMinimalChunk('Button', 'https://example.com', 'empty-code');
 
     expect(chunk.metadata.chunkId).toContain('button');
-    expect(chunk.metadata.chunkId).toContain('code-example');
+    // Chunk type 'code-example' is abbreviated to 'example' in chunk IDs
+    expect(chunk.metadata.chunkId).toContain('example');
+    expect(chunk.metadata.chunkId).toContain('fallback');
   });
 
   it('should infer correct category for different components', () => {

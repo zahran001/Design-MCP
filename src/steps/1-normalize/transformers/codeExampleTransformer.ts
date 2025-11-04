@@ -21,9 +21,11 @@ import { estimateChunkTokens } from '../../../utils/tokenEstimator.js';
 import { getCategoryFromComponent } from '../config/categories.config.js';
 import { validateRawCodeExample, formatValidationErrors } from '../schemas/RawCodeExampleSchema.js';
 import { createAppropriateFallback } from '../utils/fallbackChunks.js';
-import { createContext, addWarning, addPatternMatch, recordMetric, recordConfidence } from '../utils/transformationContext.js';
+import { createContext, addWarning, addPatternMatch, recordMetric, recordConfidence, type TransformationMetrics, type TransformationWarning } from '../utils/transformationContext.js';
 import { logSuccess, logFailure } from '../utils/transformationMetrics.js';
+import { TransformationError } from '../utils/transformerErrors.js';
 import type { CodeExampleChunk, ComponentCategory, ImportStatement, PropUsage } from '../../../schemas/NormalizedChunkSchema.js';
+import type { TRANSFORMER_CONFIG } from '../config/transformer.config.js';
 
 /**
  * Raw code example from extracted JSON
@@ -34,6 +36,118 @@ export interface RawCodeExample {
   complexity?: string;
   section?: string;
 }
+
+// =============================================================================
+// Stage 4: Transformer API Types
+// =============================================================================
+
+/**
+ * Configuration options for transformer (partial override)
+ */
+export type TransformerConfig = typeof TRANSFORMER_CONFIG;
+
+/**
+ * Options for code example transformation
+ *
+ * This is the new API signature for transformCodeExample().
+ * Provides a structured, extensible interface for transformation.
+ *
+ * @example
+ * ```typescript
+ * const result = transformCodeExample({
+ *   rawExample: { code: "<Button>...</Button>" },
+ *   componentName: "Button",
+ *   sourceUrl: "https://chakra-ui.com/docs/components/button",
+ *   context: { exampleIndex: 1, totalExamples: 16 }
+ * });
+ * ```
+ */
+export interface TransformerOptions {
+  /** Raw code example to transform */
+  rawExample: RawCodeExample;
+
+  /** Component name (e.g., "Button") */
+  componentName: string;
+
+  /** Source documentation URL */
+  sourceUrl: string;
+
+  /** Optional context for tracking/metrics */
+  context?: {
+    /** 1-based index of this example */
+    exampleIndex?: number;
+    /** Total number of examples for this component */
+    totalExamples?: number;
+  };
+
+  /** Optional configuration overrides (future use) */
+  config?: Partial<TransformerConfig>;
+}
+
+/**
+ * Successful transformation result
+ *
+ * Returned when transformation completes successfully.
+ * Includes the generated chunk, metrics, and any warnings.
+ */
+export interface TransformationSuccess {
+  /** Result status */
+  status: 'success';
+
+  /** Generated code example chunk */
+  chunk: CodeExampleChunk;
+
+  /** Collected metrics during transformation */
+  metrics: TransformationMetrics;
+
+  /** Warnings collected during transformation */
+  warnings: TransformationWarning[];
+}
+
+/**
+ * Failed transformation result
+ *
+ * Returned when transformation fails (validation, analysis, etc.).
+ * Includes the error, optional fallback chunk, and partial metrics.
+ */
+export interface TransformationFailure {
+  /** Result status */
+  status: 'failure';
+
+  /** Error that caused the failure */
+  error: TransformationError | Error;
+
+  /** Optional fallback chunk (generated on best-effort basis) */
+  fallbackChunk?: CodeExampleChunk;
+
+  /** Partial metrics collected before failure */
+  metrics: Partial<TransformationMetrics>;
+
+  /** Warnings collected before failure */
+  warnings: TransformationWarning[];
+}
+
+/**
+ * Transformation result (success or failure)
+ *
+ * Discriminated union type for explicit success/failure handling.
+ *
+ * @example
+ * ```typescript
+ * const result = transformCodeExample(options);
+ *
+ * if (result.status === 'success') {
+ *   console.log('Success!', result.chunk);
+ *   console.log('Metrics:', result.metrics);
+ * } else {
+ *   console.error('Failed:', result.error);
+ *   if (result.fallbackChunk) {
+ *     console.log('Using fallback chunk');
+ *   }
+ * }
+ * ```
+ */
+export type TransformationResult = TransformationSuccess | TransformationFailure;
 
 /**
  * Convert EnhancedImport to schema-expected ImportStatement format
@@ -80,6 +194,8 @@ function convertToSchemaProps(props: import('../inference/codeAnalyzer.js').Prop
 /**
  * Transform a raw code example into a normalized CodeExampleChunk
  *
+ * **NEW API (Stage 4)**: Now uses options object and returns explicit success/failure results.
+ *
  * Orchestrates the complete transformation pipeline:
  * 1. Input validation (with fallback generation on failure)
  * 2. Code analysis (extract imports, components, props, hooks)
@@ -89,29 +205,37 @@ function convertToSchemaProps(props: import('../inference/codeAnalyzer.js').Prop
  * 6. Chunk assembly (metadata + content + codeMetadata)
  * 7. Metrics logging (timing, confidence, patterns, warnings)
  *
- * @param rawExample - Raw code example from extracted JSON
- * @param componentName - Component name (e.g., "Button")
- * @param sourceUrl - Source documentation URL
- * @param exampleIndex - Optional 1-based index of this example (for context tracking)
- * @param totalExamples - Optional total number of examples (for context tracking)
- * @returns Complete normalized CodeExampleChunk
+ * @param options - Transformation options
+ * @returns TransformationResult with explicit success/failure status
  *
  * @example
- * const chunk = transformCodeExample(
- *   { code: "<Button size='xs'>...</Button>", complexity: "intermediate" },
- *   "Button",
- *   "https://chakra-ui.com/docs/components/button",
- *   1,
- *   16
- * );
+ * ```typescript
+ * // New API (recommended)
+ * const result = transformCodeExample({
+ *   rawExample: { code: "<Button size='xs'>...</Button>", complexity: "intermediate" },
+ *   componentName: "Button",
+ *   sourceUrl: "https://chakra-ui.com/docs/components/button",
+ *   context: { exampleIndex: 1, totalExamples: 16 }
+ * });
+ *
+ * if (result.status === 'success') {
+ *   console.log('Chunk:', result.chunk);
+ *   console.log('Metrics:', result.metrics);
+ * } else {
+ *   console.error('Error:', result.error);
+ *   if (result.fallbackChunk) {
+ *     console.log('Using fallback');
+ *   }
+ * }
+ * ```
  */
 export function transformCodeExample(
-  rawExample: RawCodeExample,
-  componentName: string,
-  sourceUrl: string,
-  exampleIndex?: number,
-  totalExamples?: number
-): CodeExampleChunk {
+  options: TransformerOptions
+): TransformationResult {
+  // Destructure options
+  const { rawExample, componentName, sourceUrl, context, config } = options;
+  const exampleIndex = context?.exampleIndex;
+  const totalExamples = context?.totalExamples;
   // Create transformation context for metrics tracking
   const ctx = createContext(componentName, exampleIndex, totalExamples);
 
@@ -129,16 +253,28 @@ export function transformCodeExample(
       // Log validation failure
       console.warn(`   ⚠️  Validation failed for ${componentName}: ${errorMsg}`);
 
-      // Log failure and return fallback chunk
-      const fallbackError = new Error(errorMsg);
-      logFailure(ctx, fallbackError);
+      // Create validation error
+      const validationError = new TransformationError(errorMsg, 'validation');
 
-      return createAppropriateFallback(
+      // Log failure
+      logFailure(ctx, validationError);
+
+      // Generate fallback chunk
+      const fallbackChunk = createAppropriateFallback(
         rawExample,
         componentName,
         sourceUrl,
-        fallbackError
+        validationError
       );
+
+      // Return failure result
+      return {
+        status: 'failure',
+        error: validationError,
+        fallbackChunk,
+        metrics: ctx.metrics,
+        warnings: ctx.warnings
+      };
     }
 
     // Use validated data
@@ -293,24 +429,114 @@ export function transformCodeExample(
     // Log successful transformation
     logSuccess(ctx);
 
-    return chunk;
+    // Return success result
+    return {
+      status: 'success',
+      chunk,
+      metrics: ctx.metrics,
+      warnings: ctx.warnings
+    };
 
   } catch (error) {
     // Handle unexpected errors during transformation
     const err = error instanceof Error ? error : new Error(String(error));
-    const enhancedError = Object.assign(err, { phase: 'transformation' });
+
+    // Convert to TransformationError if not already
+    const transformationError = err instanceof TransformationError
+      ? err
+      : new TransformationError(err.message, 'assembly', err);
 
     // Log failure with metrics
-    logFailure(ctx, enhancedError);
+    logFailure(ctx, transformationError);
 
-    // Generate and return fallback chunk
+    // Generate fallback chunk
     const fallbackChunk = createAppropriateFallback(
       rawExample,
       componentName,
       sourceUrl,
-      enhancedError
+      transformationError
     );
 
-    return fallbackChunk;
+    // Return failure result
+    return {
+      status: 'failure',
+      error: transformationError,
+      fallbackChunk,
+      metrics: ctx.metrics,
+      warnings: ctx.warnings
+    };
+  }
+}
+
+// =============================================================================
+// Stage 4: Backward Compatibility
+// =============================================================================
+
+/**
+ * Transform a raw code example (legacy API)
+ *
+ * **DEPRECATED**: This function is provided for backward compatibility only.
+ * Use `transformCodeExample` with options object instead.
+ *
+ * This wrapper maintains the old positional parameter API while internally
+ * using the new options-based API. It returns only the chunk (or fallback chunk)
+ * without exposing metrics or warnings.
+ *
+ * @deprecated Use transformCodeExample with options object instead
+ * @param rawExample - Raw code example from extracted JSON
+ * @param componentName - Component name (e.g., "Button")
+ * @param sourceUrl - Source documentation URL
+ * @param exampleIndex - Optional 1-based index of this example
+ * @param totalExamples - Optional total number of examples
+ * @returns CodeExampleChunk (or fallback chunk on failure)
+ *
+ * @example
+ * ```typescript
+ * // Old API (deprecated)
+ * const chunk = transformCodeExampleLegacy(
+ *   { code: "<Button>...</Button>" },
+ *   "Button",
+ *   "https://chakra-ui.com/docs/components/button",
+ *   1,
+ *   16
+ * );
+ *
+ * // New API (recommended)
+ * const result = transformCodeExample({
+ *   rawExample: { code: "<Button>...</Button>" },
+ *   componentName: "Button",
+ *   sourceUrl: "https://chakra-ui.com/docs/components/button",
+ *   context: { exampleIndex: 1, totalExamples: 16 }
+ * });
+ * const chunk = result.status === 'success' ? result.chunk : result.fallbackChunk!;
+ * ```
+ */
+export function transformCodeExampleLegacy(
+  rawExample: RawCodeExample,
+  componentName: string,
+  sourceUrl: string,
+  exampleIndex?: number,
+  totalExamples?: number
+): CodeExampleChunk {
+  // Call new API with options object
+  const result = transformCodeExample({
+    rawExample,
+    componentName,
+    sourceUrl,
+    context: { exampleIndex, totalExamples }
+  });
+
+  // Return chunk regardless of success/failure (backward compatible behavior)
+  if (result.status === 'success') {
+    return result.chunk;
+  } else {
+    // Return fallback chunk if available, otherwise throw
+    if (result.fallbackChunk) {
+      return result.fallbackChunk;
+    } else {
+      // This should never happen (fallback generation should always succeed),
+      // but throw error if it does
+      throw result.error;
+    }
   }
 }

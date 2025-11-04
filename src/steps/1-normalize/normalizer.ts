@@ -130,15 +130,20 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
     for (let i = 0; i < rawData.codeExamples.length; i++) {
       const example = rawData.codeExamples[i];
 
-      // Transform with context (index + total for metrics tracking)
-      // Note: Transformer now handles all errors internally with fallback generation
-      const chunk = transformCodeExample(
-        example,
-        rawData.componentName,
-        rawData.sourceUrl,
-        i + 1,                          // Example index (1-based)
-        rawData.codeExamples.length     // Total examples for this component
-      );
+      // Transform with new options-based API (Stage 4)
+      // Note: Transformer handles all errors internally with fallback generation
+      const result = transformCodeExample({
+        rawExample: example,
+        componentName: rawData.componentName,
+        sourceUrl: rawData.sourceUrl,
+        context: {
+          exampleIndex: i + 1,                      // 1-based index
+          totalExamples: rawData.codeExamples.length
+        }
+      });
+
+      // Extract chunk from result (success or fallback)
+      const chunk = result.status === 'success' ? result.chunk : result.fallbackChunk!;
 
       componentChunks.push(chunk);
       successCount++;
