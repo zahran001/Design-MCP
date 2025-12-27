@@ -1,0 +1,70 @@
+import { QdrantClient } from '@qdrant/js-client-rest';
+
+// Define the structure of a "Point" (a single record) in our vector DB
+export interface VectorPoint {
+  id: number | string;            // Unique ID for the record (can be int or UUID string)
+  vector: number[];               // The actual embedding (array of 1536 floats from OpenAI)
+  payload: Record<string, unknown>; // Metadata (the actual code, component name, etc.)
+}
+
+export class VectorStoreService {
+  private client: QdrantClient;
+
+  constructor() {
+    const url = process.env.QDRANT_URL || 'http://localhost:6333';
+    this.client = new QdrantClient({ url });
+  }
+
+  async createCollection(name: string, vectorSize: number): Promise<void> {
+    try {
+      // Try to create the collection
+      await this.client.createCollection(name, {
+        vectors: {
+          size: vectorSize,
+          distance: 'Cosine',
+        },
+      });
+      console.log(`✅ Collection "${name}" created`);
+    } catch (error: any) {
+      // If it already exists (409 Conflict), that's fine
+      if (error?.status === 409 && error?.data?.status?.error?.includes('already exists')) {
+        console.log(`✅ Collection "${name}" already exists`);
+        return;
+      }
+      // Otherwise, it's a real error
+      console.error('Collection creation failed:', error);
+      throw error;
+    }
+  }
+
+  // Ingestion Method (Used by embedder.ts)
+  // "Upsert" = Update if ID exists, Insert if it doesn't
+  async upsertPoints(collectionName: string, points: VectorPoint[]): Promise<void> {
+    await this.client.upsert(collectionName, {
+      points: points.map(p => ({
+        id: p.id,
+        vector: p.vector,
+        payload: p.payload, // This stores your JSON content right inside Qdrant
+      })),
+    });
+  }
+
+  // Search Method (Used by retriever.ts CLI)
+  async search(
+    collectionName: string,
+    queryVector: number[], // The embedding of the USER'S query
+    limit: number = 5
+  ): Promise<Array<{ id: string | number; score: number; payload: Record<string, unknown> }>> {
+    // Ask Qdrant for the nearest neighbors to our query vector
+    const results = await this.client.search(collectionName, {
+      vector: queryVector,
+      limit,
+    });
+    // Map the raw Qdrant result back to a clean object
+    return results.map((r: any) => ({
+      id: r.id,
+      score: r.score, // 0.0 to 1.0 (higher is better match)
+      payload: r.payload, // The original code snippet/metadata
+    }));
+  }
+}
