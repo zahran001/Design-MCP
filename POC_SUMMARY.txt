@@ -1,0 +1,183 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   VECTOR DB POC - MUST-HAVE ITEMS ONLY                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 DOCUMENT ROADMAP
+──────────────────────────────────────────────────────────────────────────────
+
+1. POC_START_HERE.md           ← START HERE! Step-by-step instructions
+2. POC_MUST_HAVES.md           ← Minimal code for each step
+3. VECTOR_DB_POC_GUIDE.md      ← Full reference (after POC if needed)
+
+══════════════════════════════════════════════════════════════════════════════
+
+⏱️  TIMELINE: 3-4 DAYS
+──────────────────────────────────────────────────────────────────────────────
+
+Day 1 (4 hours)
+  ✓ Docker + dependencies      (15 min)
+  ✓ EmbeddingService.ts        (45 min)
+  ✓ VectorStoreService.ts      (45 min)
+  ✓ Test both services         (1 hour)
+
+Day 2 (4 hours)
+  ✓ embedder.ts pipeline       (1 hour)
+  ✓ Run embedder               (2-3 hours, mostly waiting)
+  ✓ Verify Qdrant populated    (30 min)
+
+Day 3 (2-3 hours)
+  ✓ RetrievalService.ts        (30 min)
+  ✓ retriever.ts CLI           (30 min)
+  ✓ Test 5 queries manually    (1 hour)
+
+Day 4 (Optional - 1-2 hours)
+  ✓ Run 10-20 more tests
+  ✓ Calculate P@1, P@3
+  ✓ Write 1-page findings
+
+══════════════════════════════════════════════════════════════════════════════
+
+🛠️  WHAT YOU'RE BUILDING
+──────────────────────────────────────────────────────────────────────────────
+
+Input:   387 normalized code chunks (artifacts/normalized/*.json)
+         ↓
+Process: Embed with OpenAI (text-embedding-3-small)
+         ↓
+Store:   Qdrant vector database (Docker)
+         ↓
+Output:  Search CLI that finds relevant examples by semantic similarity
+
+══════════════════════════════════════════════════════════════════════════════
+
+✅ SUCCESS CRITERIA
+──────────────────────────────────────────────────────────────────────────────
+
+□ Docker running               curl http://localhost:6333/health → 200
+□ 387 chunks embedded          Qdrant collection populated
+□ Search working               Returns 5 results per query
+□ Results relevant             Top result relevant for 4/5 test queries
+□ Fast enough                  Latency < 1 second
+
+══════════════════════════════════════════════════════════════════════════════
+
+📦 FILES TO CREATE (7 total, ~280 lines)
+──────────────────────────────────────────────────────────────────────────────
+
+1. docker-compose.yml                    30 lines    (Docker setup)
+2. src/services/EmbeddingService.ts      40 lines    (OpenAI wrapper)
+3. src/services/VectorStoreService.ts    60 lines    (Qdrant client)
+4. src/services/RetrievalService.ts      30 lines    (Search logic)
+5. src/steps/2-embed/embedder.ts         80 lines    (Load + embed + store)
+6. src/steps/3-search/retriever.ts       40 lines    (CLI search)
+7. .env                                  (copy from .env.example)
+
+══════════════════════════════════════════════════════════════════════════════
+
+🚫 SCOPE CREEP - DON'T DO THESE
+──────────────────────────────────────────────────────────────────────────────
+
+❌ Pretty printing / colors
+❌ Interactive mode (just single query)
+❌ Metadata filtering
+❌ Retry logic / error recovery
+❌ Batch optimization
+❌ Cost tracking
+❌ Token counting
+❌ Formal test suite
+❌ Progress bars / spinners
+❌ JSON export
+❌ Configuration options
+
+Just make it work. Fancy stuff comes later.
+
+══════════════════════════════════════════════════════════════════════════════
+
+🧪 MINIMAL TESTING
+──────────────────────────────────────────────────────────────────────────────
+
+Run these 5 queries manually:
+
+  node dist/steps/3-search/retriever.js "How do I size a button?"
+  node dist/steps/3-search/retriever.js "button variants"
+  node dist/steps/3-search/retriever.js "loading state"
+  node dist/steps/3-search/retriever.js "button with icons"
+  node dist/steps/3-search/retriever.js "button color"
+
+Record for each:
+  - Is top result relevant? (Yes/No)
+  - Score > 0.80? (Yes/No)
+
+If 4/5 pass → POC SUCCESS ✅
+
+══════════════════════════════════════════════════════════════════════════════
+
+📊 AFTER POC SUCCESS
+──────────────────────────────────────────────────────────────────────────────
+
+Option A: Build 6 more chunk transformers
+  - ComponentOverviewChunk
+  - CapabilityReferenceChunk
+  - PropReferenceChunk
+  - PropGroupChunk
+  - CompositionPatternChunk
+  - APIReferenceChunk
+
+Option B: Fix issues (if POC didn't work as expected)
+  - Analyze failure patterns
+  - Enhance CodeExampleChunk
+  - Iterate and retry
+
+Option C: Start generation pipeline (if retrieval is excellent)
+  - Planner service (query → spec)
+  - Generator service (spec → code)
+  - Validator service (static analysis)
+
+══════════════════════════════════════════════════════════════════════════════
+
+🔑 KEY DECISIONS ALREADY MADE
+──────────────────────────────────────────────────────────────────────────────
+
+✅ Vector Store: Qdrant (Docker)
+✅ Embeddings: OpenAI (text-embedding-3-small)
+✅ Chunks: 387 CodeExampleChunk only (POC validation)
+✅ Strategy: POC-first, then decide on more transformers
+✅ Scope: Minimal viable, no extras
+
+══════════════════════════════════════════════════════════════════════════════
+
+💡 QUICK START CHECKLIST
+──────────────────────────────────────────────────────────────────────────────
+
+Before you start:
+  □ Get OpenAI API key (https://platform.openai.com/api/keys)
+  □ Verify Docker installed (docker --version)
+  □ Read POC_START_HERE.md (step-by-step)
+  □ Have POC_MUST_HAVES.md open (with code)
+
+══════════════════════════════════════════════════════════════════════════════
+
+🎯 YOU'VE GOT THIS
+──────────────────────────────────────────────────────────────────────────────
+
+- Clear scope (just 7 files)
+- Exact code provided (copy-paste ready)
+- Step-by-step guide
+- Expected output documented
+- Troubleshooting included
+- Timeline realistic (3-4 days)
+
+No overthinking. No scope creep. Just execute.
+
+Start with POC_START_HERE.md → Follow each step → You're done!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Questions? Check the docs:
+  - Can't run Docker? → POC_START_HERE.md Step 1
+  - Need code? → POC_MUST_HAVES.md
+  - Want to understand more? → VECTOR_DB_POC_GUIDE.md
+
+Ready? Go! 🚀
+
+═══════════════════════════════════════════════════════════════════════════════
