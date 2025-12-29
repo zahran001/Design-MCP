@@ -3,6 +3,7 @@ import path from 'path';
 import { v5 as uuidv5 } from 'uuid';
 import { EmbeddingService } from '../../services/EmbeddingService.js';
 import { VectorStoreService } from '../../services/VectorStoreService.js';
+import { extractEmbeddingText } from './utils/extractEmbeddingText.js';
 
 const NORMALIZED_DIR = path.join(process.cwd(), 'artifacts', 'normalized');
 const COLLECTION_NAME = 'chakra-ui-docs';
@@ -30,7 +31,15 @@ async function main() {
     const chunks = Array.isArray(data) ? data : [data];
 
     for (const chunk of chunks) {
-      const text = `${chunk.content?.explanation || ''} ${chunk.content?.demonstrates?.join(' ') || ''}`;
+      let text: string;
+      try {
+        text = extractEmbeddingText(chunk);
+      } catch (error) {
+        console.warn(`  ⚠️  Skipping chunk (extraction failed): ${chunk.metadata?.chunkId}`);
+        console.warn(`     Error: ${(error as Error).message}`);
+        continue;
+      }
+
       if (text.trim().length === 0) continue;
 
       count++;
@@ -47,11 +56,40 @@ async function main() {
         id: pointId,
         vector,
         payload: {
-          chunkId,
+          // ============================================================
+          // FILTERABLE FIELDS (top-level, for Qdrant filters)
+          // ============================================================
+          chunkType: chunk.metadata?.chunkType || 'unknown',
+          chunkId: chunk.metadata?.chunkId,
           componentName: chunk.metadata?.componentName,
+          category: chunk.metadata?.category,
+          tags: chunk.metadata?.tags || [],
+
+          // ============================================================
+          // DISPLAY FIELDS (used by CLI/UI)
+          // ============================================================
           sourceUrl: chunk.metadata?.sourceUrl,
+          version: chunk.metadata?.version,
+          complexity: chunk.metadata?.complexity,
+
+          // ============================================================
+          // CHUNK-SPECIFIC FIELDS (quick access without parsing)
+          // ============================================================
+          // CodeExampleChunk fields
           explanation: chunk.content?.explanation,
           code: chunk.content?.code,
+          demonstrates: chunk.content?.demonstrates,
+
+          // PropReferenceChunk fields
+          propName: (chunk as any).prop?.name,
+          propCategory: (chunk as any).prop?.category,
+          propDescription: (chunk.content as any)?.description,
+          propType: (chunk.content as any)?.typeExplanation,
+
+          // ============================================================
+          // FULL CHUNK (for LLM context/reconstruction)
+          // ============================================================
+          fullChunk: JSON.stringify(chunk),
         },
       });
     }

@@ -43,4 +43,4 @@ stores/*
 .claude/
 *.claude
 .claude-config
-.claude-cache/
+.claude-cache/nul
