@@ -24,6 +24,9 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# Test coverage
+coverage/
+
 # Project specific
 artifacts/metrics/*
 !artifacts/metrics/.gitkeep
