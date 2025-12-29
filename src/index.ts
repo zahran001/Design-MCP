@@ -2,7 +2,7 @@
 
 import { program } from "commander";
 import { ChakraDocsSpider } from "./steps/0-extract-docs/crawler.js";
-import { normalizeCodeExamples } from "./steps/1-normalize/normalizer.js";
+import { normalizeCodeExamples, normalizePropReferences } from "./steps/1-normalize/normalizer.js";
 
 program
   .version("0.1.0")
@@ -43,11 +43,13 @@ program
 
 program
   .command("1-normalize [component]")
-  .description("Normalize code examples for one or all components")
+  .description("Normalize code examples and prop references for one or all components")
   .action(async (component?: string) => {
     console.log();
     try {
       await normalizeCodeExamples(component);
+      console.log();
+      await normalizePropReferences(component);
       console.log();
       console.log("✅ Normalization completed successfully!");
     } catch (error) {
