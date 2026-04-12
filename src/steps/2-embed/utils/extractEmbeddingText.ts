@@ -90,6 +90,14 @@ export function extractEmbeddingText(chunk: NormalizedChunk): string {
   );
 }
 
+function joinTextParts(parts: string[]): string {
+  return parts
+    .map(part => part.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
 /**
  * Extract embedding text from CodeExampleChunk
  *
@@ -161,7 +169,7 @@ function extractCodeExampleText(chunk: CodeExampleChunk): string {
     parts.push(...chunk.content.keyPoints.filter((item): item is string => Boolean(item) && typeof item === 'string'));
   }
 
-  const text = parts.join(' ').trim();
+  const text = joinTextParts(parts);
 
   if (!text) {
     throw new Error(
@@ -263,7 +271,7 @@ function extractPropReferenceText(chunk: PropReferenceChunk): string {
     parts.push(chunk.content.defaultBehavior);
   }
 
-  const text = parts.join(' ').trim();
+  const text = joinTextParts(parts);
 
   if (!text) {
     throw new Error(

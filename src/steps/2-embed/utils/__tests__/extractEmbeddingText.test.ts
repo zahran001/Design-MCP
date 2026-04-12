@@ -148,7 +148,7 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
     expect(text).toContain('This example demonstrates');
   });
 
-  it('throws error if no content at all', () => {
+  it('returns metadata anchors when no semantic code-example content is available', () => {
     const chunk = createCodeExampleChunkFixture({
       content: {
         explanation: '',
@@ -158,12 +158,10 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
       },
     });
 
-    expect(() => extractEmbeddingText(chunk)).toThrow(
-      /CodeExampleChunk has no extractable embedding text/
-    );
+    expect(extractEmbeddingText(chunk)).toBe('Component: Button. Title: Button Sizes.');
   });
 
-  it('throws error if only code field is present (no explanation)', () => {
+  it('ignores code-only content when semantic embedding fields are absent', () => {
     const chunk = createCodeExampleChunkFixture({
       content: {
         explanation: '',
@@ -173,12 +171,13 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
       },
     });
 
-    expect(() => extractEmbeddingText(chunk)).toThrow(
-      /CodeExampleChunk has no extractable embedding text/
-    );
+    const text = extractEmbeddingText(chunk);
+
+    expect(text).toBe('Component: Button. Title: Button Sizes.');
+    expect(text).not.toContain('<Button>Test</Button>');
   });
 
-  it('includes chunkId in error message for debugging', () => {
+  it('includes component and title anchors for disambiguation', () => {
     const chunk = createCodeExampleChunkFixture({
       metadata: {
         ...createCodeExampleChunkFixture().metadata,
@@ -191,7 +190,10 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
       },
     });
 
-    expect(() => extractEmbeddingText(chunk)).toThrow('my-custom-chunk-id');
+    const text = extractEmbeddingText(chunk);
+
+    expect(text).toContain('Component: Button.');
+    expect(text).toContain('Title: Button Sizes.');
   });
 
   it('filters out undefined/null items from demonstrates array', () => {
@@ -212,7 +214,7 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
     expect(text).not.toContain('undefined');
   });
 
-  it('trims whitespace from explanation', () => {
+  it('normalizes whitespace while preserving metadata anchors', () => {
     const chunk = createCodeExampleChunkFixture({
       content: {
         explanation: '  \n  Text with whitespace  \n  ',
@@ -224,7 +226,7 @@ describe('extractEmbeddingText - CodeExampleChunk', () => {
 
     const text = extractEmbeddingText(chunk);
 
-    expect(text).toBe('Text with whitespace');
+    expect(text).toBe('Component: Button. Title: Button Sizes. Text with whitespace');
   });
 });
 
@@ -309,7 +311,7 @@ describe('extractEmbeddingText - PropReferenceChunk', () => {
     expect(text).toContain('Type info');
   });
 
-  it('throws error if no description and typeExplanation (core fields empty)', () => {
+  it('returns prop anchors when semantic prop content is empty', () => {
     const chunk = createPropReferenceChunkFixture();
     const updated = {
       ...chunk,
@@ -321,9 +323,7 @@ describe('extractEmbeddingText - PropReferenceChunk', () => {
       },
     };
 
-    expect(() => extractEmbeddingText(updated)).toThrow(
-      /PropReferenceChunk has no extractable embedding text/
-    );
+    expect(extractEmbeddingText(updated)).toBe('Component: Button. Prop: size.');
   });
 
   it('extracts text with typeExplanation alone (no description)', () => {
@@ -354,7 +354,7 @@ describe('extractEmbeddingText - PropReferenceChunk', () => {
     expect(text).toContain('Required type info');
   });
 
-  it('includes chunkId in error message for debugging', () => {
+  it('includes component and prop anchors in extracted text', () => {
     const chunk = createPropReferenceChunkFixture({
       metadata: {
         ...createPropReferenceChunkFixture().metadata,
@@ -368,7 +368,10 @@ describe('extractEmbeddingText - PropReferenceChunk', () => {
       },
     });
 
-    expect(() => extractEmbeddingText(chunk)).toThrow('my-prop-chunk');
+    const text = extractEmbeddingText(chunk);
+
+    expect(text).toContain('Component: Button.');
+    expect(text).toContain('Prop: size.');
   });
 
   it('trims whitespace from all fields', () => {

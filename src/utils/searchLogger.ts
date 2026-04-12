@@ -9,6 +9,55 @@ export interface SearchLogEntry {
   data: Record<string, unknown>;
 }
 
+function normalizeInlineText(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.substring(0, maxLength).trimEnd()}...`;
+}
+
+export function getPayloadSummary(
+  payload: Record<string, unknown>,
+  maxLength: number = 150
+): string {
+  const explanation = normalizeInlineText(payload.explanation);
+  if (explanation) {
+    return truncateText(explanation, maxLength);
+  }
+
+  const propName = normalizeInlineText(payload.propName);
+  const propDescription = normalizeInlineText(payload.propDescription);
+  const propType = normalizeInlineText(payload.propType);
+  const propSummary = [
+    propName ? `Prop: ${propName}.` : '',
+    propDescription,
+    propType
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  if (propSummary) {
+    return truncateText(propSummary, maxLength);
+  }
+
+  const code = normalizeInlineText(payload.code);
+  if (code) {
+    return truncateText(code, maxLength);
+  }
+
+  return '(none)';
+}
+
 export class SearchLogger {
   private logs: SearchLogEntry[] = [];
   private startTime: number = Date.now();
@@ -121,8 +170,8 @@ export class SearchLogger {
     id: string | number,
     payload: Record<string, unknown>
   ): void {
-    const explanation = (payload.explanation as string)?.substring(0, 150) || '(none)';
-    const codePreview = (payload.code as string)?.substring(0, 100) || '(none)';
+    const explanation = getPayloadSummary(payload, 150);
+    const codePreview = truncateText(normalizeInlineText(payload.code), 100) || '(none)';
 
     this.logs.push({
       timestamp: new Date().toISOString(),

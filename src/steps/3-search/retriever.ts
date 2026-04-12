@@ -1,5 +1,5 @@
 import { RetrievalService } from '../../services/RetrievalService.js';
-import { SearchLogger } from '../../utils/searchLogger.js';
+import { SearchLogger, getPayloadSummary } from '../../utils/searchLogger.js';
 
 async function main() {
   const query = process.argv[2];
@@ -63,9 +63,14 @@ async function main() {
   // ============================================================================
   const finalAnswer = detailedResults.results
     .map((r, idx) => {
-      return `[${idx + 1}] Component: ${r.payload.componentName} (Score: ${r.score.toFixed(3)})
+      const componentName = typeof r.payload.componentName === 'string'
+        ? r.payload.componentName
+        : 'unknown';
+      const summary = getPayloadSummary(r.payload, 100);
+
+      return `[${idx + 1}] Component: ${componentName} (Score: ${r.score.toFixed(3)})
 Chunk: ${r.id}
-${(r.payload.explanation as string).substring(0, 100)}...`;
+${summary}`;
     })
     .join('\n\n');
 

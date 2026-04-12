@@ -469,12 +469,10 @@ export async function normalizePropReferences(componentName?: string): Promise<v
   // Token statistics
   if (tokenStats.count > 0) {
     const avgTokens = (tokenStats.total / tokenStats.count).toFixed(1);
-    const optimal = tokenStats.count - tokenStats.count > 10
-      ? [...Array(tokenStats.count).keys()].filter(i => {
-          const t = getChunkTokenCount(allPropChunks[i]);
-          return t >= 100 && t <= 250;
-        }).length
-      : 0;
+    const optimal = allPropChunks.filter(chunk => {
+      const tokens = getChunkTokenCount(chunk);
+      return tokens >= 100 && tokens <= 250;
+    }).length;
     const optimalPct = ((optimal / tokenStats.count) * 100).toFixed(1);
 
     console.log('📊 Token Statistics:');
