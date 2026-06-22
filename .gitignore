@@ -39,6 +39,7 @@ artifacts/raw-json/*
 artifacts/eval/*
 !artifacts/eval/.gitkeep
 !artifacts/eval/baseline.json
+!artifacts/eval/baseline-judged-gpt4o.json
 stores/*
 !stores/.gitkeep
 

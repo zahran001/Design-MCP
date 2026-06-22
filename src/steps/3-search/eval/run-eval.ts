@@ -4,10 +4,21 @@
 // Runs the golden query set through the EXISTING retrieval path and reports
 // objective metrics, so "good enough" becomes a number.
 //
-// Usage:  npm run quality:eval        (k defaults to 5)
-//         tsx src/steps/3-search/eval/run-eval.ts 10
+// Two layers of metric:
+//   1. Component-level (cheap, structural): "did a chunk from the right
+//      component appear in top-k." A coarse sanity check.
+//   2. LLM-as-judge graded relevance (the headline): nDCG / graded precision
+//      over per-chunk 0/1/2 relevance grades. Opt in with --judge.
+//
+// Usage:
+//   npm run quality:eval                     # component metrics, golden set, k=5
+//   npm run quality:eval -- --judge          # + LLM-judged nDCG (costs API calls)
+//   npm run quality:eval -- --judge --paraphrased   # + leakage/robustness test
+//   npm run quality:eval -- --k=10 --judge --paraphrased
+//   (a bare positional number still sets k, for back-compat: `... -- 10`)
 //
 // Prerequisite: Qdrant running + collection embedded (`npm run cli -- 2-embed`).
+// With --judge: OPENAI_API_KEY set and DEBUG=false (avoid SDK request dumps).
 // =============================================================================
 
 import 'dotenv/config';
@@ -22,16 +33,24 @@ import {
   getEmbeddingDimensions,
 } from '../../../config/vectorConfig.js';
 import { GOLDEN_SET } from './golden-set.js';
+import { PARAPHRASED_SET } from './golden-set-paraphrased.js';
+import { RelevanceJudge } from './judge.js';
 import {
   gradeQuery,
   aggregate,
   aggregateByCategory,
   scoreByIntent,
+  gradeGradedQuery,
+  aggregateGraded,
+  aggregateGradedByCategory,
   getComponentName,
   getChunkType,
+  type GoldenCase,
   type GradeableResult,
   type QueryGrade,
+  type GradedQuery,
   type Aggregate,
+  type GradedAggregate,
 } from './metrics.js';
 
 const EVAL_DIR = path.join(process.cwd(), 'artifacts', 'eval');
@@ -72,7 +91,203 @@ function printAggregateRow(label: string, agg: Aggregate): void {
   console.log('  ' + cells.join('   '));
 }
 
-async function runEval(k: number): Promise<void> {
+function printGradedRow(label: string, agg: GradedAggregate): void {
+  // gP@k + no-rel are the headline (honest, absolute relevance of the top-k).
+  // nDCG is shown last and labeled as a diagnostic: it only ranks the chunks
+  // that were retrieved, so it saturates and is NOT the primary signal.
+  const cells = [
+    label.padEnd(18),
+    `n=${String(agg.count).padEnd(3)}`,
+    `gP@k ${num(agg.meanGradedPrecision).padStart(5)}`,
+    `no-rel ${String(agg.noRelevantQueries).padStart(2)}`,
+    `nDCG* ${num(agg.meanNdcg).padStart(5)}`,
+  ];
+  console.log('  ' + cells.join('   '));
+}
+
+// -----------------------------------------------------------------------------
+// Per-set evaluation
+// -----------------------------------------------------------------------------
+
+interface SetOutcome {
+  label: string;
+  grades: QueryGrade[];
+  overall: Aggregate;
+  byCategory: Record<string, Aggregate>;
+  intentSplit: ReturnType<typeof scoreByIntent>;
+  chunkTypeHits: number;
+  chunkTypeTotal: number;
+  // Present only when the judge ran:
+  graded?: GradedQuery[];
+  gradedOverall?: GradedAggregate;
+  gradedByCategory?: Record<string, GradedAggregate>;
+  perQuery: Array<Record<string, unknown>>;
+}
+
+async function evaluateSet(
+  label: string,
+  set: GoldenCase[],
+  k: number,
+  retrieval: RetrievalService,
+  judge: RelevanceJudge | null
+): Promise<SetOutcome> {
+  const grades: QueryGrade[] = [];
+  const resultsByCase: GradeableResult[][] = [];
+  const graded: GradedQuery[] = [];
+  const perQuery: Array<Record<string, unknown>> = [];
+
+  for (const testCase of set) {
+    const detailed = await retrieval.searchDetailed(testCase.query, k);
+    const results: GradeableResult[] = detailed.results.map((r) => ({
+      rank: r.rank,
+      score: r.score,
+      payload: r.payload,
+    }));
+    resultsByCase.push(results);
+
+    const grade = gradeQuery(testCase, results, k);
+    grades.push(grade);
+
+    // LLM-judge graded relevance (optional).
+    let judgeInfo: Array<{ grade: number; reason: string }> | undefined;
+    let gradedQuery: GradedQuery | undefined;
+    if (judge) {
+      const judged = await judge.gradeResults(
+        testCase.query,
+        results.map((r) => r.payload)
+      );
+      judgeInfo = judged.map((j) => ({ grade: j.grade, reason: j.reason }));
+      gradedQuery = gradeGradedQuery(
+        testCase.id,
+        testCase.category,
+        judged.map((j) => j.grade),
+        k
+      );
+      graded.push(gradedQuery);
+    }
+
+    perQuery.push({
+      ...grade,
+      query: testCase.query,
+      expectedComponents: testCase.expectedComponents,
+      expectedChunkType: testCase.expectedChunkType ?? null,
+      ndcg: gradedQuery?.ndcg ?? null,
+      gradedPrecision: gradedQuery?.gradedPrecision ?? null,
+      topResults: results.slice(0, 3).map((r, i) => ({
+        component: getComponentName(r.payload) ?? null,
+        chunkType: getChunkType(r.payload) ?? null,
+        score: Number(r.score.toFixed(3)),
+        judgeGrade: judgeInfo?.[i]?.grade ?? null,
+        judgeReason: judgeInfo?.[i]?.reason ?? null,
+      })),
+    });
+  }
+
+  const overall = aggregate(grades);
+  const byCategory = aggregateByCategory(grades);
+  const intentSplit = scoreByIntent(set, resultsByCase, k);
+
+  const chunkTypeCases = grades.filter((g) => g.expectedChunkTypeHit !== null);
+  const chunkTypeHits = chunkTypeCases.filter((g) => g.expectedChunkTypeHit === true).length;
+
+  const outcome: SetOutcome = {
+    label,
+    grades,
+    overall,
+    byCategory,
+    intentSplit,
+    chunkTypeHits,
+    chunkTypeTotal: chunkTypeCases.length,
+    perQuery,
+  };
+
+  if (judge) {
+    outcome.graded = graded;
+    outcome.gradedOverall = aggregateGraded(graded);
+    outcome.gradedByCategory = aggregateGradedByCategory(graded);
+  }
+
+  return outcome;
+}
+
+function printSet(outcome: SetOutcome): void {
+  console.log('\n' + '-'.repeat(70));
+  console.log(`${outcome.label.toUpperCase()} — component-level (structural sanity)`);
+  console.log('-'.repeat(70));
+  printAggregateRow('all', outcome.overall);
+  console.log(`  malformed payloads: ${outcome.overall.malformedPayloads}`);
+
+  console.log('\n  by category:');
+  for (const [category, agg] of Object.entries(outcome.byCategory)) {
+    printAggregateRow(category, agg);
+  }
+
+  console.log('\n  diagnostics:');
+  console.log(
+    `    expected-chunk-type hit: ${outcome.chunkTypeHits}/${outcome.chunkTypeTotal} ` +
+      `(${pct(outcome.chunkTypeTotal === 0 ? null : outcome.chunkTypeHits / outcome.chunkTypeTotal)})`
+  );
+  console.log(
+    `    mean score  generic hits: ${num(outcome.intentSplit.generic.meanScore)} (n=${outcome.intentSplit.generic.count})`
+  );
+  console.log(
+    `    mean score specific hits: ${num(outcome.intentSplit.specific.meanScore)} (n=${outcome.intentSplit.specific.count})`
+  );
+
+  if (outcome.gradedOverall && outcome.gradedByCategory) {
+    console.log('\n  LLM-JUDGE graded relevance (HEADLINE = gP@k + no-rel; nDCG* = diagnostic):');
+    printGradedRow('all', outcome.gradedOverall);
+    console.log('\n  by category:');
+    for (const [category, agg] of Object.entries(outcome.gradedByCategory)) {
+      printGradedRow(category, agg);
+    }
+  }
+}
+
+function printLeakage(golden: SetOutcome, paraphrased: SetOutcome): void {
+  console.log('\n' + '='.repeat(70));
+  console.log('LEAKAGE / ROBUSTNESS — golden vs paraphrased (lower drop = more real)');
+  console.log('='.repeat(70));
+
+  const gHit = golden.overall.hitRate;
+  const pHit = paraphrased.overall.hitRate;
+  console.log(
+    `  component hit@k : ${pct(gHit)} -> ${pct(pHit)}   ` +
+      `(Δ ${gHit !== null && pHit !== null ? `${((pHit - gHit) * 100).toFixed(0)}%` : 'n/a'})`
+  );
+
+  if (golden.gradedOverall && paraphrased.gradedOverall) {
+    const gP = golden.gradedOverall.meanGradedPrecision;
+    const pP = paraphrased.gradedOverall.meanGradedPrecision;
+    console.log(
+      `  graded P@k (HL) : ${num(gP)} -> ${num(pP)}   ` +
+        `(Δ ${gP !== null && pP !== null ? (pP - gP).toFixed(3) : 'n/a'})`
+    );
+    const gNoRel = golden.gradedOverall.noRelevantQueries;
+    const pNoRel = paraphrased.gradedOverall.noRelevantQueries;
+    console.log(`  no-rel queries  : ${gNoRel} -> ${pNoRel}   (Δ ${pNoRel - gNoRel})`);
+
+    const gN = golden.gradedOverall.meanNdcg;
+    const pN = paraphrased.gradedOverall.meanNdcg;
+    console.log(
+      `  nDCG* (diag)    : ${num(gN)} -> ${num(pN)}   ` +
+        `(Δ ${gN !== null && pN !== null ? (pN - gN).toFixed(3) : 'n/a'})`
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Main
+// -----------------------------------------------------------------------------
+
+interface EvalOptions {
+  k: number;
+  useJudge: boolean;
+  useParaphrased: boolean;
+}
+
+async function runEval(options: EvalOptions): Promise<void> {
+  const { k, useJudge, useParaphrased } = options;
   const collectionName = getCollectionName();
   const model = getEmbeddingModel();
   const dimensions = getEmbeddingDimensions();
@@ -82,13 +297,17 @@ async function runEval(k: number): Promise<void> {
   const pointCount = await vectorStore.getPointCount(collectionName);
   const diskChunkCount = countDiskChunks(NORMALIZED_DIR);
 
+  const judge = useJudge ? new RelevanceJudge() : null;
+
   console.log('\n' + '='.repeat(70));
   console.log('RETRIEVAL EVALUATION');
   console.log('='.repeat(70));
   console.log(`Collection : ${collectionName}`);
   console.log(`Model      : ${model} (${dimensions} dims)`);
   console.log(`Top-K      : ${k}`);
-  console.log(`Queries    : ${GOLDEN_SET.length}`);
+  console.log(`Golden     : ${GOLDEN_SET.length} queries`);
+  console.log(`Paraphrased: ${useParaphrased ? `${PARAPHRASED_SET.length} queries` : 'skipped'}`);
+  console.log(`LLM judge  : ${judge ? judge.modelName : 'off (component metrics only)'}`);
   console.log(`DB points  : ${pointCount === null ? 'UNREADABLE' : pointCount}`);
   console.log(`Disk chunks: ${diskChunkCount}`);
 
@@ -109,83 +328,39 @@ async function runEval(k: number): Promise<void> {
     );
   }
 
-  // ---- Run queries through the existing retrieval path -------------------
   const retrieval = new RetrievalService({ collectionName });
-  const grades: QueryGrade[] = [];
-  const resultsByCase: GradeableResult[][] = [];
-  const perQuery: Array<Record<string, unknown>> = [];
 
-  for (const testCase of GOLDEN_SET) {
-    const detailed = await retrieval.searchDetailed(testCase.query, k);
-    const results: GradeableResult[] = detailed.results.map((r) => ({
-      rank: r.rank,
-      score: r.score,
-      payload: r.payload,
-    }));
-    resultsByCase.push(results);
+  // ---- Evaluate set(s) ----------------------------------------------------
+  const golden = await evaluateSet('golden', GOLDEN_SET, k, retrieval, judge);
+  printSet(golden);
 
-    const grade = gradeQuery(testCase, results, k);
-    grades.push(grade);
-
-    perQuery.push({
-      ...grade,
-      query: testCase.query,
-      expectedComponents: testCase.expectedComponents,
-      expectedChunkType: testCase.expectedChunkType ?? null,
-      topResults: results.slice(0, 3).map((r) => ({
-        component: getComponentName(r.payload) ?? null,
-        chunkType: getChunkType(r.payload) ?? null,
-        score: Number(r.score.toFixed(3)),
-      })),
-    });
+  let paraphrased: SetOutcome | null = null;
+  if (useParaphrased) {
+    paraphrased = await evaluateSet('paraphrased', PARAPHRASED_SET, k, retrieval, judge);
+    printSet(paraphrased);
+    printLeakage(golden, paraphrased);
   }
 
-  // ---- Aggregate ----------------------------------------------------------
-  const overall = aggregate(grades);
-  const byCategory = aggregateByCategory(grades);
-  const intentSplit = scoreByIntent(GOLDEN_SET, resultsByCase, k);
+  if (judge) judge.saveCache();
 
-  // Diagnostic: did the *expected* chunk type answer the query?
-  const chunkTypeCases = grades.filter((g) => g.expectedChunkTypeHit !== null);
-  const chunkTypeHits = chunkTypeCases.filter((g) => g.expectedChunkTypeHit === true).length;
-
-  // ---- Console summary ----------------------------------------------------
-  console.log('\n' + '-'.repeat(70));
-  console.log('OVERALL');
-  console.log('-'.repeat(70));
-  printAggregateRow('all', overall);
-  console.log(`  malformed payloads: ${overall.malformedPayloads}`);
-
-  console.log('\nBY CATEGORY');
-  for (const [category, agg] of Object.entries(byCategory)) {
-    printAggregateRow(category, agg);
-  }
-
-  console.log('\nDIAGNOSTICS');
-  console.log(
-    `  expected-chunk-type hit: ${chunkTypeHits}/${chunkTypeCases.length} ` +
-      `(${pct(chunkTypeCases.length === 0 ? null : chunkTypeHits / chunkTypeCases.length)})`
-  );
-  console.log(
-    `  mean score  generic hits: ${num(intentSplit.generic.meanScore)} (n=${intentSplit.generic.count})`
-  );
-  console.log(
-    `  mean score specific hits: ${num(intentSplit.specific.meanScore)} (n=${intentSplit.specific.count})`
-  );
-
-  // ---- Write report (mkdir first to avoid ENOENT) -------------------------
+  // ---- Write report -------------------------------------------------------
   fs.mkdirSync(EVAL_DIR, { recursive: true });
   const report = {
     generatedAt: new Date().toISOString(),
-    provenance: { collectionName, model, dimensions, pointCount, diskChunkCount, stale },
-    k,
-    overall,
-    byCategory,
-    diagnostics: {
-      expectedChunkType: { hits: chunkTypeHits, total: chunkTypeCases.length },
-      intentScoreSplit: intentSplit,
+    provenance: {
+      collectionName,
+      model,
+      dimensions,
+      pointCount,
+      diskChunkCount,
+      stale,
+      judgeModel: judge ? judge.modelName : null,
     },
-    perQuery,
+    k,
+    sets: {
+      golden: serializeSet(golden),
+      ...(paraphrased ? { paraphrased: serializeSet(paraphrased) } : {}),
+    },
   };
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -195,10 +370,43 @@ async function runEval(k: number): Promise<void> {
   console.log('='.repeat(70) + '\n');
 }
 
+function serializeSet(outcome: SetOutcome): Record<string, unknown> {
+  return {
+    overall: outcome.overall,
+    byCategory: outcome.byCategory,
+    diagnostics: {
+      expectedChunkType: { hits: outcome.chunkTypeHits, total: outcome.chunkTypeTotal },
+      intentScoreSplit: outcome.intentSplit,
+    },
+    graded: outcome.gradedOverall
+      ? { overall: outcome.gradedOverall, byCategory: outcome.gradedByCategory }
+      : null,
+    perQuery: outcome.perQuery,
+  };
+}
+
+function parseArgs(argv: string[]): EvalOptions {
+  let k = 5;
+  let useJudge = false;
+  let useParaphrased = false;
+
+  for (const arg of argv) {
+    if (arg === '--judge') useJudge = true;
+    else if (arg === '--paraphrased' || arg === '--both') useParaphrased = true;
+    else if (arg.startsWith('--k=')) {
+      const parsed = Number.parseInt(arg.slice('--k='.length), 10);
+      if (Number.isFinite(parsed) && parsed > 0) k = parsed;
+    } else {
+      // Back-compat: a bare positional number sets k.
+      const parsed = Number.parseInt(arg, 10);
+      if (Number.isFinite(parsed) && parsed > 0) k = parsed;
+    }
+  }
+  return { k, useJudge, useParaphrased };
+}
+
 async function main(): Promise<void> {
-  const kArg = Number.parseInt(process.argv[2], 10);
-  const k = Number.isFinite(kArg) && kArg > 0 ? kArg : 5;
-  await runEval(k);
+  await runEval(parseArgs(process.argv.slice(2)));
 }
 
 const isDirectExecution = process.argv[1]
