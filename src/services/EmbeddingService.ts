@@ -1,11 +1,14 @@
 import { OpenAI } from 'openai';
 import 'dotenv/config';
+import { getEmbeddingModel } from '../config/vectorConfig.js';
 
 
 export class EmbeddingService {
   private client: OpenAI;
+  private model: string;
 
-  constructor() {
+  constructor(model: string = getEmbeddingModel()) {
+    this.model = model;
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -13,7 +16,7 @@ export class EmbeddingService {
 
   async embedText(text: string): Promise<number[]> {
     const response = await this.client.embeddings.create({
-      model: 'text-embedding-3-small',
+      model: this.model,
       input: text,
     });
     return response.data[0].embedding;
@@ -21,7 +24,7 @@ export class EmbeddingService {
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     const response = await this.client.embeddings.create({
-      model: 'text-embedding-3-small',
+      model: this.model,
       input: texts,
     });
     return response.data.map((item: any) => item.embedding);

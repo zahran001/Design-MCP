@@ -53,12 +53,12 @@ The project follows a **step-based pipeline architecture**:
 ├── Natural language generation (with refinements)
 └── Ready for integration into normalizer
 
-📋 Step 2: Embed & Vector Store (NEXT - POC MVP Target)
+✅ Step 2: Embed & Vector Store (POC IMPLEMENTED)
 ├── Embedding generation
 ├── Vector store integration
 └── Batch ingestion
 
-📋 Step 3: Search & Retrieval (PLANNED)
+✅ Step 3: Search & Retrieval (POC IMPLEMENTED)
 ├── Vector similarity search
 ├── Metadata filtering
 └── Query interface
@@ -277,6 +277,14 @@ npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/
 npm run cli -- 1-normalize                    # Process all components
 npm run cli -- 1-normalize Button             # Process single component
 
+# Step 2: Embed normalized chunks into Qdrant
+npm run cli -- 2-embed
+npm run cli -- 2-embed --limit 5              # Quick validation run
+
+# Step 3: Search embedded chunks
+npm run cli -- 3-search "button color"
+npm run cli -- 3-search "button color" --limit 3
+
 # Development mode (no build required)
 npm run dev
 ```
@@ -309,9 +317,27 @@ npm run cli -- 1-normalize                    # All components
 
 Output: `artifacts/normalized/{ComponentName}.json` (one file per component)
 
-**Future commands** (not yet implemented):
-- `2-embed [component]` - Generate embeddings for vector search
-- `3-search "query"` - Search normalized chunks
+**`2-embed`** - Generate embeddings for normalized chunks and upsert them to Qdrant
+
+- Uses `QDRANT_COLLECTION_NAME`, `EMBEDDING_MODEL`, and `EMBEDDING_DIMENSIONS` from `.env`
+- Supports `--limit` for small validation runs and `--batch-size` for upsert tuning
+
+Example:
+```bash
+npm run cli -- 2-embed
+npm run cli -- 2-embed --limit 5
+```
+
+**`3-search <query>`** - Search embedded chunks
+
+- Embeds the query and searches the configured Qdrant collection
+- Prints ranked matches with payload summaries
+
+Example:
+```bash
+npm run cli -- 3-search "button color"
+npm run cli -- 3-search "button color" --limit 3
+```
 
 ### Quality Evaluation Commands
 

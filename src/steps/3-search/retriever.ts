@@ -1,41 +1,33 @@
+import { pathToFileURL } from 'url';
 import { RetrievalService } from '../../services/RetrievalService.js';
+import { getCollectionName } from '../../config/vectorConfig.js';
 import { SearchLogger, getPayloadSummary } from '../../utils/searchLogger.js';
 
-async function main() {
-  const query = process.argv[2];
+export interface SearchCliOptions {
+  limit?: number;
+}
 
+export async function runSearchCli(query: string, options: SearchCliOptions = {}) {
   if (!query) {
     console.error('Usage: node retriever.js "<query>"');
     process.exit(1);
   }
 
+  const limit = options.limit || 5;
+  const collectionName = getCollectionName();
   const logger = new SearchLogger();
 
-  // ============================================================================
-  // Step 1: Log user question
-  // ============================================================================
-  console.log('\n' + '═'.repeat(70));
-  console.log('🔍 SEARCH REQUEST');
-  console.log('═'.repeat(70));
+  console.log('\n' + 'â•'.repeat(70));
+  console.log('ðŸ” SEARCH REQUEST');
+  console.log('â•'.repeat(70));
   logger.logQuery(query);
 
-  // ============================================================================
-  // Step 2: Execute search and log embedding
-  // ============================================================================
-  const retrieval = new RetrievalService();
-  const detailedResults = await retrieval.searchDetailed(query, 5);
+  const retrieval = new RetrievalService({ collectionName });
+  const detailedResults = await retrieval.searchDetailed(query, limit);
 
-  // Log query embedding vector length
   logger.logQueryEmbedding(detailedResults.queryVector);
+  logger.logSearchExecution(collectionName, limit, detailedResults.searchTimeMs);
 
-  // ============================================================================
-  // Step 3: Log search execution
-  // ============================================================================
-  logger.logSearchExecution('chakra-ui-docs', 5, detailedResults.searchTimeMs);
-
-  // ============================================================================
-  // Step 4: Log top-k results (IDs + scores)
-  // ============================================================================
   logger.logResults(
     detailedResults.results.map(r => ({
       id: r.id,
@@ -44,12 +36,9 @@ async function main() {
     }))
   );
 
-  // ============================================================================
-  // Step 5: Log retrieved payload for each result
-  // ============================================================================
-  console.log('\n' + '═'.repeat(70));
-  console.log('📦 RETRIEVED PAYLOADS');
-  console.log('═'.repeat(70));
+  console.log('\n' + 'â•'.repeat(70));
+  console.log('ðŸ“¦ RETRIEVED PAYLOADS');
+  console.log('â•'.repeat(70));
   for (const result of detailedResults.results) {
     logger.logRetrievedPayload(
       result.rank,
@@ -58,9 +47,6 @@ async function main() {
     );
   }
 
-  // ============================================================================
-  // Step 6: Log final answer (in this case, the Qdrant results)
-  // ============================================================================
   const finalAnswer = detailedResults.results
     .map((r, idx) => {
       const componentName = typeof r.payload.componentName === 'string'
@@ -75,17 +61,30 @@ ${summary}`;
     .join('\n\n');
 
   logger.logFinalAnswer(finalAnswer, 'qdrant');
-
-  // ============================================================================
-  // Step 7: Print execution summary
-  // ============================================================================
   logger.printSummary();
 
-  // ============================================================================
-  // Step 8: Export logs for debugging (optional)
-  // ============================================================================
-  console.log('\n💾 Full execution logs (JSON):');
+  console.log('\nðŸ’¾ Full execution logs (JSON):');
   console.log(logger.exportJSON());
 }
 
-main().catch(console.error);
+async function main() {
+  const query = process.argv[2];
+  const limitArg = process.argv[3];
+  const parsedLimit = limitArg ? Number.parseInt(limitArg, 10) : undefined;
+  const limit = Number.isFinite(parsedLimit) && parsedLimit && parsedLimit > 0
+    ? parsedLimit
+    : undefined;
+
+  await runSearchCli(query, { limit });
+}
+
+const isDirectExecution = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
+
+if (isDirectExecution) {
+  main().catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
+}

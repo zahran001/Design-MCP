@@ -1,7 +1,10 @@
 import { EmbeddingService } from './EmbeddingService.js';
 import { VectorStoreService } from './VectorStoreService.js';
+import { getCollectionName } from '../config/vectorConfig.js';
 
-const COLLECTION_NAME = 'chakra-ui-docs';
+interface RetrievalServiceOptions {
+  collectionName?: string;
+}
 
 export interface SearchResult {
   rank: number;
@@ -20,10 +23,12 @@ export interface DetailedSearchResult {
 export class RetrievalService {
   private embedding: EmbeddingService;
   private vectorStore: VectorStoreService;
+  private collectionName: string;
 
-  constructor() {
+  constructor(options: RetrievalServiceOptions = {}) {
     this.embedding = new EmbeddingService();
     this.vectorStore = new VectorStoreService();
+    this.collectionName = options.collectionName || getCollectionName();
   }
 
   /**
@@ -50,7 +55,7 @@ export class RetrievalService {
 
     // Step 2: Search Qdrant
     const searchStart = Date.now();
-    const vectorStoreResults = await this.vectorStore.search(COLLECTION_NAME, queryVector, limit);
+    const vectorStoreResults = await this.vectorStore.search(this.collectionName, queryVector, limit);
     const searchTimeMs = Date.now() - searchStart;
 
     // Step 3: Format results with full payload
