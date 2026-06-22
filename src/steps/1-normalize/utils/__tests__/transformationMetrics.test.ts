@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -16,6 +16,7 @@ import {
   getMetricsSummary,
   clearMetricsLog,
   clearErrorLog,
+  resetMetricsState,
   type MetricsLogEntry
 } from '../transformationMetrics.js';
 import {
@@ -25,6 +26,15 @@ import {
   addPatternMatch,
   recordConfidence
 } from '../transformationContext.js';
+
+// Global test suite setup - clear state before and after all tests
+beforeAll(() => {
+  resetMetricsState();
+});
+
+afterAll(() => {
+  resetMetricsState();
+});
 
 describe('Path Functions', () => {
   it('should return metrics log path', () => {
@@ -141,12 +151,16 @@ describe('createMetricsEntry', () => {
 
 describe('writeMetricsToFile', () => {
   beforeEach(() => {
-    clearMetricsLog();
-    ensureLogDirectories();
+    resetMetricsState();
   });
 
   afterEach(() => {
-    clearMetricsLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should write metrics entry to file', () => {
@@ -190,12 +204,16 @@ describe('writeMetricsToFile', () => {
 
 describe('writeErrorToFile', () => {
   beforeEach(() => {
-    clearErrorLog();
-    ensureLogDirectories();
+    resetMetricsState();
   });
 
   afterEach(() => {
-    clearErrorLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should write error to file', () => {
@@ -239,14 +257,23 @@ describe('writeErrorToFile', () => {
 
 describe('logSuccess and logFailure', () => {
   beforeEach(() => {
-    clearMetricsLog();
-    clearErrorLog();
-    ensureLogDirectories();
+    resetMetricsState();
+
+    // Verify clean state
+    const metrics = readAllMetrics();
+    if (metrics.length !== 0) {
+      clearMetricsLog();
+      ensureLogDirectories();
+    }
   });
 
   afterEach(() => {
-    clearMetricsLog();
-    clearErrorLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should log success', () => {
@@ -384,12 +411,16 @@ describe('formatMetricsSummary', () => {
 
 describe('readAllMetrics', () => {
   beforeEach(() => {
-    clearMetricsLog();
-    ensureLogDirectories();
+    resetMetricsState();
   });
 
   afterEach(() => {
-    clearMetricsLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should return empty array when no metrics file', () => {
@@ -434,12 +465,16 @@ describe('readAllMetrics', () => {
 
 describe('getMetricsSummary', () => {
   beforeEach(() => {
-    clearMetricsLog();
-    ensureLogDirectories();
+    resetMetricsState();
   });
 
   afterEach(() => {
-    clearMetricsLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should return zeros when no metrics', () => {
@@ -570,14 +605,16 @@ describe('clearMetricsLog and clearErrorLog', () => {
 
 describe('Integration tests', () => {
   beforeEach(() => {
-    clearMetricsLog();
-    clearErrorLog();
-    ensureLogDirectories();
+    resetMetricsState();
   });
 
   afterEach(() => {
-    clearMetricsLog();
-    clearErrorLog();
+    try {
+      clearMetricsLog();
+      clearErrorLog();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   it('should track multiple component transformations', () => {

@@ -24,6 +24,9 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# Test coverage
+coverage/
+
 # Project specific
 artifacts/metrics/*
 !artifacts/metrics/.gitkeep
@@ -33,6 +36,9 @@ artifacts/normalized/*
 !artifacts/normalized/.gitkeep
 artifacts/raw-json/*
 !artifacts/raw-json/.gitkeep
+artifacts/eval/*
+!artifacts/eval/.gitkeep
+!artifacts/eval/baseline.json
 stores/*
 !stores/.gitkeep
 
@@ -40,4 +46,4 @@ stores/*
 .claude/
 *.claude
 .claude-config
-.claude-cache/
+.claude-cache/nul

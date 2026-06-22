@@ -425,20 +425,52 @@ export function getMetricsSummary(): {
 
 /**
  * Clear metrics log file (for testing)
+ * Ensures file is completely removed even if locked or corrupted
  */
 export function clearMetricsLog(): void {
   const logPath = getMetricsLogPath();
-  if (fs.existsSync(logPath)) {
-    fs.unlinkSync(logPath);
+  try {
+    if (fs.existsSync(logPath)) {
+      fs.unlinkSync(logPath);
+    }
+  } catch (error) {
+    // Force write empty file if deletion fails
+    try {
+      fs.writeFileSync(logPath, '', 'utf-8');
+    } catch {
+      // Ignore - will fail later if truly inaccessible
+    }
   }
 }
 
 /**
  * Clear error log file (for testing)
+ * Ensures file is completely removed even if locked or corrupted
  */
 export function clearErrorLog(): void {
   const logPath = getErrorLogPath();
-  if (fs.existsSync(logPath)) {
-    fs.unlinkSync(logPath);
+  try {
+    if (fs.existsSync(logPath)) {
+      fs.unlinkSync(logPath);
+    }
+  } catch (error) {
+    // Force write empty file if deletion fails
+    try {
+      fs.writeFileSync(logPath, '', 'utf-8');
+    } catch {
+      // Ignore - will fail later if truly inaccessible
+    }
   }
+}
+
+/**
+ * Reset all metrics state (for testing)
+ * Clears both metrics and error logs, ensures directories exist
+ *
+ * Use this in test beforeAll/beforeEach for complete isolation
+ */
+export function resetMetricsState(): void {
+  clearMetricsLog();
+  clearErrorLog();
+  ensureLogDirectories();
 }

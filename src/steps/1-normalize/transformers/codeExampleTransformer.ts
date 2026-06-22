@@ -345,11 +345,18 @@ export function transformCodeExample(
     // Step 3: Generate Metadata
     // ==========================================================================
 
-    // Generate unique chunk ID
+    // Generate unique chunk ID.
+    // Include the example's position so multiple examples that infer the same
+    // title (e.g. "Usage Example") still get distinct IDs. Without this, ~26%
+    // of chunks shared an ID and silently overwrote each other at embed time
+    // (uuidv5(chunkId) collisions). exampleIndex is stable across runs because
+    // raw-JSON ordering is fixed, so the resulting IDs stay idempotent.
+    const descriptor =
+      exampleIndex !== undefined ? `${section.title}-${exampleIndex}` : section.title;
     const chunkId = generateChunkId(
       componentName,
       'code-example',
-      section.title,
+      descriptor,
       '1' // Version
     );
 

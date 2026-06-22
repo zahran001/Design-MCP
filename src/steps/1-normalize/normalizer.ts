@@ -15,7 +15,35 @@
 import fs from 'fs';
 import path from 'path';
 import { transformCodeExample, type RawCodeExample } from './transformers/codeExampleTransformer.js';
-import type { CodeExampleChunk } from '../../schemas/NormalizedChunkSchema.js';
+import { transformProp } from './transformers/propReferenceTransformer.js';
+import type { CodeExampleChunk, PropReferenceChunk, PropCategory } from '../../schemas/NormalizedChunkSchema.js';
+import { PropReferenceChunkSchema, getChunkTokenCount } from '../../schemas/NormalizedChunkSchema.js';
+import type { Prop } from '../../schemas/RAGResultSchema.js';
+
+/**
+ * Guarantee a chunkId is unique within a normalization run.
+ *
+ * The main transformer derives stable, unique IDs (component + title + example
+ * index), but fallback paths can still mint duplicates (e.g. several failed
+ * examples sharing the same section). Duplicate IDs silently overwrite each
+ * other at embed time because the point ID is uuidv5(chunkId). This is the
+ * single chokepoint that enforces the "every chunk has a unique id" invariant
+ * regardless of which path produced it.
+ */
+function dedupeChunkId(chunkId: string, seen: Set<string>): string {
+  if (!seen.has(chunkId)) {
+    seen.add(chunkId);
+    return chunkId;
+  }
+  let counter = 2;
+  let candidate = `${chunkId}-${counter}`;
+  while (seen.has(candidate)) {
+    counter++;
+    candidate = `${chunkId}-${counter}`;
+  }
+  seen.add(candidate);
+  return candidate;
+}
 
 /**
  * Raw extracted data structure (from artifacts/raw-json/*.json)
@@ -99,6 +127,7 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
   const allChunks: CodeExampleChunk[] = [];
   const componentStats = new Map<string, number>(); // Track examples per component
   const savedFiles: string[] = []; // Track saved output files
+  const seenChunkIds = new Set<string>(); // Enforce unique chunkIds across the run
   let totalExamples = 0;
   let totalErrors = 0;
 
@@ -144,6 +173,9 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
 
       // Extract chunk from result (success or fallback)
       const chunk = result.status === 'success' ? result.chunk : result.fallbackChunk!;
+
+      // Guarantee a unique chunkId (fallback paths can collide)
+      chunk.metadata.chunkId = dedupeChunkId(chunk.metadata.chunkId, seenChunkIds);
 
       componentChunks.push(chunk);
       successCount++;
@@ -255,6 +287,241 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
     // Show individual files if count is reasonable
     savedFiles.forEach(f => console.log(`   - ${path.basename(f)}`));
   }
+  console.log('='.repeat(80));
+}
+
+/**
+ * Normalize prop references from raw extracted JSON
+ *
+ * Main orchestrator function that:
+ * 1. Loads raw JSON files (one component or all)
+ * 2. Transforms each prop using transformProp()
+ * 3. Validates with PropReferenceChunkSchema.safeParse()
+ * 4. Saves chunks to separate -props.json files per component
+ * 5. Reports statistics (category distribution, token compliance)
+ *
+ * Output: artifacts/normalized/{ComponentName}-props.json (one file per component)
+ *
+ * @param componentName - Optional component name (e.g., "Button"). If not provided, processes all components.
+ *
+ * @example
+ * // Normalize just Button props → creates Button-props.json
+ * await normalizePropReferences("Button");
+ *
+ * @example
+ * // Normalize all component props → creates one -props.json per component
+ * await normalizePropReferences();
+ */
+export async function normalizePropReferences(componentName?: string): Promise<void> {
+  console.log('='.repeat(80));
+  console.log('Prop Reference Normalization Pipeline');
+  console.log('='.repeat(80));
+  console.log();
+
+  // ==========================================================================
+  // Step 1: Find and Load JSON Files
+  // ==========================================================================
+
+  const rawJsonDir = path.join(process.cwd(), 'artifacts', 'raw-json');
+  const outputDir = path.join(process.cwd(), 'artifacts', 'normalized');
+
+  // Check if raw-json directory exists
+  if (!fs.existsSync(rawJsonDir)) {
+    throw new Error(`Raw JSON directory not found: ${rawJsonDir}`);
+  }
+
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+    console.log(`📁 Created output directory: ${outputDir}`);
+  }
+
+  // Find files to process
+  let filesToProcess: string[];
+  if (componentName) {
+    // Process single component
+    const file = findComponentFile(componentName, rawJsonDir);
+    if (!file) {
+      throw new Error(`Component not found: ${componentName}\n\nAvailable components:\n${listAvailableComponents(rawJsonDir)}`);
+    }
+    filesToProcess = [file];
+    console.log(`📂 Processing single component: ${componentName}`);
+  } else {
+    // Process all components
+    filesToProcess = fs.readdirSync(rawJsonDir).filter(f => f.endsWith('.json'));
+    console.log(`📂 Processing all components (${filesToProcess.length} files)`);
+  }
+
+  console.log();
+
+  // ==========================================================================
+  // Step 2: Transform All Prop References
+  // ==========================================================================
+
+  const allPropChunks: PropReferenceChunk[] = [];
+  const seenPropChunkIds = new Set<string>(); // Enforce unique chunkIds across the run
+  const categoryStats = new Map<PropCategory, number>();
+  const tokenStats: { min: number; max: number; total: number; count: number } = {
+    min: Infinity,
+    max: 0,
+    total: 0,
+    count: 0
+  };
+  let totalPropsProcessed = 0;
+  let totalValidationErrors = 0;
+  let totalTransformErrors = 0;
+
+  for (const file of filesToProcess) {
+    const filePath = path.join(rawJsonDir, file);
+    let rawData: RawExtractedData;
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      rawData = JSON.parse(content);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to load ${file}: ${errorMessage}`);
+      totalTransformErrors++;
+      continue;
+    }
+
+    const propCount = rawData.props?.length || 0;
+    console.log(`Processing: ${rawData.componentName} (${propCount} props)`);
+
+    if (!rawData.props || propCount === 0) {
+      console.log(`   ⚠️  No props found, skipping`);
+      continue;
+    }
+
+    // Transform each prop for this component
+    const componentPropChunks: PropReferenceChunk[] = [];
+    const propErrors: { propName: string; error: string }[] = [];
+
+    for (const prop of rawData.props) {
+      try {
+        // Transform prop with Phase 1 transformer
+        const chunk = transformProp(
+          prop,
+          rawData.componentName,
+          rawData.sourceUrl,
+          rawData.props
+        );
+
+        // CRITICAL: Validate with schema before saving
+        const validation = PropReferenceChunkSchema.safeParse(chunk);
+        if (!validation.success) {
+          const errors = validation.error.errors
+            .map(e => `${e.path.join('.')} - ${e.message}`)
+            .join('; ');
+          propErrors.push({ propName: prop.name, error: errors });
+          totalValidationErrors++;
+          console.warn(`   ✗ Validation failed for prop "${prop.name}": ${errors}`);
+          continue;
+        }
+
+        const validatedChunk = validation.data;
+
+        // Guarantee a unique chunkId across the run
+        validatedChunk.metadata.chunkId = dedupeChunkId(validatedChunk.metadata.chunkId, seenPropChunkIds);
+
+        componentPropChunks.push(validatedChunk);
+
+        // Track token statistics
+        const tokens = getChunkTokenCount(validatedChunk);
+        tokenStats.total += tokens;
+        tokenStats.count++;
+        tokenStats.min = Math.min(tokenStats.min, tokens);
+        tokenStats.max = Math.max(tokenStats.max, tokens);
+
+        // Track category distribution
+        const category = validatedChunk.prop.category;
+        categoryStats.set(category, (categoryStats.get(category) || 0) + 1);
+
+        totalPropsProcessed++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        propErrors.push({ propName: prop.name, error: errorMessage });
+        totalTransformErrors++;
+        console.warn(`   ✗ Transform error for prop "${prop.name}": ${errorMessage}`);
+      }
+    }
+
+    // Save this component's prop chunks to a separate file
+    if (componentPropChunks.length > 0) {
+      const propsOutputFile = path.join(outputDir, `${rawData.componentName}-props.json`);
+      try {
+        fs.writeFileSync(propsOutputFile, JSON.stringify(componentPropChunks, null, 2), 'utf-8');
+        console.log(`   ✓ Saved ${componentPropChunks.length} prop chunks to ${rawData.componentName}-props.json`);
+        allPropChunks.push(...componentPropChunks);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`   ✗ Failed to write ${rawData.componentName}-props.json: ${errorMessage}`);
+      }
+    }
+
+    // Log error summary for this component
+    if (propErrors.length > 0) {
+      console.log(`   ⚠️  ${propErrors.length} errors (logged above)`);
+    }
+  }
+
+  console.log();
+
+  // ==========================================================================
+  // Step 3: Summary
+  // ==========================================================================
+
+  console.log('='.repeat(80));
+  console.log('✅ Prop Reference Normalization Complete!');
+  console.log('='.repeat(80));
+  console.log();
+
+  // Basic statistics
+  console.log('📊 Summary:');
+  console.log(`   - Props processed: ${totalPropsProcessed}`);
+  console.log(`   - Chunks created: ${allPropChunks.length}`);
+  if (totalTransformErrors > 0) {
+    console.log(`   - Transform errors: ${totalTransformErrors}`);
+  }
+  if (totalValidationErrors > 0) {
+    console.log(`   - Validation errors: ${totalValidationErrors}`);
+  }
+  console.log();
+
+  // Category distribution
+  if (allPropChunks.length > 0) {
+    console.log('📂 Category Distribution:');
+    Array.from(categoryStats.entries())
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([category, count]) => {
+        const pct = ((count / allPropChunks.length) * 100).toFixed(1);
+        console.log(`   - ${category}: ${count} (${pct}%)`);
+      });
+    console.log();
+  }
+
+  // Token statistics
+  if (tokenStats.count > 0) {
+    const avgTokens = (tokenStats.total / tokenStats.count).toFixed(1);
+    const optimal = allPropChunks.filter(chunk => {
+      const tokens = getChunkTokenCount(chunk);
+      return tokens >= 100 && tokens <= 250;
+    }).length;
+    const optimalPct = ((optimal / tokenStats.count) * 100).toFixed(1);
+
+    console.log('📊 Token Statistics:');
+    console.log(`   - Average: ${avgTokens} tokens`);
+    console.log(`   - Range: ${tokenStats.min}-${tokenStats.max} tokens`);
+    console.log(`   - Optimal range (100-250): ${optimal}/${tokenStats.count} (${optimalPct}%)`);
+    if (optimal < tokenStats.count * 0.9) {
+      console.log(`   ⚠️  Warning: ${((tokenStats.count - optimal) / tokenStats.count * 100).toFixed(1)}% of chunks outside optimal range`);
+    }
+    console.log();
+  }
+
+  console.log('='.repeat(80));
+  console.log(`📄 Output Directory: ${outputDir}`);
+  console.log(`📄 Files Created: ${Math.ceil(allPropChunks.length / 10)} component prop files (average 10 props per file)`);
   console.log('='.repeat(80));
 }
 

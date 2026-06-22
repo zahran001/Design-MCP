@@ -46,7 +46,7 @@ Raw JSON (artifacts/raw-json/*.json)
     │ 3. classifyIntent()            │ → Categorize purpose
     │ 4. extractTemplateData()       │ → Prepare for templates
     │ 5. generateContent()           │ → Natural language
-    │ 6. Assemble chunk               │ → Complete CodeExampleChunk
+    │ 6. Assemble chunk              │ → Complete CodeExampleChunk
     └────────────────────────────────┘
          ↓
     CodeExampleChunk (normalized)

@@ -1,0 +1,1116 @@
+{
+  "generatedAt": "2026-06-22T21:37:40.589Z",
+  "provenance": {
+    "collectionName": "chakra-ui-docs",
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "pointCount": 747,
+    "diskChunkCount": 747,
+    "stale": false
+  },
+  "k": 5,
+  "overall": {
+    "count": 31,
+    "hitRate": 1,
+    "mrr": 0.9381720430107526,
+    "meanPrecision": 0.7032258064516129,
+    "malformedPayloads": 0
+  },
+  "byCategory": {
+    "how-to": {
+      "count": 8,
+      "hitRate": 1,
+      "mrr": 0.8229166666666666,
+      "meanPrecision": 0.6,
+      "malformedPayloads": 0
+    },
+    "cross-component": {
+      "count": 4,
+      "hitRate": 1,
+      "mrr": 1,
+      "meanPrecision": 0.7999999999999999,
+      "malformedPayloads": 0
+    },
+    "prop-lookup": {
+      "count": 5,
+      "hitRate": 1,
+      "mrr": 1,
+      "meanPrecision": 0.48,
+      "malformedPayloads": 0
+    },
+    "what-is": {
+      "count": 4,
+      "hitRate": 1,
+      "mrr": 1,
+      "meanPrecision": 0.9,
+      "malformedPayloads": 0
+    },
+    "what-can-x-do": {
+      "count": 3,
+      "hitRate": 1,
+      "mrr": 1,
+      "meanPrecision": 0.6666666666666666,
+      "malformedPayloads": 0
+    },
+    "layout": {
+      "count": 4,
+      "hitRate": 1,
+      "mrr": 0.875,
+      "meanPrecision": 0.75,
+      "malformedPayloads": 0
+    },
+    "typography": {
+      "count": 3,
+      "hitRate": 1,
+      "mrr": 1,
+      "meanPrecision": 0.9333333333333332,
+      "malformedPayloads": 0
+    }
+  },
+  "diagnostics": {
+    "expectedChunkType": {
+      "hits": 10,
+      "total": 21
+    },
+    "intentScoreSplit": {
+      "generic": {
+        "count": 17,
+        "meanScore": 0.5089272452941177
+      },
+      "specific": {
+        "count": 68,
+        "meanScore": 0.5517899991176474
+      }
+    }
+  },
+  "perQuery": [
+    {
+      "id": "seed-button-size",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "How do I size a button?",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.699
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.673
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.662
+        }
+      ]
+    },
+    {
+      "id": "seed-button-variants",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "button variants",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.599
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.591
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.583
+        }
+      ]
+    },
+    {
+      "id": "seed-loading-state",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "loading state",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.557
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.557
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.557
+        }
+      ]
+    },
+    {
+      "id": "seed-button-with-icons",
+      "category": "cross-component",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "button with icons",
+      "expectedComponents": [
+        "Button",
+        "Icon Button"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.626
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "code-example",
+          "score": 0.62
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "code-example",
+          "score": 0.62
+        }
+      ]
+    },
+    {
+      "id": "seed-button-color",
+      "category": "prop-lookup",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.2,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "button color",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "prop-reference",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.585
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.57
+        },
+        {
+          "component": "Close Button",
+          "chunkType": "prop-reference",
+          "score": 0.563
+        }
+      ]
+    },
+    {
+      "id": "howto-button-loading-spinner",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "show a button with a loading spinner",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.704
+        },
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.681
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.679
+        }
+      ]
+    },
+    {
+      "id": "howto-responsive-grid",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "how to build a responsive grid layout",
+      "expectedComponents": [
+        "Grid",
+        "SimpleGrid"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "SimpleGrid",
+          "chunkType": "code-example",
+          "score": 0.593
+        },
+        {
+          "component": "SimpleGrid",
+          "chunkType": "code-example",
+          "score": 0.58
+        },
+        {
+          "component": "Grid",
+          "chunkType": "code-example",
+          "score": 0.518
+        }
+      ]
+    },
+    {
+      "id": "howto-stack-vertical",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 3,
+      "reciprocalRank": 0.3333333333333333,
+      "precisionAtK": 0.2,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "stack elements vertically with spacing",
+      "expectedComponents": [
+        "Stack"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Heading",
+          "chunkType": "code-example",
+          "score": 0.457
+        },
+        {
+          "component": "Separator",
+          "chunkType": "code-example",
+          "score": 0.456
+        },
+        {
+          "component": "Stack",
+          "chunkType": "code-example",
+          "score": 0.437
+        }
+      ]
+    },
+    {
+      "id": "howto-flex-row",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "arrange items in a horizontal flex row",
+      "expectedComponents": [
+        "Flex"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Flex",
+          "chunkType": "code-example",
+          "score": 0.496
+        },
+        {
+          "component": "Flex",
+          "chunkType": "prop-reference",
+          "score": 0.493
+        },
+        {
+          "component": "Flex",
+          "chunkType": "code-example",
+          "score": 0.47
+        }
+      ]
+    },
+    {
+      "id": "howto-editable-text",
+      "category": "how-to",
+      "componentHit": true,
+      "firstHitRank": 4,
+      "reciprocalRank": 0.25,
+      "precisionAtK": 0.2,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "how to make text editable inline",
+      "expectedComponents": [
+        "Editable"
+      ],
+      "expectedChunkType": "code-example",
+      "topResults": [
+        {
+          "component": "Text",
+          "chunkType": "code-example",
+          "score": 0.455
+        },
+        {
+          "component": "Text",
+          "chunkType": "code-example",
+          "score": 0.452
+        },
+        {
+          "component": "Grid",
+          "chunkType": "prop-reference",
+          "score": 0.448
+        }
+      ]
+    },
+    {
+      "id": "prop-input-size",
+      "category": "prop-lookup",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "what size options does the input have",
+      "expectedComponents": [
+        "Input"
+      ],
+      "expectedChunkType": "prop-reference",
+      "topResults": [
+        {
+          "component": "Input",
+          "chunkType": "prop-reference",
+          "score": 0.579
+        },
+        {
+          "component": "Pin Input",
+          "chunkType": "prop-reference",
+          "score": 0.576
+        },
+        {
+          "component": "Input",
+          "chunkType": "code-example",
+          "score": 0.576
+        }
+      ]
+    },
+    {
+      "id": "prop-button-variant",
+      "category": "prop-lookup",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "button variant prop values",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "prop-reference",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.604
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.6
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.59
+        }
+      ]
+    },
+    {
+      "id": "prop-checkbox-disabled",
+      "category": "prop-lookup",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.6,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "how to disable a checkbox",
+      "expectedComponents": [
+        "Checkbox"
+      ],
+      "expectedChunkType": "prop-reference",
+      "topResults": [
+        {
+          "component": "Checkbox",
+          "chunkType": "code-example",
+          "score": 0.556
+        },
+        {
+          "component": "Checkbox",
+          "chunkType": "prop-reference",
+          "score": 0.543
+        },
+        {
+          "component": "Checkbox Card",
+          "chunkType": "prop-reference",
+          "score": 0.525
+        }
+      ]
+    },
+    {
+      "id": "prop-button-spinner-placement",
+      "category": "prop-lookup",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": true,
+      "malformedPayloads": 0,
+      "query": "where to place the button loading spinner",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "prop-reference",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.647
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.64
+        },
+        {
+          "component": "Close Button",
+          "chunkType": "prop-reference",
+          "score": 0.614
+        }
+      ]
+    },
+    {
+      "id": "whatis-absolutecenter",
+      "category": "what-is",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.6,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what is AbsoluteCenter used for",
+      "expectedComponents": [
+        "AbsoluteCenter"
+      ],
+      "expectedChunkType": "component-overview",
+      "topResults": [
+        {
+          "component": "AbsoluteCenter",
+          "chunkType": "code-example",
+          "score": 0.656
+        },
+        {
+          "component": "Center",
+          "chunkType": "code-example",
+          "score": 0.51
+        },
+        {
+          "component": "Center",
+          "chunkType": "code-example",
+          "score": 0.51
+        }
+      ]
+    },
+    {
+      "id": "whatis-field",
+      "category": "what-is",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what is the Field component",
+      "expectedComponents": [
+        "Field"
+      ],
+      "expectedChunkType": "component-overview",
+      "topResults": [
+        {
+          "component": "Field",
+          "chunkType": "code-example",
+          "score": 0.647
+        },
+        {
+          "component": "Field",
+          "chunkType": "code-example",
+          "score": 0.605
+        },
+        {
+          "component": "Field",
+          "chunkType": "code-example",
+          "score": 0.598
+        }
+      ]
+    },
+    {
+      "id": "whatis-kbd",
+      "category": "what-is",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what is a Kbd element",
+      "expectedComponents": [
+        "Kbd"
+      ],
+      "expectedChunkType": "component-overview",
+      "topResults": [
+        {
+          "component": "Kbd",
+          "chunkType": "code-example",
+          "score": 0.62
+        },
+        {
+          "component": "Kbd",
+          "chunkType": "code-example",
+          "score": 0.62
+        },
+        {
+          "component": "Kbd",
+          "chunkType": "code-example",
+          "score": 0.62
+        }
+      ]
+    },
+    {
+      "id": "whatis-fileupload",
+      "category": "what-is",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what does the File Upload component do",
+      "expectedComponents": [
+        "File Upload"
+      ],
+      "expectedChunkType": "component-overview",
+      "topResults": [
+        {
+          "component": "File Upload",
+          "chunkType": "code-example",
+          "score": 0.652
+        },
+        {
+          "component": "File Upload",
+          "chunkType": "code-example",
+          "score": 0.628
+        },
+        {
+          "component": "File Upload",
+          "chunkType": "code-example",
+          "score": 0.613
+        }
+      ]
+    },
+    {
+      "id": "cap-button-sizes",
+      "category": "what-can-x-do",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what sizes does a button support",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "capability-reference",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "prop-reference",
+          "score": 0.653
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.621
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.608
+        }
+      ]
+    },
+    {
+      "id": "cap-button-variants",
+      "category": "what-can-x-do",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what visual variants can a button have",
+      "expectedComponents": [
+        "Button"
+      ],
+      "expectedChunkType": "capability-reference",
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.764
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.761
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.742
+        }
+      ]
+    },
+    {
+      "id": "cap-checkbox-states",
+      "category": "what-can-x-do",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": false,
+      "malformedPayloads": 0,
+      "query": "what states does a checkbox support",
+      "expectedComponents": [
+        "Checkbox"
+      ],
+      "expectedChunkType": "capability-reference",
+      "topResults": [
+        {
+          "component": "Checkbox",
+          "chunkType": "code-example",
+          "score": 0.569
+        },
+        {
+          "component": "Checkbox",
+          "chunkType": "code-example",
+          "score": 0.568
+        },
+        {
+          "component": "Checkbox Card",
+          "chunkType": "code-example",
+          "score": 0.545
+        }
+      ]
+    },
+    {
+      "id": "layout-center-both-axes",
+      "category": "layout",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "center content vertically and horizontally",
+      "expectedComponents": [
+        "Center",
+        "AbsoluteCenter"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "AbsoluteCenter",
+          "chunkType": "code-example",
+          "score": 0.475
+        },
+        {
+          "component": "Container",
+          "chunkType": "prop-reference",
+          "score": 0.464
+        },
+        {
+          "component": "Center",
+          "chunkType": "code-example",
+          "score": 0.457
+        }
+      ]
+    },
+    {
+      "id": "layout-max-width",
+      "category": "layout",
+      "componentHit": true,
+      "firstHitRank": 2,
+      "reciprocalRank": 0.5,
+      "precisionAtK": 0.2,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "constrain content to a maximum width",
+      "expectedComponents": [
+        "Container"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Editable",
+          "chunkType": "prop-reference",
+          "score": 0.371
+        },
+        {
+          "component": "Container",
+          "chunkType": "prop-reference",
+          "score": 0.358
+        },
+        {
+          "component": "Password Input",
+          "chunkType": "code-example",
+          "score": 0.347
+        }
+      ]
+    },
+    {
+      "id": "layout-aspect-ratio",
+      "category": "layout",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "prop-reference",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "keep an image at a fixed aspect ratio",
+      "expectedComponents": [
+        "Aspect Ratio"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Aspect Ratio",
+          "chunkType": "prop-reference",
+          "score": 0.516
+        },
+        {
+          "component": "Aspect Ratio",
+          "chunkType": "code-example",
+          "score": 0.497
+        },
+        {
+          "component": "Aspect Ratio",
+          "chunkType": "code-example",
+          "score": 0.488
+        }
+      ]
+    },
+    {
+      "id": "layout-wrap-items",
+      "category": "layout",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "wrap items onto multiple lines with spacing",
+      "expectedComponents": [
+        "Wrap"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Wrap",
+          "chunkType": "code-example",
+          "score": 0.411
+        },
+        {
+          "component": "Wrap",
+          "chunkType": "code-example",
+          "score": 0.386
+        },
+        {
+          "component": "Wrap",
+          "chunkType": "code-example",
+          "score": 0.382
+        }
+      ]
+    },
+    {
+      "id": "cross-icon-only-button",
+      "category": "cross-component",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "an icon-only button",
+      "expectedComponents": [
+        "Icon Button"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Icon Button",
+          "chunkType": "code-example",
+          "score": 0.579
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "code-example",
+          "score": 0.579
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "prop-reference",
+          "score": 0.533
+        }
+      ]
+    },
+    {
+      "id": "cross-close-button",
+      "category": "cross-component",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "a close button for a dialog",
+      "expectedComponents": [
+        "Close Button"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Close Button",
+          "chunkType": "code-example",
+          "score": 0.564
+        },
+        {
+          "component": "Close Button",
+          "chunkType": "code-example",
+          "score": 0.549
+        },
+        {
+          "component": "Close Button",
+          "chunkType": "code-example",
+          "score": 0.521
+        }
+      ]
+    },
+    {
+      "id": "cross-group-buttons",
+      "category": "cross-component",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.4,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "group several buttons together",
+      "expectedComponents": [
+        "Group",
+        "Button"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.558
+        },
+        {
+          "component": "Button",
+          "chunkType": "code-example",
+          "score": 0.531
+        },
+        {
+          "component": "Icon Button",
+          "chunkType": "code-example",
+          "score": 0.49
+        }
+      ]
+    },
+    {
+      "id": "type-highlight-text",
+      "category": "typography",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "highlight part of a sentence",
+      "expectedComponents": [
+        "Highlight",
+        "Mark"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Highlight",
+          "chunkType": "code-example",
+          "score": 0.497
+        },
+        {
+          "component": "Highlight",
+          "chunkType": "prop-reference",
+          "score": 0.48
+        },
+        {
+          "component": "Highlight",
+          "chunkType": "prop-reference",
+          "score": 0.469
+        }
+      ]
+    },
+    {
+      "id": "type-heading",
+      "category": "typography",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 0.8,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "render a page heading",
+      "expectedComponents": [
+        "Heading"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Heading",
+          "chunkType": "code-example",
+          "score": 0.424
+        },
+        {
+          "component": "Heading",
+          "chunkType": "code-example",
+          "score": 0.423
+        },
+        {
+          "component": "Heading",
+          "chunkType": "prop-reference",
+          "score": 0.416
+        }
+      ]
+    },
+    {
+      "id": "type-blockquote",
+      "category": "typography",
+      "componentHit": true,
+      "firstHitRank": 1,
+      "reciprocalRank": 1,
+      "precisionAtK": 1,
+      "firstHitChunkType": "code-example",
+      "expectedChunkTypeHit": null,
+      "malformedPayloads": 0,
+      "query": "style a quotation block",
+      "expectedComponents": [
+        "Blockquote"
+      ],
+      "expectedChunkType": null,
+      "topResults": [
+        {
+          "component": "Blockquote",
+          "chunkType": "code-example",
+          "score": 0.527
+        },
+        {
+          "component": "Blockquote",
+          "chunkType": "code-example",
+          "score": 0.527
+        },
+        {
+          "component": "Blockquote",
+          "chunkType": "code-example",
+          "score": 0.527
+        }
+      ]
+    }
+  ]
+}
