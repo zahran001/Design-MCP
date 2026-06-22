@@ -19,6 +19,12 @@ import {
   aggregate,
   aggregateByCategory,
   scoreByIntent,
+  dcgAtK,
+  ndcgAtK,
+  gradedPrecisionAtK,
+  gradeGradedQuery,
+  aggregateGraded,
+  aggregateGradedByCategory,
   type GoldenCase,
   type GradeableResult,
 } from '../metrics.js';
@@ -217,5 +223,98 @@ describe('scoreByIntent', () => {
     const split = scoreByIntent(cases, resultsByCase, 5);
     expect(split.generic).toEqual({ count: 1, meanScore: 0.6 });
     expect(split.specific).toEqual({ count: 1, meanScore: 0.8 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Graded relevance (LLM-as-judge headline metric)
+// ---------------------------------------------------------------------------
+
+describe('dcgAtK', () => {
+  it('applies exponential gain with a log2 positional discount', () => {
+    // grades [2,1,0]: 3/log2(2) + 1/log2(3) + 0 = 3 + 0.63093 = 3.63093
+    expect(dcgAtK([2, 1, 0], 3)).toBeCloseTo(3 + 1 / Math.log2(3), 6);
+  });
+
+  it('honors k by ignoring results past the cutoff', () => {
+    expect(dcgAtK([2, 2, 2], 1)).toBe(3); // only rank 1 counts
+  });
+
+  it('is 0 when nothing is relevant', () => {
+    expect(dcgAtK([0, 0, 0], 3)).toBe(0);
+  });
+});
+
+describe('ndcgAtK', () => {
+  it('is 1.0 when results are already in ideal order', () => {
+    expect(ndcgAtK([2, 1, 0], 3)).toBe(1);
+  });
+
+  it('drops below 1 when relevant results are ranked low', () => {
+    // [0,1,2] vs ideal [2,1,0]
+    const expected = (1 / Math.log2(3) + 3 / Math.log2(4)) / (3 + 1 / Math.log2(3));
+    expect(ndcgAtK([0, 1, 2], 3)).toBeCloseTo(expected, 6);
+    expect(ndcgAtK([0, 1, 2], 3)!).toBeLessThan(1);
+  });
+
+  it('returns null (not NaN) when no result is relevant', () => {
+    expect(ndcgAtK([0, 0, 0], 5)).toBeNull();
+    expect(ndcgAtK([], 5)).toBeNull();
+  });
+});
+
+describe('gradedPrecisionAtK', () => {
+  it('counts results clearing the threshold over k (penalizes under-retrieval)', () => {
+    expect(gradedPrecisionAtK([2, 0, 1], 5)).toBe(2 / 5); // two >= 1, denominator k=5
+  });
+
+  it('respects a custom threshold (e.g. only direct hits)', () => {
+    expect(gradedPrecisionAtK([2, 1, 1], 3, 2)).toBeCloseTo(1 / 3, 6);
+  });
+});
+
+describe('gradeGradedQuery', () => {
+  it('packages nDCG, graded precision, and direct hits for one query', () => {
+    const g = gradeGradedQuery('q', 'how-to', [2, 0, 1], 5);
+    expect(g.id).toBe('q');
+    expect(g.grades).toEqual([2, 0, 1]);
+    expect(g.ndcg).not.toBeNull();
+    expect(g.gradedPrecision).toBe(2 / 5);
+    expect(g.directHits).toBe(1);
+  });
+
+  it('reports null nDCG for a query with no relevant chunk', () => {
+    const g = gradeGradedQuery('q', 'what-is', [0, 0], 5);
+    expect(g.ndcg).toBeNull();
+    expect(g.directHits).toBe(0);
+  });
+});
+
+describe('aggregateGraded', () => {
+  it('excludes null-nDCG queries from the mean and counts them separately', () => {
+    const good = gradeGradedQuery('a', 'how-to', [2, 1], 5); // nDCG 1
+    const none = gradeGradedQuery('b', 'how-to', [0, 0], 5); // nDCG null
+    const agg = aggregateGraded([good, none]);
+
+    expect(agg.count).toBe(2);
+    expect(agg.meanNdcg).toBe(1); // averaged over the one query that had relevance
+    expect(agg.noRelevantQueries).toBe(1);
+    expect(agg.meanGradedPrecision).toBeCloseTo((2 / 5 + 0) / 2, 6);
+  });
+
+  it('returns null mean nDCG when no query had any relevant chunk', () => {
+    const agg = aggregateGraded([gradeGradedQuery('a', 'x', [0], 5)]);
+    expect(agg.meanNdcg).toBeNull();
+    expect(agg.noRelevantQueries).toBe(1);
+  });
+});
+
+describe('aggregateGradedByCategory', () => {
+  it('groups graded queries by category', () => {
+    const a = gradeGradedQuery('a', 'how-to', [2], 5);
+    const b = gradeGradedQuery('b', 'what-is', [0], 5);
+    const byCat = aggregateGradedByCategory([a, b]);
+    expect(byCat['how-to'].meanNdcg).toBe(1);
+    expect(byCat['what-is'].meanNdcg).toBeNull();
   });
 });

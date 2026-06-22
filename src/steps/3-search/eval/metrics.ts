@@ -268,3 +268,137 @@ export function scoreByIntent(
     specific: { count: specificCount, meanScore: safeDiv(specificSum, specificCount) },
   };
 }
+
+// =============================================================================
+// Graded relevance (LLM-as-judge) — Phase 1 headline metric
+// =============================================================================
+// The component-level metrics above are a coarse, structural sanity layer: they
+// only ask "did a chunk from the right component show up." They cannot see
+// whether the *right chunk* — the one that actually answers a developer — ranked
+// highly. These functions consume per-rank graded relevance labels (typically
+// produced by an LLM judge, see judge.ts) and turn them into nDCG / graded
+// precision, the honest headline the plan calls for.
+//
+// Grade scale (convention; the judge must emit these):
+//   0 = irrelevant, 1 = partially relevant, 2 = directly answers the query.
+// These functions are PURE: they take a number[] of grades in rank order and
+// never call an LLM, so they are fully unit-testable.
+// =============================================================================
+
+/** Highest grade on the scale; used to normalize gains. */
+export const MAX_RELEVANCE = 2;
+
+/**
+ * Discounted Cumulative Gain over the top-k grades (in rank order).
+ * Uses the standard exponential gain (2^rel - 1) with a log2 positional
+ * discount, so a "2" at rank 1 is worth far more than a "2" at rank 5.
+ */
+export function dcgAtK(grades: number[], k: number): number {
+  const topK = grades.slice(0, k);
+  return topK.reduce((sum, rel, index) => {
+    const gain = Math.pow(2, rel) - 1;
+    const discount = Math.log2(index + 2); // rank i (0-based) -> log2(i+2)
+    return sum + gain / discount;
+  }, 0);
+}
+
+/**
+ * Normalized DCG over the top-k grades. Returns null when the ideal DCG is 0
+ * (i.e. the judge found nothing even partially relevant for this query) so the
+ * caller can render "n/a" instead of dividing by zero. A null nDCG means "no
+ * relevant chunk existed to rank", which is itself a retrieval finding.
+ */
+export function ndcgAtK(grades: number[], k: number): number | null {
+  const dcg = dcgAtK(grades, k);
+  const ideal = [...grades].sort((a, b) => b - a);
+  const idcg = dcgAtK(ideal, k);
+  if (idcg === 0) return null;
+  return dcg / idcg;
+}
+
+/**
+ * Fraction of the top-k that clears a relevance threshold (default: grade >= 1,
+ * i.e. at least partially relevant). Denominator is k, not results-returned,
+ * so under-retrieval is correctly penalized — same philosophy as precisionAtK.
+ */
+export function gradedPrecisionAtK(grades: number[], k: number, threshold = 1): number {
+  if (k <= 0) return 0;
+  const relevant = grades.slice(0, k).filter((rel) => rel >= threshold).length;
+  return relevant / k;
+}
+
+/** A single query graded by the LLM judge. */
+export interface GradedQuery {
+  id: string;
+  category: string;
+  /** Relevance grade per result, in rank order (top-k). */
+  grades: number[];
+  /** nDCG@k; null when no relevant chunk was found (idcg === 0). */
+  ndcg: number | null;
+  /** Fraction of top-k with grade >= 1. */
+  gradedPrecision: number;
+  /** Count of directly-relevant (grade === 2) results in top-k. */
+  directHits: number;
+}
+
+/** Grade one query from its per-rank relevance labels. */
+export function gradeGradedQuery(
+  id: string,
+  category: string,
+  grades: number[],
+  k: number
+): GradedQuery {
+  return {
+    id,
+    category,
+    grades: grades.slice(0, k),
+    ndcg: ndcgAtK(grades, k),
+    gradedPrecision: gradedPrecisionAtK(grades, k),
+    directHits: grades.slice(0, k).filter((rel) => rel >= MAX_RELEVANCE).length,
+  };
+}
+
+export interface GradedAggregate {
+  count: number;
+  /**
+   * Mean nDCG across queries that had at least one relevant chunk (null nDCGs
+   * are excluded from the mean and reported separately as `noRelevantQueries`).
+   * null if no query had any relevant chunk.
+   */
+  meanNdcg: number | null;
+  /** Mean graded precision@k across all queries. */
+  meanGradedPrecision: number | null;
+  /** Queries the judge found NO relevant chunk for (nDCG was null). */
+  noRelevantQueries: number;
+}
+
+export function aggregateGraded(graded: GradedQuery[]): GradedAggregate {
+  const count = graded.length;
+  const withNdcg = graded.filter((g) => g.ndcg !== null);
+  const ndcgSum = withNdcg.reduce((sum, g) => sum + (g.ndcg as number), 0);
+  const precSum = graded.reduce((sum, g) => sum + g.gradedPrecision, 0);
+
+  return {
+    count,
+    meanNdcg: safeDiv(ndcgSum, withNdcg.length),
+    meanGradedPrecision: safeDiv(precSum, count),
+    noRelevantQueries: count - withNdcg.length,
+  };
+}
+
+/** Aggregate graded queries grouped by category (preserves first-seen order). */
+export function aggregateGradedByCategory(
+  graded: GradedQuery[]
+): Record<string, GradedAggregate> {
+  const groups = new Map<string, GradedQuery[]>();
+  for (const g of graded) {
+    const bucket = groups.get(g.category) ?? [];
+    bucket.push(g);
+    groups.set(g.category, bucket);
+  }
+  const out: Record<string, GradedAggregate> = {};
+  for (const [category, bucket] of groups) {
+    out[category] = aggregateGraded(bucket);
+  }
+  return out;
+}

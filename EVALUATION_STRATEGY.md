@@ -1,6 +1,8 @@
 # Evaluation Strategy & Retrieval-Quality Roadmap
 
-> **Status:** active plan. Branch `week2_eval_harness` (3 commits, pushed).
+> **Status:** active plan. Branch `week2_eval_harness`.
+> **Phase 1 (build the instrument): DONE — 2026-06-22.** Phase 2 (lock baseline): essentially
+> captured by the gpt-4o run below; Phase 3 (scraper) is the next real work.
 > **Audience:** the next coding agent / contributor picking this up in a fresh session.
 > **One-line goal:** build a *trustworthy* retrieval evaluation, then use it to prove whether
 > **authentic documentation prose beats our synthesized template prose** as embedding input.
@@ -60,17 +62,28 @@ This plan is evidence-driven. Each decision traces to a concrete finding:
 
 ## 4. The plan (3 phases)
 
-### Phase 1 — Build the trustworthy evaluation (DO THIS FIRST)
+### Phase 1 — Build the trustworthy evaluation (DO THIS FIRST) — ✅ DONE
 **Do not touch the scraper yet.** Build the sensitive measuring tool:
 - **LLM-as-judge graded relevance.** For each `(query, retrieved-chunk)` pair, an LLM grades
-  relevance (e.g. 0 = irrelevant, 1 = partial, 2 = directly answers). Aggregate with
-  **nDCG / graded precision** — not component match.
-- **Paraphrased developer query set.** Generate diverse, real-developer-phrased paraphrases of
-  the golden queries (held-out phrasing that does *not* reuse template vocabulary). This is the
-  leakage/circularity test: scores that survive paraphrasing are real; scores that collapse prove
-  the templates only match themselves.
-- Keep the existing component-level metrics as a cheap sanity layer, but make the LLM-judged
-  graded score the headline.
+  relevance (0 = irrelevant, 1 = partial, 2 = directly answers). Implemented in
+  [judge.ts](src/steps/3-search/eval/judge.ts) (OpenAI, env `EVAL_JUDGE_MODEL`, default
+  `gpt-4o-mini`; content-addressed disk cache; `EVAL_JUDGE_DELAY_MS` / `EVAL_JUDGE_MAX_RETRIES`
+  for low-TPM accounts). Pure scoring (nDCG, graded precision, aggregation) lives in
+  [metrics.ts](src/steps/3-search/eval/metrics.ts).
+- **Paraphrased developer query set.** Committed, held-out, developer-phrased paraphrases of every
+  golden query in [golden-set-paraphrased.ts](src/steps/3-search/eval/golden-set-paraphrased.ts)
+  (derived from `GOLDEN_SET` so they can't drift; `gen-paraphrases.ts` regenerates via LLM).
+- Run it: `npm run quality:eval:judge` (= `--judge --paraphrased`).
+
+**Headline-metric correction (evidence-driven, supersedes the original "nDCG is the headline"):**
+A gpt-4o-mini *and* gpt-4o run both reported **nDCG ≈ 0.94** — high, and nearly identical across
+judges. The cause is structural: **nDCG only ranks the chunks that were retrieved**, so it is blind
+to better chunks that never surfaced and saturates whenever *anything* relevant is in the top-k.
+It is therefore a *diagnostic*, not the headline. The honest headline is **graded precision@k
+(`gP@k`, fraction of top-k the judge rated ≥ partially relevant) + the no-relevant-query count**.
+These *do* move: under the stricter gpt-4o judge, `gP@k` falls from mini's inflated 0.916 to 0.852
+(golden) and the paraphrase gap triples (Δ −0.058 → −0.168). nDCG remains a labeled secondary
+(`nDCG*`) in the output.
 
 ### Phase 2 — Lock in the baseline
 Run the **current, template-generated data** (unchanged) through the new strict harness. This
@@ -95,9 +108,11 @@ avoided a large re-crawl on a hunch.
 
 ## 5. Success criteria
 
-- **Phase 1 done:** `quality:eval` reports an LLM-judged graded score (nDCG) per query and
-  per category, plus a paraphrased-query variant, with results written to `artifacts/eval/`.
+- **Phase 1 done ✅:** `quality:eval:judge` reports LLM-judged graded relevance — headline
+  `gP@k` + no-relevant count, with `nDCG*` as a diagnostic — per query and per category, for both
+  the golden set and a held-out paraphrased set (with a leakage Δ), written to `artifacts/eval/`.
 - **Phase 2 done:** a committed baseline of the current template approach under the new metric.
+  The **gpt-4o** run is the reference (`artifacts/eval/baseline-judged-gpt4o.json`; numbers below).
 - **Phase 3 done:** a second eval run on re-extracted real-prose data, and a documented delta vs
   baseline that makes the templates-vs-prose verdict unambiguous.
 
@@ -107,12 +122,23 @@ avoided a large re-crawl on a hunch.
 
 ### Current state
 - **Branch:** `week2_eval_harness` (cut from `week2_vectorDB_POC`; it is a strict superset of it).
-  3 commits, pushed to origin. The user may merge it into `main`.
-- **Tests:** 588 passing (`npm test`). `tsc -p tsconfig.json --noEmit` is clean.
-- **Clean baseline (current template approach), `artifacts/eval/baseline.json`:**
+- **Tests:** eval suite 33 passing; `tsc -p tsconfig.json --noEmit` clean. (Note: 2 tests in
+  `transformationMetrics.test.ts` fail only under the *full parallel* run — a pre-existing
+  shared-log-file race; they pass 41/41 in isolation. Unrelated to the eval work.)
+- **Component-level baseline (structural sanity), `artifacts/eval/baseline.json`:**
   747 points = 747 chunks (no drift). `hit@5 = 100%`, `MRR = 0.938`, `P@5 = 0.703`,
-  expected-chunk-type hit `48% (10/21)`, mean score generic `0.509` vs specific `0.552`.
-  *These are the numbers the new LLM-judge metric will replace with something honest.*
+  expected-chunk-type hit `48% (10/21)`.
+- **Phase-1/2 honest baseline — gpt-4o judge, k=5** (committed report
+  `artifacts/eval/baseline-judged-gpt4o.json`):
+  | set | gP@k (headline) | no-rel | nDCG* (diag) |
+  |---|---|---|---|
+  | golden (31q) | **0.852** | 0 | 0.941 |
+  | paraphrased (31q) | **0.684** | **3** | 0.880 |
+  Leakage Δ: component hit@5 100%→84%, **gP@k −0.168**, expected-chunk-type 48%→24%. The 3
+  no-relevant paraphrased queries (2 `layout`, 1 `how-to`) and the gP@k collapse are the strongest
+  evidence so far that retrieval leans on template-vocabulary overlap — the hypothesis Phase 3 tests.
+  (A gpt-4o-mini run exists too but grades leniently — `gP@k` inflated by 6–17 pts; use gpt-4o for
+  the reference.)
 
 ### Stack & where things live
 - **Embeddings:** OpenAI `text-embedding-3-small` (1536 dims). **Vector DB:** Qdrant at
@@ -120,10 +146,13 @@ avoided a large re-crawl on a hunch.
 - **Pipeline (CLI):** `0-extract-docs` → `1-normalize` → `2-embed` → `3-search`. Entry:
   [src/index.ts](src/index.ts).
 - **Eval harness:** [src/steps/3-search/eval/](src/steps/3-search/eval/) —
-  `metrics.ts` (pure scoring; this is where Phase-1 nDCG/LLM-judge functions should live),
-  `golden-set.ts` (31 queries; add the paraphrased set here or alongside),
-  `run-eval.ts` (runner; provenance header + stale-DB warning),
-  `__tests__/metrics.test.ts`. Script: `npm run quality:eval`.
+  `metrics.ts` (pure scoring: component metrics + nDCG/gP@k graded relevance),
+  `judge.ts` (LLM-as-judge + chunk renderer + disk cache),
+  `golden-set.ts` (31 queries), `golden-set-paraphrased.ts` (held-out paraphrases),
+  `gen-paraphrases.ts` (LLM regenerator), `run-eval.ts` (runner; provenance + stale-DB warning +
+  leakage report), `__tests__/{metrics,judge}.test.ts`.
+  Scripts: `npm run quality:eval` (cheap component metrics), `npm run quality:eval:judge`
+  (`--judge --paraphrased`; the headline run), `npm run quality:paraphrase:gen`.
 - **Services:** [src/services/](src/services/) — `EmbeddingService` (OpenAI),
   `VectorStoreService` (Qdrant; has `getPointCount` for drift detection), `RetrievalService`
   (`searchDetailed(query, k)` returns `{rank, score, id, payload}` — reuse this; do NOT build a

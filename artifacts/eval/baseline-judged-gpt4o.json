@@ -1,0 +1,2827 @@
+{
+  "generatedAt": "2026-06-22T23:13:11.867Z",
+  "provenance": {
+    "collectionName": "chakra-ui-docs",
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "pointCount": 747,
+    "diskChunkCount": 747,
+    "stale": false,
+    "judgeModel": "gpt-4o"
+  },
+  "k": 5,
+  "sets": {
+    "golden": {
+      "overall": {
+        "count": 31,
+        "hitRate": 1,
+        "mrr": 0.9381720430107526,
+        "meanPrecision": 0.7032258064516129,
+        "malformedPayloads": 0
+      },
+      "byCategory": {
+        "how-to": {
+          "count": 8,
+          "hitRate": 1,
+          "mrr": 0.8229166666666666,
+          "meanPrecision": 0.6,
+          "malformedPayloads": 0
+        },
+        "cross-component": {
+          "count": 4,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.7999999999999999,
+          "malformedPayloads": 0
+        },
+        "prop-lookup": {
+          "count": 5,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.48,
+          "malformedPayloads": 0
+        },
+        "what-is": {
+          "count": 4,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.9,
+          "malformedPayloads": 0
+        },
+        "what-can-x-do": {
+          "count": 3,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.6666666666666666,
+          "malformedPayloads": 0
+        },
+        "layout": {
+          "count": 4,
+          "hitRate": 1,
+          "mrr": 0.875,
+          "meanPrecision": 0.75,
+          "malformedPayloads": 0
+        },
+        "typography": {
+          "count": 3,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.9333333333333332,
+          "malformedPayloads": 0
+        }
+      },
+      "diagnostics": {
+        "expectedChunkType": {
+          "hits": 10,
+          "total": 21
+        },
+        "intentScoreSplit": {
+          "generic": {
+            "count": 17,
+            "meanScore": 0.50893502
+          },
+          "specific": {
+            "count": 68,
+            "meanScore": 0.5517923939705884
+          }
+        }
+      },
+      "graded": {
+        "overall": {
+          "count": 31,
+          "meanNdcg": 0.9405726094000112,
+          "meanGradedPrecision": 0.8516129032258066,
+          "noRelevantQueries": 0
+        },
+        "byCategory": {
+          "how-to": {
+            "count": 8,
+            "meanNdcg": 0.8826992971861649,
+            "meanGradedPrecision": 0.775,
+            "noRelevantQueries": 0
+          },
+          "cross-component": {
+            "count": 4,
+            "meanNdcg": 0.9981186568186995,
+            "meanGradedPrecision": 0.95,
+            "noRelevantQueries": 0
+          },
+          "prop-lookup": {
+            "count": 5,
+            "meanNdcg": 1,
+            "meanGradedPrecision": 0.8800000000000001,
+            "noRelevantQueries": 0
+          },
+          "what-is": {
+            "count": 4,
+            "meanNdcg": 0.9033918583240902,
+            "meanGradedPrecision": 0.8500000000000001,
+            "noRelevantQueries": 0
+          },
+          "what-can-x-do": {
+            "count": 3,
+            "meanNdcg": 0.9825027874296914,
+            "meanGradedPrecision": 0.8666666666666667,
+            "noRelevantQueries": 0
+          },
+          "layout": {
+            "count": 4,
+            "meanNdcg": 0.8926604297388301,
+            "meanGradedPrecision": 0.75,
+            "noRelevantQueries": 0
+          },
+          "typography": {
+            "count": 3,
+            "meanNdcg": 0.9906547906984918,
+            "meanGradedPrecision": 1,
+            "noRelevantQueries": 0
+          }
+        }
+      },
+      "perQuery": [
+        {
+          "id": "seed-button-size",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "How do I size a button?",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.9550337350142764,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.699,
+              "judgeGrade": 2,
+              "judgeReason": "It directly provides the prop used to size a button and the accepted values."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.673,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk provides size options for an Icon Button, not a regular button."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.662,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows how to size a button using the size prop."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-variants",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "button variants",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.599,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly lists the button variants, which is exactly what the query asks for."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.591,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly demonstrates the use of button variants, exactly matching the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.583,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes the 'variant' prop for an Icon Button, which is relevant to the query about button variants."
+            }
+          ]
+        },
+        {
+          "id": "seed-loading-state",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "loading state",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.557,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example specifically demonstrating the loading state for a Button component."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.557,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example demonstrating the loading state for a Button component, directly addressing the query."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.557,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example demonstrating the loading state for a Button component, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-with-icons",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "button with icons",
+          "expectedComponents": [
+            "Button",
+            "Icon Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.626,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of a button with an icon, which directly answers the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of a button with an icon, directly addressing the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of a button with an icon, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-color",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "button color",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.585,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly addresses the query by providing information about the button's color options."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.57,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a color-related prop for an Icon Button, which is relevant to the query about button color."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.563,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a color-related prop for a Close Button, which is relevant to the query about button color."
+            }
+          ]
+        },
+        {
+          "id": "howto-button-loading-spinner",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "show a button with a loading spinner",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.704,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly describes how to show a loading spinner on a button using the 'loading' prop."
+            },
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.681,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to showing a spinner on a button, which is relevant to the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.679,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a spinner prop for an Icon Button, but does not show a button with a loading spinner."
+            }
+          ]
+        },
+        {
+          "id": "howto-responsive-grid",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "how to build a responsive grid layout",
+          "expectedComponents": [
+            "Grid",
+            "SimpleGrid"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "SimpleGrid",
+              "chunkType": "code-example",
+              "score": 0.593,
+              "judgeGrade": 2,
+              "judgeReason": "The code example shows how to use SimpleGrid for a responsive layout."
+            },
+            {
+              "component": "SimpleGrid",
+              "chunkType": "code-example",
+              "score": 0.58,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for building a responsive grid layout using SimpleGrid."
+            },
+            {
+              "component": "Grid",
+              "chunkType": "code-example",
+              "score": 0.518,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for building a grid layout using the Grid component, which is directly relevant to the query."
+            }
+          ]
+        },
+        {
+          "id": "howto-stack-vertical",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 3,
+          "reciprocalRank": 0.3333333333333333,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "stack elements vertically with spacing",
+          "expectedComponents": [
+            "Stack"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Heading",
+              "chunkType": "code-example",
+              "score": 0.457,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to use the Stack component to stack elements vertically with spacing."
+            },
+            {
+              "component": "Separator",
+              "chunkType": "code-example",
+              "score": 0.456,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to use the Stack component to space elements vertically."
+            },
+            {
+              "component": "Stack",
+              "chunkType": "code-example",
+              "score": 0.437,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows how to stack elements vertically with spacing using the Stack component."
+            }
+          ]
+        },
+        {
+          "id": "howto-flex-row",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "arrange items in a horizontal flex row",
+          "expectedComponents": [
+            "Flex"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.6758840844016503,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Flex",
+              "chunkType": "code-example",
+              "score": 0.496,
+              "judgeGrade": 1,
+              "judgeReason": "The example uses 'direction=\"column\"' instead of 'direction=\"row\"', which is needed for a horizontal arrangement."
+            },
+            {
+              "component": "Flex",
+              "chunkType": "prop-reference",
+              "score": 0.493,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes the 'align' prop, which is not directly related to arranging items in a horizontal flex row."
+            },
+            {
+              "component": "Flex",
+              "chunkType": "code-example",
+              "score": 0.47,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to use the Flex component, but does not specify horizontal arrangement."
+            }
+          ]
+        },
+        {
+          "id": "howto-editable-text",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 4,
+          "reciprocalRank": 0.25,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "how to make text editable inline",
+          "expectedComponents": [
+            "Editable"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.4306765580733931,
+          "gradedPrecision": 0.2,
+          "topResults": [
+            {
+              "component": "Text",
+              "chunkType": "code-example",
+              "score": 0.455,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows how to use the Text component but not how to make it editable inline."
+            },
+            {
+              "component": "Text",
+              "chunkType": "code-example",
+              "score": 0.452,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows text styling, not inline editing."
+            },
+            {
+              "component": "Grid",
+              "chunkType": "prop-reference",
+              "score": 0.448,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about a Grid component's inline property, not about making text editable inline."
+            }
+          ]
+        },
+        {
+          "id": "prop-input-size",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "what size options does the input have",
+          "expectedComponents": [
+            "Input"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Input",
+              "chunkType": "prop-reference",
+              "score": 0.579,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists the size options available for the Input component, directly answering the query."
+            },
+            {
+              "component": "Pin Input",
+              "chunkType": "prop-reference",
+              "score": 0.576,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists size options for the Pin Input component, directly answering the query."
+            },
+            {
+              "component": "Input",
+              "chunkType": "code-example",
+              "score": 0.576,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly lists the size options available for the Input component."
+            }
+          ]
+        },
+        {
+          "id": "prop-button-variant",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "button variant prop values",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.604,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists the exact prop values for the 'variant' prop of the Button component."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.6,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists and demonstrates all the variant prop values for the Button component."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.59,
+              "judgeGrade": 2,
+              "judgeReason": "It directly lists and demonstrates the 'variant' prop values for the Button component."
+            }
+          ]
+        },
+        {
+          "id": "prop-checkbox-disabled",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.6,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "how to disable a checkbox",
+          "expectedComponents": [
+            "Checkbox"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Checkbox",
+              "chunkType": "code-example",
+              "score": 0.556,
+              "judgeGrade": 2,
+              "judgeReason": "The code example shows how to disable a checkbox using the 'disabled' prop."
+            },
+            {
+              "component": "Checkbox",
+              "chunkType": "prop-reference",
+              "score": 0.543,
+              "judgeGrade": 2,
+              "judgeReason": "It directly mentions the 'disabled' prop for a checkbox, which is exactly what the query asks for."
+            },
+            {
+              "component": "Checkbox Card",
+              "chunkType": "prop-reference",
+              "score": 0.525,
+              "judgeGrade": 2,
+              "judgeReason": "It provides the exact prop needed to disable a checkbox."
+            }
+          ]
+        },
+        {
+          "id": "prop-button-spinner-placement",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "where to place the button loading spinner",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.647,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly addresses the query by specifying the prop for spinner placement on a button."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.64,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes the 'spinnerPlacement' prop, which directly answers where to place the button loading spinner."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.614,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes the spinner placement prop, but for a Close Button, not a generic button."
+            }
+          ]
+        },
+        {
+          "id": "whatis-absolutecenter",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.6,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what is AbsoluteCenter used for",
+          "expectedComponents": [
+            "AbsoluteCenter"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 0.8529278650606569,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "AbsoluteCenter",
+              "chunkType": "code-example",
+              "score": 0.656,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example demonstrating the use of AbsoluteCenter, directly addressing the query."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.51,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about the Center component, not AbsoluteCenter."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.51,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about the Center component, not AbsoluteCenter."
+            }
+          ]
+        },
+        {
+          "id": "whatis-field",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what is the Field component",
+          "expectedComponents": [
+            "Field"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Field",
+              "chunkType": "code-example",
+              "score": 0.647,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example related to the Field component, which directly addresses the query."
+            },
+            {
+              "component": "Field",
+              "chunkType": "code-example",
+              "score": 0.605,
+              "judgeGrade": 2,
+              "judgeReason": "It directly explains the Field component and its subcomponents."
+            },
+            {
+              "component": "Field",
+              "chunkType": "code-example",
+              "score": 0.598,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example and explanation of the Field component and its subcomponents."
+            }
+          ]
+        },
+        {
+          "id": "whatis-kbd",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what is a Kbd element",
+          "expectedComponents": [
+            "Kbd"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of the Kbd component, directly addressing the query about what a Kbd element is."
+            },
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of the Kbd component, which directly answers what it is and how to use it."
+            },
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of the Kbd component, directly addressing the query about what a Kbd element is."
+            }
+          ]
+        },
+        {
+          "id": "whatis-fileupload",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what does the File Upload component do",
+          "expectedComponents": [
+            "File Upload"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 0.7606395682357036,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "File Upload",
+              "chunkType": "code-example",
+              "score": 0.652,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk provides a code example but does not explain what the File Upload component does."
+            },
+            {
+              "component": "File Upload",
+              "chunkType": "code-example",
+              "score": 0.628,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk provides a code example but does not explain what the File Upload component does."
+            },
+            {
+              "component": "File Upload",
+              "chunkType": "code-example",
+              "score": 0.613,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk provides a code example but does not explain what the File Upload component does."
+            }
+          ]
+        },
+        {
+          "id": "cap-button-sizes",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what sizes does a button support",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 0.9550337350142764,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.653,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly lists the sizes supported by the Button component."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.621,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk provides size options for an Icon Button, not a regular Button."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.608,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly lists the sizes supported by the Button component."
+            }
+          ]
+        },
+        {
+          "id": "cap-button-variants",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what visual variants can a button have",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.764,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists and demonstrates the visual variants of a Button component."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.761,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists and demonstrates the visual variants of a button."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.742,
+              "judgeGrade": 2,
+              "judgeReason": "It directly lists the visual variants available for a button."
+            }
+          ]
+        },
+        {
+          "id": "cap-checkbox-states",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what states does a checkbox support",
+          "expectedComponents": [
+            "Checkbox"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 0.9924746272747981,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Checkbox",
+              "chunkType": "code-example",
+              "score": 0.569,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk demonstrates various state configurations for the Checkbox component, directly addressing the query."
+            },
+            {
+              "component": "Checkbox",
+              "chunkType": "code-example",
+              "score": 0.568,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides examples of different states a checkbox can have, directly answering the query."
+            },
+            {
+              "component": "Checkbox Card",
+              "chunkType": "code-example",
+              "score": 0.545,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows a disabled state but does not cover all possible states of a checkbox."
+            }
+          ]
+        },
+        {
+          "id": "layout-center-both-axes",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "center content vertically and horizontally",
+          "expectedComponents": [
+            "Center",
+            "AbsoluteCenter"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "AbsoluteCenter",
+              "chunkType": "code-example",
+              "score": 0.475,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using AbsoluteCenter to center content both vertically and horizontally."
+            },
+            {
+              "component": "Container",
+              "chunkType": "prop-reference",
+              "score": 0.464,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a prop that centers content, which directly answers the query."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.457,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using the Center component to center content both vertically and horizontally."
+            }
+          ]
+        },
+        {
+          "id": "layout-max-width",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 2,
+          "reciprocalRank": 0.5,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "constrain content to a maximum width",
+          "expectedComponents": [
+            "Container"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.5706417189553201,
+          "gradedPrecision": 0.4,
+          "topResults": [
+            {
+              "component": "Editable",
+              "chunkType": "prop-reference",
+              "score": 0.371,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about character length, not content width."
+            },
+            {
+              "component": "Container",
+              "chunkType": "prop-reference",
+              "score": 0.358,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a 'centerContent' prop, which is not directly related to constraining content to a maximum width."
+            },
+            {
+              "component": "Password Input",
+              "chunkType": "code-example",
+              "score": 0.347,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to constrain content to a maximum width using the Stack component."
+            }
+          ]
+        },
+        {
+          "id": "layout-aspect-ratio",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "keep an image at a fixed aspect ratio",
+          "expectedComponents": [
+            "Aspect Ratio"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Aspect Ratio",
+              "chunkType": "prop-reference",
+              "score": 0.516,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly addresses the query by describing a component and prop for maintaining a fixed aspect ratio."
+            },
+            {
+              "component": "Aspect Ratio",
+              "chunkType": "code-example",
+              "score": 0.497,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for maintaining a fixed aspect ratio using the Aspect Ratio component."
+            },
+            {
+              "component": "Aspect Ratio",
+              "chunkType": "code-example",
+              "score": 0.488,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of using the Aspect Ratio component, which directly addresses the query about keeping an image at a fixed aspect ratio."
+            }
+          ]
+        },
+        {
+          "id": "layout-wrap-items",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "wrap items onto multiple lines with spacing",
+          "expectedComponents": [
+            "Wrap"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Wrap",
+              "chunkType": "code-example",
+              "score": 0.411,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using the Wrap component to wrap items onto multiple lines with spacing, directly addressing the query."
+            },
+            {
+              "component": "Wrap",
+              "chunkType": "code-example",
+              "score": 0.386,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows how to use the Wrap component to wrap items onto multiple lines with spacing using the 'gap' prop."
+            },
+            {
+              "component": "Wrap",
+              "chunkType": "code-example",
+              "score": 0.382,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of using the Wrap component with spacing props, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "cross-icon-only-button",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "an icon-only button",
+          "expectedComponents": [
+            "Icon Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9924746272747981,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.579,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of an icon-only button, directly addressing the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.579,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of an icon-only button using the IconButton component."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.533,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions an 'Icon Button' component, which is relevant to the query about an icon-only button."
+            }
+          ]
+        },
+        {
+          "id": "cross-close-button",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "a close button for a dialog",
+          "expectedComponents": [
+            "Close Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Close Button",
+              "chunkType": "code-example",
+              "score": 0.564,
+              "judgeGrade": 2,
+              "judgeReason": "It provides a code example for a Close Button, which is relevant for a dialog."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "code-example",
+              "score": 0.549,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for a Close Button, which is relevant to the query about a close button for a dialog."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "code-example",
+              "score": 0.521,
+              "judgeGrade": 2,
+              "judgeReason": "It shows how to use a Close Button component, which is relevant for a dialog."
+            }
+          ]
+        },
+        {
+          "id": "cross-group-buttons",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "group several buttons together",
+          "expectedComponents": [
+            "Group",
+            "Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.558,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using ButtonGroup to group buttons together."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.531,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using ButtonGroup to group buttons, directly addressing the query."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.49,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to group buttons using HStack, which is relevant to the query."
+            }
+          ]
+        },
+        {
+          "id": "type-highlight-text",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "highlight part of a sentence",
+          "expectedComponents": [
+            "Highlight",
+            "Mark"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Highlight",
+              "chunkType": "code-example",
+              "score": 0.497,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of highlighting parts of a sentence using the Highlight component."
+            },
+            {
+              "component": "Highlight",
+              "chunkType": "prop-reference",
+              "score": 0.48,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a component and prop related to highlighting text, which directly answers the query."
+            },
+            {
+              "component": "Highlight",
+              "chunkType": "prop-reference",
+              "score": 0.469,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a component and prop directly related to highlighting parts of a sentence."
+            }
+          ]
+        },
+        {
+          "id": "type-heading",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "render a page heading",
+          "expectedComponents": [
+            "Heading"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9719643720954755,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Heading",
+              "chunkType": "code-example",
+              "score": 0.424,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for rendering a page heading using the Heading component."
+            },
+            {
+              "component": "Heading",
+              "chunkType": "code-example",
+              "score": 0.423,
+              "judgeGrade": 2,
+              "judgeReason": "It provides a code example for rendering a Heading component, which directly answers the query."
+            },
+            {
+              "component": "Heading",
+              "chunkType": "prop-reference",
+              "score": 0.416,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk provides information about a prop for a Heading component, which is relevant to rendering a page heading."
+            }
+          ]
+        },
+        {
+          "id": "type-blockquote",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "style a quotation block",
+          "expectedComponents": [
+            "Blockquote"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Blockquote",
+              "chunkType": "code-example",
+              "score": 0.527,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for styling a Blockquote component, directly addressing the query."
+            },
+            {
+              "component": "Blockquote",
+              "chunkType": "code-example",
+              "score": 0.527,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for styling a Blockquote component, directly addressing the query."
+            },
+            {
+              "component": "Blockquote",
+              "chunkType": "code-example",
+              "score": 0.527,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for styling a quotation block using the Blockquote component."
+            }
+          ]
+        }
+      ]
+    },
+    "paraphrased": {
+      "overall": {
+        "count": 31,
+        "hitRate": 0.8387096774193549,
+        "mrr": 0.7795698924731183,
+        "meanPrecision": 0.567741935483871,
+        "malformedPayloads": 0
+      },
+      "byCategory": {
+        "how-to": {
+          "count": 8,
+          "hitRate": 0.875,
+          "mrr": 0.7291666666666666,
+          "meanPrecision": 0.42500000000000004,
+          "malformedPayloads": 0
+        },
+        "cross-component": {
+          "count": 4,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.85,
+          "malformedPayloads": 0
+        },
+        "prop-lookup": {
+          "count": 5,
+          "hitRate": 0.8,
+          "mrr": 0.8,
+          "meanPrecision": 0.5599999999999999,
+          "malformedPayloads": 0
+        },
+        "what-is": {
+          "count": 4,
+          "hitRate": 0.75,
+          "mrr": 0.5833333333333333,
+          "meanPrecision": 0.55,
+          "malformedPayloads": 0
+        },
+        "what-can-x-do": {
+          "count": 3,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.7333333333333334,
+          "malformedPayloads": 0
+        },
+        "layout": {
+          "count": 4,
+          "hitRate": 0.5,
+          "mrr": 0.5,
+          "meanPrecision": 0.3,
+          "malformedPayloads": 0
+        },
+        "typography": {
+          "count": 3,
+          "hitRate": 1,
+          "mrr": 1,
+          "meanPrecision": 0.8000000000000002,
+          "malformedPayloads": 0
+        }
+      },
+      "diagnostics": {
+        "expectedChunkType": {
+          "hits": 5,
+          "total": 21
+        },
+        "intentScoreSplit": {
+          "generic": {
+            "count": 11,
+            "meanScore": 0.3993424318181819
+          },
+          "specific": {
+            "count": 39,
+            "meanScore": 0.5030674543589744
+          }
+        }
+      },
+      "graded": {
+        "overall": {
+          "count": 31,
+          "meanNdcg": 0.8800815799465699,
+          "meanGradedPrecision": 0.6838709677419356,
+          "noRelevantQueries": 3
+        },
+        "byCategory": {
+          "how-to": {
+            "count": 8,
+            "meanNdcg": 0.8945203395060076,
+            "meanGradedPrecision": 0.6499999999999999,
+            "noRelevantQueries": 1
+          },
+          "cross-component": {
+            "count": 4,
+            "meanNdcg": 0.9166491743971468,
+            "meanGradedPrecision": 0.9,
+            "noRelevantQueries": 0
+          },
+          "prop-lookup": {
+            "count": 5,
+            "meanNdcg": 0.9073857319287724,
+            "meanGradedPrecision": 0.76,
+            "noRelevantQueries": 0
+          },
+          "what-is": {
+            "count": 4,
+            "meanNdcg": 0.8912977328938133,
+            "meanGradedPrecision": 0.75,
+            "noRelevantQueries": 0
+          },
+          "what-can-x-do": {
+            "count": 3,
+            "meanNdcg": 0.8102255193577976,
+            "meanGradedPrecision": 0.6666666666666666,
+            "noRelevantQueries": 0
+          },
+          "layout": {
+            "count": 4,
+            "meanNdcg": 0.8091442510246394,
+            "meanGradedPrecision": 0.2,
+            "noRelevantQueries": 2
+          },
+          "typography": {
+            "count": 3,
+            "meanNdcg": 0.8543201710105105,
+            "meanGradedPrecision": 0.9333333333333332,
+            "noRelevantQueries": 0
+          }
+        }
+      },
+      "perQuery": [
+        {
+          "id": "seed-button-size-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "make a button bigger or smaller",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.603,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly addresses how to change the button size using the 'size' prop."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.583,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a prop that controls the size of a button, directly addressing the query."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.582,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example showing how to adjust button size using the size prop, directly answering the query."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-variants-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "different button styles like outline or solid",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.648,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example showing both 'solid' and 'outline' button styles, directly answering the query."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.647,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows how to use different button styles including 'outline' and 'solid'."
+            },
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.62,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists button styles including 'outline' and 'solid', directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "seed-loading-state-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "show a spinner on a button while my form submits",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.9924746272747981,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.593,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes the 'spinner' prop for a Button, which is directly relevant to showing a spinner while a form submits."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.571,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a spinner prop for an Icon Button, which is relevant to showing a spinner while a form submits."
+            },
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.564,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions a spinner-related prop for a button, but does not explain how to show a spinner during form submission."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-with-icons-para",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "put an icon next to the text on a button",
+          "expectedComponents": [
+            "Button",
+            "Icon Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.9558295932317544,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.586,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to use an icon button, but not how to put an icon next to text on a button."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.586,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to use an icon button, but not how to put an icon next to text on a button."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.518,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a prop for an Icon Button, but does not explain how to put an icon next to text on a button."
+            }
+          ]
+        },
+        {
+          "id": "seed-button-color-para",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.6,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "change a button's color scheme",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.599,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides the exact prop needed to change a button's color scheme."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.581,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a prop to change the color scheme of a button."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.555,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a prop for changing the color scheme of a Close Button, which directly answers the query."
+            }
+          ]
+        },
+        {
+          "id": "howto-button-loading-spinner-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "disable the button and show a spinner while saving",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.555,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop that shows a loading spinner on a button, which is part of the query."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.547,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop that shows a loading spinner on a button, which partially addresses the query."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.534,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk is about a 'Close Button' component and its 'spinner' prop, but it doesn't mention disabling the button."
+            }
+          ]
+        },
+        {
+          "id": "howto-responsive-grid-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 3,
+          "reciprocalRank": 0.3333333333333333,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "lay out cards in columns that reflow on smaller screens",
+          "expectedComponents": [
+            "Grid",
+            "SimpleGrid"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.5706417189553201,
+          "gradedPrecision": 0.4,
+          "topResults": [
+            {
+              "component": "Checkbox Card",
+              "chunkType": "code-example",
+              "score": 0.423,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address laying out cards in columns or reflowing on smaller screens."
+            },
+            {
+              "component": "Checkbox Card",
+              "chunkType": "code-example",
+              "score": 0.421,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address layout or reflow of cards in columns."
+            },
+            {
+              "component": "SimpleGrid",
+              "chunkType": "code-example",
+              "score": 0.419,
+              "judgeGrade": 2,
+              "judgeReason": "The example shows how to use SimpleGrid for responsive columns, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "howto-stack-vertical-para",
+          "category": "how-to",
+          "componentHit": false,
+          "firstHitRank": null,
+          "reciprocalRank": 0,
+          "precisionAtK": 0,
+          "firstHitChunkType": null,
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "put boxes one under another with gaps between them",
+          "expectedComponents": [
+            "Stack"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": null,
+          "gradedPrecision": 0,
+          "topResults": [
+            {
+              "component": "Box",
+              "chunkType": "code-example",
+              "score": 0.417,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows basic usage of the Box component but does not address stacking boxes with gaps."
+            },
+            {
+              "component": "Box",
+              "chunkType": "code-example",
+              "score": 0.413,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address stacking boxes vertically with gaps."
+            },
+            {
+              "component": "Box",
+              "chunkType": "code-example",
+              "score": 0.412,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows basic usage of the Box component but does not address stacking boxes with gaps."
+            }
+          ]
+        },
+        {
+          "id": "howto-flex-row-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 2,
+          "reciprocalRank": 0.5,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "line elements up side by side in a row",
+          "expectedComponents": [
+            "Flex"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.9469024295259745,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Grid",
+              "chunkType": "prop-reference",
+              "score": 0.396,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions a 'row' prop but does not explain how to line elements side by side."
+            },
+            {
+              "component": "Flex",
+              "chunkType": "prop-reference",
+              "score": 0.338,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes the 'align' prop of a Flex component, which is related to alignment but does not directly address lining elements side by side."
+            },
+            {
+              "component": "List",
+              "chunkType": "prop-reference",
+              "score": 0.331,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a prop for alignment but does not address lining elements side by side in a row."
+            }
+          ]
+        },
+        {
+          "id": "howto-editable-text-para",
+          "category": "how-to",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "let users click a label and edit it in place",
+          "expectedComponents": [
+            "Editable"
+          ],
+          "expectedChunkType": "code-example",
+          "ndcg": 0.751623600785961,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Editable",
+              "chunkType": "prop-reference",
+              "score": 0.425,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to submitting edits, not how to enable in-place editing."
+            },
+            {
+              "component": "Editable",
+              "chunkType": "prop-reference",
+              "score": 0.414,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes how to enable editing on click, which directly answers the query."
+            },
+            {
+              "component": "Editable",
+              "chunkType": "prop-reference",
+              "score": 0.383,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a prop related to placeholder text, not the functionality of editing a label in place."
+            }
+          ]
+        },
+        {
+          "id": "prop-input-size-para",
+          "category": "prop-lookup",
+          "componentHit": false,
+          "firstHitRank": null,
+          "reciprocalRank": 0,
+          "precisionAtK": 0,
+          "firstHitChunkType": null,
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "make a text field smaller or larger",
+          "expectedComponents": [
+            "Input"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 0.6240505200038378,
+          "gradedPrecision": 0.4,
+          "topResults": [
+            {
+              "component": "Fieldset",
+              "chunkType": "prop-reference",
+              "score": 0.474,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a size prop for a Fieldset, not a text field."
+            },
+            {
+              "component": "Text",
+              "chunkType": "code-example",
+              "score": 0.452,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to adjust text size using the textStyle prop, directly addressing the query."
+            },
+            {
+              "component": "Text",
+              "chunkType": "code-example",
+              "score": 0.445,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address resizing a text field, only text truncation."
+            }
+          ]
+        },
+        {
+          "id": "prop-button-variant-para",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "which style options can I pass to a button",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.632,
+              "judgeGrade": 2,
+              "judgeReason": "It lists the style options available for a button using the variant prop."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.623,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists style options for a button using the variant prop."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.616,
+              "judgeGrade": 2,
+              "judgeReason": "It shows style options using the 'variant' prop for buttons."
+            }
+          ]
+        },
+        {
+          "id": "prop-checkbox-disabled-para",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "stop a checkbox from being clickable",
+          "expectedComponents": [
+            "Checkbox"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 0.9128781396400242,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Checkbox",
+              "chunkType": "code-example",
+              "score": 0.436,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to disable a checkbox, which directly answers the query."
+            },
+            {
+              "component": "Checkbox",
+              "chunkType": "prop-reference",
+              "score": 0.421,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to invalidating a checkbox, but not directly about making it unclickable."
+            },
+            {
+              "component": "Checkbox",
+              "chunkType": "prop-reference",
+              "score": 0.417,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address how to make a checkbox unclickable."
+            }
+          ]
+        },
+        {
+          "id": "prop-button-spinner-placement-para",
+          "category": "prop-lookup",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": true,
+          "malformedPayloads": 0,
+          "query": "put the button's spinner on the right side",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "prop-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.647,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly answers the query by providing the prop to set the spinner's placement on the button."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.628,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a prop that controls spinner placement, which directly answers the query about placing a button's spinner on the right side."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.613,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk describes a prop for spinner placement, which is relevant to the query about placing a button's spinner on the right side."
+            }
+          ]
+        },
+        {
+          "id": "whatis-absolutecenter-para",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 3,
+          "reciprocalRank": 0.3333333333333333,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "a component that centers something over its parent",
+          "expectedComponents": [
+            "AbsoluteCenter"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 0.6182885020492787,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.542,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk describes a 'Center' component but provides an example of a 'Circle' component instead."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.542,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not mention or demonstrate the Center component, which is needed to center content over its parent."
+            },
+            {
+              "component": "AbsoluteCenter",
+              "chunkType": "code-example",
+              "score": 0.533,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a component that centers content over its parent, directly answering the query."
+            }
+          ]
+        },
+        {
+          "id": "whatis-field-para",
+          "category": "what-is",
+          "componentHit": false,
+          "firstHitRank": null,
+          "reciprocalRank": 0,
+          "precisionAtK": 0,
+          "firstHitChunkType": null,
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "a wrapper that adds a label and error text to an input",
+          "expectedComponents": [
+            "Field"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 0.9469024295259745,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Input",
+              "chunkType": "code-example",
+              "score": 0.483,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to wrap an input with a label and error text using the Field component."
+            },
+            {
+              "component": "Input",
+              "chunkType": "code-example",
+              "score": 0.483,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk shows how to wrap an input with a label and error text, directly answering the query."
+            },
+            {
+              "component": "Input",
+              "chunkType": "code-example",
+              "score": 0.44,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk only shows basic usage of an Input component without label or error text."
+            }
+          ]
+        },
+        {
+          "id": "whatis-kbd-para",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "how do I show a keyboard shortcut key in the UI",
+          "expectedComponents": [
+            "Kbd"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.402,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for displaying a keyboard shortcut using the Kbd component."
+            },
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.394,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for displaying keyboard shortcuts using the Kbd component."
+            },
+            {
+              "component": "Kbd",
+              "chunkType": "code-example",
+              "score": 0.394,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for displaying keyboard shortcuts using the Kbd component."
+            }
+          ]
+        },
+        {
+          "id": "whatis-fileupload-para",
+          "category": "what-is",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "let users pick and upload files",
+          "expectedComponents": [
+            "File Upload"
+          ],
+          "expectedChunkType": "component-overview",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "File Upload",
+              "chunkType": "prop-reference",
+              "score": 0.504,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to file acceptance, which is part of file upload functionality."
+            },
+            {
+              "component": "File Upload",
+              "chunkType": "prop-reference",
+              "score": 0.479,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to file acceptance, which is part of file upload functionality."
+            },
+            {
+              "component": "File Upload",
+              "chunkType": "prop-reference",
+              "score": 0.474,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop related to file upload, but not about picking or uploading files."
+            }
+          ]
+        },
+        {
+          "id": "cap-button-sizes-para",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.6,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "list the available button dimensions",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 1,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.61,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists the available button dimensions directly."
+            },
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.574,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists the available button dimensions directly."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.554,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists available sizes for the Icon Button, which are dimensions."
+            }
+          ]
+        },
+        {
+          "id": "cap-button-variants-para",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "what looks can I give a button",
+          "expectedComponents": [
+            "Button"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 1,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.524,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows different visual styles for a button using the variant prop."
+            },
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.512,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly answers the query by showing different visual styles for a button."
+            },
+            {
+              "component": "Button",
+              "chunkType": "prop-reference",
+              "score": 0.509,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk lists the different visual variants available for a button, directly answering the query about button looks."
+            }
+          ]
+        },
+        {
+          "id": "cap-checkbox-states-para",
+          "category": "what-can-x-do",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": false,
+          "malformedPayloads": 0,
+          "query": "can a checkbox be indeterminate or checked",
+          "expectedComponents": [
+            "Checkbox"
+          ],
+          "expectedChunkType": "capability-reference",
+          "ndcg": 0.43067655807339306,
+          "gradedPrecision": 0.2,
+          "topResults": [
+            {
+              "component": "Checkbox",
+              "chunkType": "prop-reference",
+              "score": 0.556,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not address the indeterminate or checked states of a checkbox."
+            },
+            {
+              "component": "Checkbox",
+              "chunkType": "code-example",
+              "score": 0.553,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not mention or demonstrate indeterminate or checked states."
+            },
+            {
+              "component": "Checkbox Card",
+              "chunkType": "prop-reference",
+              "score": 0.547,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk discusses the 'invalid' prop, not the indeterminate or checked states of a checkbox."
+            }
+          ]
+        },
+        {
+          "id": "layout-center-both-axes-para",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "perfectly center a box in the middle of the screen",
+          "expectedComponents": [
+            "Center",
+            "AbsoluteCenter"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.6182885020492787,
+          "gradedPrecision": 0.6,
+          "topResults": [
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.44,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not mention centering a box or using the Center component."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.44,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk does not show how to center a box on the screen."
+            },
+            {
+              "component": "Center",
+              "chunkType": "code-example",
+              "score": 0.428,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using the Center component to center a Box, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "layout-max-width-para",
+          "category": "layout",
+          "componentHit": false,
+          "firstHitRank": null,
+          "reciprocalRank": 0,
+          "precisionAtK": 0,
+          "firstHitChunkType": null,
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "keep my page content from getting too wide",
+          "expectedComponents": [
+            "Container"
+          ],
+          "expectedChunkType": null,
+          "ndcg": null,
+          "gradedPrecision": 0,
+          "topResults": [
+            {
+              "component": "Scroll Area",
+              "chunkType": "prop-reference",
+              "score": 0.31,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about a specific prop of the Scroll Area component, which is not directly related to controlling page content width."
+            },
+            {
+              "component": "Separator",
+              "chunkType": "code-example",
+              "score": 0.298,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk discusses Separator dimensions, not page width control."
+            },
+            {
+              "component": "Scroll Area",
+              "chunkType": "prop-reference",
+              "score": 0.297,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about a prop for rendering elements, not about controlling page width."
+            }
+          ]
+        },
+        {
+          "id": "layout-aspect-ratio-para",
+          "category": "layout",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.2,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "make a video box stay 16:9",
+          "expectedComponents": [
+            "Aspect Ratio"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 1,
+          "gradedPrecision": 0.2,
+          "topResults": [
+            {
+              "component": "Aspect Ratio",
+              "chunkType": "prop-reference",
+              "score": 0.475,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly provides the prop to set a 16:9 aspect ratio for a Box component."
+            },
+            {
+              "component": "Box",
+              "chunkType": "code-example",
+              "score": 0.361,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows basic usage of the Box component but does not address aspect ratio."
+            },
+            {
+              "component": "Box",
+              "chunkType": "code-example",
+              "score": 0.355,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows basic usage of the Box component but does not address aspect ratio."
+            }
+          ]
+        },
+        {
+          "id": "layout-wrap-items-para",
+          "category": "layout",
+          "componentHit": false,
+          "firstHitRank": null,
+          "reciprocalRank": 0,
+          "precisionAtK": 0,
+          "firstHitChunkType": null,
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "let tags flow onto new rows when they run out of room",
+          "expectedComponents": [
+            "Wrap"
+          ],
+          "expectedChunkType": null,
+          "ndcg": null,
+          "gradedPrecision": 0,
+          "topResults": [
+            {
+              "component": "Grid",
+              "chunkType": "prop-reference",
+              "score": 0.299,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about the Grid component's autoFlow property, which is not directly related to letting tags flow onto new rows."
+            },
+            {
+              "component": "Grid",
+              "chunkType": "prop-reference",
+              "score": 0.286,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about the Grid component's autoRows prop, which is not directly related to letting tags flow onto new rows."
+            },
+            {
+              "component": "Bleed",
+              "chunkType": "prop-reference",
+              "score": 0.282,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk is about a margin property, not about handling tag overflow."
+            }
+          ]
+        },
+        {
+          "id": "cross-icon-only-button-para",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "a clickable button that's just an icon, no text",
+          "expectedComponents": [
+            "Icon Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9686152031181796,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.551,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of an Icon Button, which is a clickable button with just an icon."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.551,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example of an Icon Button, which is a clickable button with just an icon and no text."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "prop-reference",
+              "score": 0.525,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions 'Icon Button', which is relevant to the query about a button that's just an icon."
+            }
+          ]
+        },
+        {
+          "id": "cross-close-button-para",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 1,
+          "firstHitChunkType": "prop-reference",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "an X button to dismiss a modal",
+          "expectedComponents": [
+            "Close Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.8207555803845797,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Close Button",
+              "chunkType": "prop-reference",
+              "score": 0.393,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a prop for a Close Button, which is relevant to dismissing a modal, but it does not directly address the query about an X button specifically."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "code-example",
+              "score": 0.39,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for a Close Button, which is relevant for dismissing a modal."
+            },
+            {
+              "component": "Close Button",
+              "chunkType": "code-example",
+              "score": 0.387,
+              "judgeGrade": 2,
+              "judgeReason": "It shows how to use a Close Button, which is typically used to dismiss modals."
+            }
+          ]
+        },
+        {
+          "id": "cross-group-buttons-para",
+          "category": "cross-component",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.4,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "join buttons into a single connected toolbar",
+          "expectedComponents": [
+            "Group",
+            "Button"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9213963208540731,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Button",
+              "chunkType": "code-example",
+              "score": 0.445,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example using ButtonGroup to join buttons into a connected toolbar."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.41,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to compose components but not specifically how to join buttons into a toolbar."
+            },
+            {
+              "component": "Icon Button",
+              "chunkType": "code-example",
+              "score": 0.41,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to compose components but not specifically how to join buttons into a toolbar."
+            }
+          ]
+        },
+        {
+          "id": "type-highlight-text-para",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "make certain words stand out with a marker style",
+          "expectedComponents": [
+            "Highlight",
+            "Mark"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9130689212173096,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Highlight",
+              "chunkType": "code-example",
+              "score": 0.484,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk directly shows how to use the Highlight component to make words stand out with a marker style."
+            },
+            {
+              "component": "Mark",
+              "chunkType": "prop-reference",
+              "score": 0.45,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk describes a component that can mark text, which is relevant to making words stand out."
+            },
+            {
+              "component": "List",
+              "chunkType": "prop-reference",
+              "score": 0.423,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions a 'marker' variant, which may relate to making words stand out, but it lacks detail on how it applies to words."
+            }
+          ]
+        },
+        {
+          "id": "type-heading-para",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "show a big title at the top of the page",
+          "expectedComponents": [
+            "Heading"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.7175937167816352,
+          "gradedPrecision": 0.8,
+          "topResults": [
+            {
+              "component": "Heading",
+              "chunkType": "code-example",
+              "score": 0.38,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk shows how to use the Heading component, which is relevant for displaying a title."
+            },
+            {
+              "component": "Highlight",
+              "chunkType": "code-example",
+              "score": 0.365,
+              "judgeGrade": 0,
+              "judgeReason": "The chunk shows how to use the Highlight component, not how to create a big title."
+            },
+            {
+              "component": "Heading",
+              "chunkType": "code-example",
+              "score": 0.355,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for creating a large heading using the Heading component with size options, directly addressing the query."
+            }
+          ]
+        },
+        {
+          "id": "type-blockquote-para",
+          "category": "typography",
+          "componentHit": true,
+          "firstHitRank": 1,
+          "reciprocalRank": 1,
+          "precisionAtK": 0.8,
+          "firstHitChunkType": "code-example",
+          "expectedChunkTypeHit": null,
+          "malformedPayloads": 0,
+          "query": "format a quoted passage of text",
+          "expectedComponents": [
+            "Blockquote"
+          ],
+          "expectedChunkType": null,
+          "ndcg": 0.9322978750325865,
+          "gradedPrecision": 1,
+          "topResults": [
+            {
+              "component": "Blockquote",
+              "chunkType": "code-example",
+              "score": 0.382,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for formatting a quoted passage using the Blockquote component."
+            },
+            {
+              "component": "Blockquote",
+              "chunkType": "prop-reference",
+              "score": 0.38,
+              "judgeGrade": 1,
+              "judgeReason": "The chunk mentions the Blockquote component, which is relevant for formatting quoted text, but it focuses on the 'justify' prop, which is not directly about formatting the text itself."
+            },
+            {
+              "component": "Prose",
+              "chunkType": "code-example",
+              "score": 0.361,
+              "judgeGrade": 2,
+              "judgeReason": "The chunk provides a code example for formatting a quoted passage using the Prose component."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

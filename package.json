@@ -17,6 +17,8 @@
     "quality:props-test": "tsx src/steps/0-extract-docs/test-props/test-props.ts",
     "quality:props-verify": "tsx src/steps/0-extract-docs/test-props/verify-props.ts",
     "quality:eval": "tsx src/steps/3-search/eval/run-eval.ts",
+    "quality:eval:judge": "tsx src/steps/3-search/eval/run-eval.ts --judge --paraphrased",
+    "quality:paraphrase:gen": "tsx src/steps/3-search/eval/gen-paraphrases.ts",
     "quality:all": "npm run quality:smoke && npm run quality:samples && npm run quality:props-test && npm run quality:props-verify"
   },
   "dependencies": {
