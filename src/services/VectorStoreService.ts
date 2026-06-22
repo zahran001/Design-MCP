@@ -67,4 +67,16 @@ export class VectorStoreService {
       payload: r.payload, // The original code snippet/metadata
     }));
   }
+
+  // Returns the number of points stored in a collection.
+  // Used for drift detection (comparing live DB size to on-disk chunk count).
+  // Returns null if the collection does not exist or the count cannot be read.
+  async getPointCount(collectionName: string): Promise<number | null> {
+    try {
+      const result = await this.client.count(collectionName, { exact: true });
+      return result.count;
+    } catch {
+      return null;
+    }
+  }
 }

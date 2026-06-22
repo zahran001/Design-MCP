@@ -36,6 +36,9 @@ artifacts/normalized/*
 !artifacts/normalized/.gitkeep
 artifacts/raw-json/*
 !artifacts/raw-json/.gitkeep
+artifacts/eval/*
+!artifacts/eval/.gitkeep
+!artifacts/eval/baseline.json
 stores/*
 !stores/.gitkeep
 
