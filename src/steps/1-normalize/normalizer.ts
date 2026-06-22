@@ -21,6 +21,31 @@ import { PropReferenceChunkSchema, getChunkTokenCount } from '../../schemas/Norm
 import type { Prop } from '../../schemas/RAGResultSchema.js';
 
 /**
+ * Guarantee a chunkId is unique within a normalization run.
+ *
+ * The main transformer derives stable, unique IDs (component + title + example
+ * index), but fallback paths can still mint duplicates (e.g. several failed
+ * examples sharing the same section). Duplicate IDs silently overwrite each
+ * other at embed time because the point ID is uuidv5(chunkId). This is the
+ * single chokepoint that enforces the "every chunk has a unique id" invariant
+ * regardless of which path produced it.
+ */
+function dedupeChunkId(chunkId: string, seen: Set<string>): string {
+  if (!seen.has(chunkId)) {
+    seen.add(chunkId);
+    return chunkId;
+  }
+  let counter = 2;
+  let candidate = `${chunkId}-${counter}`;
+  while (seen.has(candidate)) {
+    counter++;
+    candidate = `${chunkId}-${counter}`;
+  }
+  seen.add(candidate);
+  return candidate;
+}
+
+/**
  * Raw extracted data structure (from artifacts/raw-json/*.json)
  */
 interface RawExtractedData {
@@ -102,6 +127,7 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
   const allChunks: CodeExampleChunk[] = [];
   const componentStats = new Map<string, number>(); // Track examples per component
   const savedFiles: string[] = []; // Track saved output files
+  const seenChunkIds = new Set<string>(); // Enforce unique chunkIds across the run
   let totalExamples = 0;
   let totalErrors = 0;
 
@@ -147,6 +173,9 @@ export async function normalizeCodeExamples(componentName?: string): Promise<voi
 
       // Extract chunk from result (success or fallback)
       const chunk = result.status === 'success' ? result.chunk : result.fallbackChunk!;
+
+      // Guarantee a unique chunkId (fallback paths can collide)
+      chunk.metadata.chunkId = dedupeChunkId(chunk.metadata.chunkId, seenChunkIds);
 
       componentChunks.push(chunk);
       successCount++;
@@ -330,6 +359,7 @@ export async function normalizePropReferences(componentName?: string): Promise<v
   // ==========================================================================
 
   const allPropChunks: PropReferenceChunk[] = [];
+  const seenPropChunkIds = new Set<string>(); // Enforce unique chunkIds across the run
   const categoryStats = new Map<PropCategory, number>();
   const tokenStats: { min: number; max: number; total: number; count: number } = {
     min: Infinity,
@@ -390,6 +420,10 @@ export async function normalizePropReferences(componentName?: string): Promise<v
         }
 
         const validatedChunk = validation.data;
+
+        // Guarantee a unique chunkId across the run
+        validatedChunk.metadata.chunkId = dedupeChunkId(validatedChunk.metadata.chunkId, seenPropChunkIds);
+
         componentPropChunks.push(validatedChunk);
 
         // Track token statistics
