@@ -24,6 +24,41 @@ npm run quality:samples
 
 ---
 
+## 🎯 Current Focus: Trustworthy Retrieval Evaluation
+
+The pipeline now reaches end-to-end (extract → normalize → embed → search), so the active work is
+**proving retrieval quality is real**, not just present. Full rationale, proof, and handoff
+context live in **[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)** — read it first if you're
+picking this up.
+
+**The fundamental question:** the text we embed for code examples is *synthesized from hardcoded
+templates*, while the live docs contain real, human-written prose we currently discard (the Button
+page has ~21 section headings + per-section descriptions; our raw JSON captured **1 heading and 0
+prose**). Is template-embedding a viable tactic, or must we embed the authentic prose? We answer
+this with data, in three phases:
+
+- **Phase 1 — Build the trustworthy eval (do first).** Add LLM-as-judge *graded* chunk relevance
+  (nDCG) and a paraphrased developer-query set. The current "100% component-hit" score is a mirage
+  (too coarse, possibly circular). *Do not fix the scraper yet — build the measuring tool.*
+- **Phase 2 — Lock the baseline.** Run the current template-generated data through the strict
+  harness for an honest (likely much lower) baseline.
+- **Phase 3 — Fix the scraper (Experiment #1).** Rewrite DOM traversal to capture section
+  headings + intro prose, re-crawl, re-embed the authentic text, re-eval. The delta vs baseline
+  conclusively proves whether real prose beats templates.
+
+**Already shipped on this track:**
+- Retrieval eval harness — `npm run quality:eval` ([src/steps/3-search/eval/](src/steps/3-search/eval/)),
+  committed baseline at [artifacts/eval/baseline.json](artifacts/eval/).
+- **chunkId-collision fix** — duplicate IDs were silently dropping **26% of chunks** at embed time
+  (747 chunks → 554 points); now 747 unique → 747 points.
+
+> ⚠️ Before any `2-embed`/`quality:eval` run: set `DEBUG=false` in `.env` (else the OpenAI SDK
+> floods stdout), ensure Qdrant is running, and **drop the `chakra-ui-docs` collection before
+> re-embedding if chunkIds changed** (point IDs are `uuidv5(chunkId)`; stale points orphan
+> otherwise). See [EVALUATION_STRATEGY.md §6](EVALUATION_STRATEGY.md) for the full gotcha list.
+
+---
+
 ## Overview
 
 Design-MCP is a specialized web scraping and data extraction pipeline that:
