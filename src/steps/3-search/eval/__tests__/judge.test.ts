@@ -52,4 +52,39 @@ describe('buildJudgeChunkText', () => {
   it('ignores blank strings (treats them as absent)', () => {
     expect(buildJudgeChunkText({ componentName: '   ' })).toBe('(empty chunk)');
   });
+
+  it('renders capability-reference options from fullChunk (so the judge sees the enumeration)', () => {
+    const text = buildJudgeChunkText({
+      componentName: 'Button',
+      chunkType: 'capability-reference',
+      explanation: 'Use the size prop to change the size of the button.',
+      fullChunk: JSON.stringify({
+        capability: { name: 'Sizes' },
+        content: {
+          description: 'Use the size prop to change the size of the button.',
+          options: [{ value: 'xs' }, { value: 'sm' }, { value: 'md' }, { value: 'lg' }, { value: 'xl' }],
+        },
+      }),
+    });
+    expect(text).toContain('Capability: Sizes');
+    expect(text).toContain('Available options: xs, sm, md, lg, xl');
+  });
+
+  it('renders component-overview capabilities + pairings from fullChunk', () => {
+    const text = buildJudgeChunkText({
+      componentName: 'Button',
+      chunkType: 'component-overview',
+      explanation: 'Used to trigger an action or event',
+      fullChunk: JSON.stringify({
+        content: {
+          description: 'Used to trigger an action or event',
+          capabilities: ['Sizes', 'Variants'],
+          commonPairings: ['ButtonGroup'],
+        },
+      }),
+    });
+    expect(text).toContain('Used to trigger an action or event');
+    expect(text).toContain('Capabilities: Sizes, Variants');
+    expect(text).toContain('Commonly used with: ButtonGroup');
+  });
 });

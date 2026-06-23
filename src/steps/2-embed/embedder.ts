@@ -84,7 +84,9 @@ export async function runEmbedder(options: EmbedderRunOptions = {}): Promise<num
           sourceUrl: chunk.metadata?.sourceUrl,
           version: chunk.metadata?.version,
           complexity: chunk.metadata?.complexity,
-          explanation: chunk.content?.explanation,
+          // explanation falls back to description so overview/capability chunks
+          // expose readable text in the payload (used by the LLM judge).
+          explanation: chunk.content?.explanation ?? chunk.content?.description,
           code: chunk.content?.code,
           demonstrates: chunk.content?.demonstrates,
           propName: (chunk as any).prop?.name,

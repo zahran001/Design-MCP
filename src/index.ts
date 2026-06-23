@@ -2,7 +2,12 @@
 
 import { program } from "commander";
 import { ChakraDocsSpider } from "./steps/0-extract-docs/crawler.js";
-import { normalizeCodeExamples, normalizePropReferences } from "./steps/1-normalize/normalizer.js";
+import {
+  normalizeCodeExamples,
+  normalizePropReferences,
+  normalizeComponentOverviews,
+  normalizeCapabilities,
+} from "./steps/1-normalize/normalizer.js";
 import { runEmbedder } from "./steps/2-embed/embedder.js";
 import { runSearchCli } from "./steps/3-search/retriever.js";
 
@@ -63,6 +68,10 @@ program
       await normalizeCodeExamples(component);
       console.log();
       await normalizePropReferences(component);
+      console.log();
+      await normalizeComponentOverviews(component);
+      console.log();
+      await normalizeCapabilities(component);
       console.log();
       console.log("âœ… Normalization completed successfully!");
     } catch (error) {

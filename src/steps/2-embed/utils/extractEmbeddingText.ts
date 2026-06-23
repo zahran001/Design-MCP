@@ -32,6 +32,8 @@ import {
   isAPIReferenceChunk,
   CodeExampleChunk,
   PropReferenceChunk,
+  ComponentOverviewChunk,
+  CapabilityReferenceChunk,
 } from '../../../schemas/NormalizedChunkSchema.js';
 
 /**
@@ -60,16 +62,16 @@ export function extractEmbeddingText(chunk: NormalizedChunk): string {
     return extractPropReferenceText(chunk);
   }
 
-  // Placeholder extractors for future chunk types
+  if (isComponentOverviewChunk(chunk)) {
+    return extractComponentOverviewText(chunk);
+  }
+
+  if (isCapabilityReferenceChunk(chunk)) {
+    return extractCapabilityReferenceText(chunk);
+  }
+
+  // Placeholder extractors for remaining chunk types
   // Uncomment as chunk generators are implemented
-
-  // if (isComponentOverviewChunk(chunk)) {
-  //   return extractComponentOverviewText(chunk);
-  // }
-
-  // if (isCapabilityReferenceChunk(chunk)) {
-  //   return extractCapabilityReferenceText(chunk);
-  // }
 
   // if (isPropGroupChunk(chunk)) {
   //   return extractPropGroupText(chunk);
@@ -86,8 +88,93 @@ export function extractEmbeddingText(chunk: NormalizedChunk): string {
   throw new Error(
     `Unsupported chunk type: "${(chunk.metadata as any).chunkType}". ` +
     `Chunk ID: ${chunk.metadata.chunkId}. ` +
-    `Currently supported: code-example, prop-reference.`
+    `Currently supported: code-example, prop-reference, component-overview, capability-reference.`
   );
+}
+
+/**
+ * Extract embedding text from ComponentOverviewChunk ("What is X?").
+ *
+ * Anchors on the component name, then the authentic description, the real
+ * capability headings, and the code-derived common pairings. useCases is empty
+ * by design (honest-minimal) and quickReference is intentionally NOT embedded.
+ */
+function extractComponentOverviewText(chunk: ComponentOverviewChunk): string {
+  const parts: string[] = [];
+  const componentName = chunk.metadata?.componentName;
+
+  if (componentName) {
+    parts.push(`Component: ${componentName}.`);
+  }
+
+  if (chunk.content?.description && chunk.content.description.trim()) {
+    parts.push(chunk.content.description);
+  }
+
+  if (Array.isArray(chunk.content?.capabilities) && chunk.content.capabilities.length > 0) {
+    parts.push(`Capabilities: ${chunk.content.capabilities.join(', ')}.`);
+  }
+
+  if (Array.isArray(chunk.content?.useCases) && chunk.content.useCases.length > 0) {
+    parts.push(`Use cases: ${chunk.content.useCases.join(', ')}.`);
+  }
+
+  if (Array.isArray(chunk.content?.commonPairings) && chunk.content.commonPairings.length > 0) {
+    parts.push(`Commonly used with: ${chunk.content.commonPairings.join(', ')}.`);
+  }
+
+  const text = joinTextParts(parts);
+
+  if (!text) {
+    throw new Error(
+      `ComponentOverviewChunk has no extractable embedding text: ${chunk.metadata.chunkId}.`
+    );
+  }
+
+  return text;
+}
+
+/**
+ * Extract embedding text from CapabilityReferenceChunk ("What can X do?").
+ *
+ * Anchors on component + capability name, then the authentic section prose, then
+ * the enumerable option values (e.g. "xs, sm, md, lg, xl"). Option descriptions
+ * are empty by design (the values carry the signal).
+ */
+function extractCapabilityReferenceText(chunk: CapabilityReferenceChunk): string {
+  const parts: string[] = [];
+  const componentName = chunk.metadata?.componentName;
+
+  if (componentName) {
+    parts.push(`Component: ${componentName}.`);
+  }
+
+  if (chunk.capability?.name) {
+    parts.push(`Capability: ${chunk.capability.name}.`);
+  }
+
+  if (chunk.content?.description && chunk.content.description.trim()) {
+    parts.push(chunk.content.description);
+  }
+
+  if (Array.isArray(chunk.content?.options) && chunk.content.options.length > 0) {
+    const values = chunk.content.options
+      .map((o) => o.value)
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+    if (values.length > 0) {
+      parts.push(`Options: ${values.join(', ')}.`);
+    }
+  }
+
+  const text = joinTextParts(parts);
+
+  if (!text) {
+    throw new Error(
+      `CapabilityReferenceChunk has no extractable embedding text: ${chunk.metadata.chunkId}.`
+    );
+  }
+
+  return text;
 }
 
 function joinTextParts(parts: string[]): string {
