@@ -40,6 +40,7 @@ artifacts/eval/*
 !artifacts/eval/.gitkeep
 !artifacts/eval/baseline.json
 !artifacts/eval/baseline-judged-gpt4o.json
+!artifacts/eval/baseline-judged-gpt4o-phase3.json
 stores/*
 !stores/.gitkeep
 
@@ -48,3 +49,8 @@ stores/*
 *.claude
 .claude-config
 .claude-cache/nul
+
+# Phase 3 local scratch/backups (not for VCS)
+artifacts/normalized-phase2-backup/
+artifacts/raw-json-phase2-backup/
+artifacts/raw-json-phase3-extra/

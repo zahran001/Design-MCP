@@ -17,6 +17,61 @@ import {
 // - End-to-end transformation with all stages integrated
 // =============================================================================
 
+describe('transformCodeExample - Phase 3 authentic prose', () => {
+  const base = {
+    componentName: 'Button',
+    sourceUrl: 'https://chakra-ui.com/docs/components/button',
+    context: { exampleIndex: 1, totalExamples: 5 },
+  };
+
+  it('uses real sectionDescription as the embedded explanation, and real heading as title', () => {
+    const result = transformCodeExample({
+      ...base,
+      rawExample: {
+        code: '<Button size="sm">Small</Button>',
+        complexity: 'basic',
+        section: 'Sizes',
+        title: 'Sizes',
+        sectionDescription: 'Use the size prop to change the size of the button.',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.chunk.content.explanation).toBe(
+        'Use the size prop to change the size of the button.'
+      );
+      expect(result.chunk.example.title).toBe('Sizes');
+    }
+  });
+
+  it('falls back to the template explanation when no prose was captured', () => {
+    const result = transformCodeExample({
+      ...base,
+      rawExample: { code: '<Button size="sm">Small</Button>', complexity: 'basic', section: 'Sizes' },
+    });
+
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.chunk.content.explanation.length).toBeGreaterThan(0);
+      expect(result.chunk.content.explanation).not.toBe(
+        'Use the size prop to change the size of the button.'
+      );
+    }
+  });
+
+  it('ignores trivially short prose and uses the template instead', () => {
+    const result = transformCodeExample({
+      ...base,
+      rawExample: { code: '<Button>x</Button>', complexity: 'basic', section: 'Usage', sectionDescription: 'Hi' },
+    });
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.chunk.content.explanation).not.toBe('Hi');
+    }
+  });
+});
+
 describe('transformCodeExample (New API - Stage 4)', () => {
   describe('Success Cases', () => {
     it('should transform valid Button sizing example successfully', () => {

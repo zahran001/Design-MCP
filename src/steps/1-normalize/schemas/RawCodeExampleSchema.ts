@@ -47,7 +47,16 @@ export const RawCodeExampleSchema = z.object({
    * Section title from extraction (optional)
    */
   section: z.string()
-    .optional()
+    .optional(),
+
+  /**
+   * Phase 3 (authentic-prose) fields captured by the rewritten scraper.
+   * These must be declared here or zod strips them before the transformer
+   * can read them.
+   */
+  sectionId: z.string().optional(),          // heading anchor id, e.g. "sizes"
+  sectionDescription: z.string().optional(), // real intro prose beneath heading
+  title: z.string().optional()               // real heading text
 });
 
 /**

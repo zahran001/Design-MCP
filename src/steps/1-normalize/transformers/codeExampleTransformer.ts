@@ -35,6 +35,10 @@ export interface RawCodeExample {
   score?: number;
   complexity?: string;
   section?: string;
+  // Phase 3: authentic prose/heading captured from the docs page.
+  sectionId?: string;
+  sectionDescription?: string;
+  title?: string;
 }
 
 // =============================================================================
@@ -336,8 +340,25 @@ export function transformCodeExample(
       componentName
     );
 
-    // Generate natural language
+    // Generate natural language (template — now the FALLBACK, not the primary)
     const content = generateContent(templateData);
+
+    // Phase 3: prefer the REAL authored prose captured from the docs page as the
+    // embedded explanation; demote the hardcoded template to a fallback used only
+    // when a section genuinely has no intro prose. The real heading likewise wins
+    // over the inferred title (it feeds the embedding `Title:` anchor downstream).
+    const realProse = validatedExample.sectionDescription?.trim();
+    const usingRealProse = Boolean(realProse && realProse.length >= 12);
+    const explanation = usingRealProse ? (realProse as string) : content.explanation;
+
+    const realHeading = validatedExample.title?.trim() || validatedExample.section?.trim();
+    const exampleTitle = realHeading && realHeading.length > 0 ? realHeading : section.title;
+
+    if (usingRealProse) {
+      addPatternMatch(ctx, 'real-prose');
+    } else {
+      addWarning(ctx, 'generation', 'No authored prose; used template explanation');
+    }
 
     recordMetric(ctx, 'generationTimeMs', Date.now() - generationStart);
 
@@ -373,7 +394,7 @@ export function transformCodeExample(
 
     // Estimate token count (for quality metrics)
     const tokens = estimateChunkTokens({
-      explanation: content.explanation,
+      explanation,
       code: validatedExample.code,
       demonstrates: content.demonstrates,
       keyPoints: content.keyPoints
@@ -409,13 +430,13 @@ export function transformCodeExample(
       },
 
       example: {
-        title: section.title,
+        title: exampleTitle,
         intent: intent.intent,
         difficulty: complexity as 'basic' | 'intermediate' | 'advanced'
       },
 
       content: {
-        explanation: content.explanation,
+        explanation,
         code: validatedExample.code,
         demonstrates: content.demonstrates,
         keyPoints: content.keyPoints
