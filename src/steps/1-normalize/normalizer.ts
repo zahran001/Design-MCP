@@ -16,9 +16,17 @@ import fs from 'fs';
 import path from 'path';
 import { transformCodeExample, type RawCodeExample } from './transformers/codeExampleTransformer.js';
 import { transformProp } from './transformers/propReferenceTransformer.js';
-import type { CodeExampleChunk, PropReferenceChunk, PropCategory } from '../../schemas/NormalizedChunkSchema.js';
+import { transformComponentOverview, type NormalizationWarning } from './transformers/componentOverviewTransformer.js';
+import { transformCapabilities } from './transformers/capabilityReferenceTransformer.js';
+import type {
+  CodeExampleChunk,
+  PropReferenceChunk,
+  PropCategory,
+  ComponentOverviewChunk,
+  CapabilityReferenceChunk,
+} from '../../schemas/NormalizedChunkSchema.js';
 import { PropReferenceChunkSchema, getChunkTokenCount } from '../../schemas/NormalizedChunkSchema.js';
-import type { Prop } from '../../schemas/RAGResultSchema.js';
+import type { ComponentDoc, Prop } from '../../schemas/RAGResultSchema.js';
 
 /**
  * Guarantee a chunkId is unique within a normalization run.
@@ -522,6 +530,126 @@ export async function normalizePropReferences(componentName?: string): Promise<v
   console.log('='.repeat(80));
   console.log(`📄 Output Directory: ${outputDir}`);
   console.log(`📄 Files Created: ${Math.ceil(allPropChunks.length / 10)} component prop files (average 10 props per file)`);
+  console.log('='.repeat(80));
+}
+
+/** Print collected normalization warnings grouped by type. */
+function printWarnings(warnings: NormalizationWarning[]): void {
+  if (warnings.length === 0) return;
+  const byType = new Map<string, number>();
+  for (const w of warnings) byType.set(w.type, (byType.get(w.type) || 0) + 1);
+  console.log(`\n⚠️  ${warnings.length} warning(s):`);
+  for (const [type, count] of byType) console.log(`   - ${type}: ${count}`);
+  for (const w of warnings) console.log(`     [${w.type}] ${w.componentName}: ${w.message}`);
+}
+
+/** Resolve the raw-json files to process (one component or all). */
+function resolveRawFiles(rawJsonDir: string, componentName?: string): string[] {
+  if (componentName) {
+    const file = findComponentFile(componentName, rawJsonDir);
+    if (!file) {
+      throw new Error(`Component not found: ${componentName}\n\nAvailable components:\n${listAvailableComponents(rawJsonDir)}`);
+    }
+    return [file];
+  }
+  return fs.readdirSync(rawJsonDir).filter(f => f.endsWith('.json'));
+}
+
+/**
+ * Normalize component-overview chunks ("What is X?") — one chunk per component.
+ *
+ * Output: artifacts/normalized/{ComponentName}-overview.json
+ */
+export async function normalizeComponentOverviews(componentName?: string): Promise<void> {
+  console.log('='.repeat(80));
+  console.log('Component Overview Normalization Pipeline');
+  console.log('='.repeat(80));
+  console.log();
+
+  const rawJsonDir = path.join(process.cwd(), 'artifacts', 'raw-json');
+  const outputDir = path.join(process.cwd(), 'artifacts', 'normalized');
+  if (!fs.existsSync(rawJsonDir)) throw new Error(`Raw JSON directory not found: ${rawJsonDir}`);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const filesToProcess = resolveRawFiles(rawJsonDir, componentName);
+  const seen = new Set<string>();
+  const allWarnings: NormalizationWarning[] = [];
+  let created = 0;
+  let skipped = 0;
+
+  for (const file of filesToProcess) {
+    let rawData: ComponentDoc;
+    try {
+      rawData = JSON.parse(fs.readFileSync(path.join(rawJsonDir, file), 'utf-8'));
+    } catch (error) {
+      console.error(`❌ Failed to load ${file}: ${(error as Error).message}`);
+      continue;
+    }
+
+    const { chunk, warnings } = transformComponentOverview(rawData);
+    allWarnings.push(...warnings);
+    if (!chunk) {
+      skipped++;
+      continue;
+    }
+    chunk.metadata.chunkId = dedupeChunkId(chunk.metadata.chunkId, seen);
+
+    const outputFile = path.join(outputDir, `${rawData.componentName}-overview.json`);
+    fs.writeFileSync(outputFile, JSON.stringify([chunk] satisfies ComponentOverviewChunk[], null, 2), 'utf-8');
+    created++;
+  }
+
+  printWarnings(allWarnings);
+  console.log(`\n✅ Component overviews: ${created} created, ${skipped} skipped (no data).`);
+  console.log('='.repeat(80));
+}
+
+/**
+ * Normalize capability-reference chunks ("What can X do?") — section-driven.
+ *
+ * Output: artifacts/normalized/{ComponentName}-capabilities.json
+ */
+export async function normalizeCapabilities(componentName?: string): Promise<void> {
+  console.log('='.repeat(80));
+  console.log('Capability Reference Normalization Pipeline');
+  console.log('='.repeat(80));
+  console.log();
+
+  const rawJsonDir = path.join(process.cwd(), 'artifacts', 'raw-json');
+  const outputDir = path.join(process.cwd(), 'artifacts', 'normalized');
+  if (!fs.existsSync(rawJsonDir)) throw new Error(`Raw JSON directory not found: ${rawJsonDir}`);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const filesToProcess = resolveRawFiles(rawJsonDir, componentName);
+  const seen = new Set<string>();
+  const allWarnings: NormalizationWarning[] = [];
+  let totalChunks = 0;
+  let componentsWithCaps = 0;
+
+  for (const file of filesToProcess) {
+    let rawData: ComponentDoc;
+    try {
+      rawData = JSON.parse(fs.readFileSync(path.join(rawJsonDir, file), 'utf-8'));
+    } catch (error) {
+      console.error(`❌ Failed to load ${file}: ${(error as Error).message}`);
+      continue;
+    }
+
+    const { chunks, warnings } = transformCapabilities(rawData);
+    allWarnings.push(...warnings);
+    if (chunks.length === 0) continue;
+
+    for (const chunk of chunks) {
+      chunk.metadata.chunkId = dedupeChunkId(chunk.metadata.chunkId, seen);
+    }
+    const outputFile = path.join(outputDir, `${rawData.componentName}-capabilities.json`);
+    fs.writeFileSync(outputFile, JSON.stringify(chunks satisfies CapabilityReferenceChunk[], null, 2), 'utf-8');
+    totalChunks += chunks.length;
+    componentsWithCaps++;
+  }
+
+  printWarnings(allWarnings);
+  console.log(`\n✅ Capability references: ${totalChunks} chunks across ${componentsWithCaps} components.`);
   console.log('='.repeat(80));
 }
 

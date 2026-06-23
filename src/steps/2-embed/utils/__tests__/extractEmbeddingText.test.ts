@@ -399,11 +399,11 @@ describe('extractEmbeddingText - PropReferenceChunk', () => {
 // =============================================================================
 
 describe('extractEmbeddingText - Error Handling', () => {
-  it('throws error for unsupported chunk type (component-overview)', () => {
+  it('throws error for unsupported chunk type (composition-pattern)', () => {
     const chunk = {
       metadata: {
         chunkId: 'test-chunk',
-        chunkType: 'component-overview',
+        chunkType: 'composition-pattern',
         componentName: 'Button',
         sourceUrl: 'https://example.com',
         version: '1.0',
@@ -412,13 +412,13 @@ describe('extractEmbeddingText - Error Handling', () => {
         complexity: 'simple' as const,
         relatedChunks: [],
       },
-      // Missing content structure for component-overview
+      // Missing content structure for composition-pattern (still unimplemented)
     } as unknown as NormalizedChunk;
 
     expect(() => extractEmbeddingText(chunk)).toThrow(
       /Unsupported chunk type/
     );
-    expect(() => extractEmbeddingText(chunk)).toThrow('component-overview');
+    expect(() => extractEmbeddingText(chunk)).toThrow('composition-pattern');
   });
 
   it('throws error for unsupported chunk type (prop-group)', () => {
@@ -554,5 +554,79 @@ describe('extractEmbeddingText - Integration', () => {
     expect(text).toContain('blue');
     expect(text).toContain('destructive');
     expect(text).toContain('primary');
+  });
+});
+
+// =============================================================================
+// New chunk types: component-overview + capability-reference
+// =============================================================================
+
+describe('extractEmbeddingText - ComponentOverviewChunk', () => {
+  it('anchors on component name and includes description + capabilities + pairings', () => {
+    const chunk = {
+      metadata: {
+        chunkId: 'button-overview-summary-v1',
+        chunkType: 'component-overview',
+        componentName: 'Button',
+        sourceUrl: 'https://chakra-ui.com/docs/components/button',
+        version: '3.27.1',
+        tags: ['overview'],
+        category: 'form-controls',
+        complexity: 'simple',
+        relatedChunks: [],
+      },
+      content: {
+        description: 'Used to trigger an action or event',
+        capabilities: ['Sizes', 'Variants'],
+        useCases: [],
+        commonPairings: ['ButtonGroup'],
+      },
+      quickReference: {
+        hasSubcomponents: false,
+        propCount: 2,
+        exampleCount: 5,
+        accessibilityLevel: 'basic',
+      },
+    } as unknown as NormalizedChunk;
+
+    const text = extractEmbeddingText(chunk);
+    expect(text).toContain('Component: Button.');
+    expect(text).toContain('Used to trigger an action or event');
+    expect(text).toContain('Capabilities: Sizes, Variants.');
+    expect(text).toContain('Commonly used with: ButtonGroup.');
+  });
+});
+
+describe('extractEmbeddingText - CapabilityReferenceChunk', () => {
+  it('anchors on component + capability and lists option values', () => {
+    const chunk = {
+      metadata: {
+        chunkId: 'button-capability-sizes-v1',
+        chunkType: 'capability-reference',
+        componentName: 'Button',
+        sourceUrl: 'https://chakra-ui.com/docs/components/button',
+        version: '3.27.1',
+        tags: ['capability', 'sizes'],
+        category: 'form-controls',
+        complexity: 'simple',
+        relatedChunks: [],
+      },
+      capability: { name: 'Sizes', intent: 'Control the size of the button' },
+      content: {
+        description: 'Use the size prop to change the size of the button.',
+        options: [
+          { value: 'xs', description: '' },
+          { value: 'sm', description: '' },
+          { value: 'md', description: '' },
+        ],
+      },
+      reference: { propNames: ['size'], defaultValue: "'md'" },
+    } as unknown as NormalizedChunk;
+
+    const text = extractEmbeddingText(chunk);
+    expect(text).toContain('Component: Button.');
+    expect(text).toContain('Capability: Sizes.');
+    expect(text).toContain('Use the size prop to change the size of the button.');
+    expect(text).toContain('Options: xs, sm, md.');
   });
 });
