@@ -1010,5 +1010,5 @@ We've successfully built a production-ready CodeExampleChunk normalization pipel
 
 **Related Documentation:**
 - [NORMALIZATION_TECHNICAL_GUIDE.md](NORMALIZATION_TECHNICAL_GUIDE.md) - Technical implementation details
-- [README.md](README.md) - Project overview & CLI commands
-- [NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts) - Schema definitions (7 chunk types defined)
+- [README.md](../README.md) - Project overview & CLI commands
+- [NormalizedChunkSchema.ts](../src/schemas/NormalizedChunkSchema.ts) - Schema definitions (7 chunk types defined)

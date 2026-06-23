@@ -1,7 +1,7 @@
 # Chunk Type Implementation Strategy: ROI Analysis
 
 **Date:** December 27, 2025
-**Basis:** RETRIEVAL_TEST_REPORT.md + PROJECT_REVIEW.md + NormalizedChunkSchema.ts
+**Basis:** [archive/RETRIEVAL_TEST_REPORT.md](archive/RETRIEVAL_TEST_REPORT.md) + [archive/PROJECT_REVIEW.md](archive/PROJECT_REVIEW.md) + [NormalizedChunkSchema.ts](../src/schemas/NormalizedChunkSchema.ts)
 **Goal:** Identify which chunk types maximize embedding performance with minimal implementation effort
 
 ---
@@ -70,7 +70,7 @@ Query Intent          | Query Type    | Chunk Type Needed  | Current Status
 
 **Implementation Requirements:**
 
-From [RAGResultSchema.ts](src/schemas/RAGResultSchema.ts):
+From [RAGResultSchema.ts](../src/schemas/RAGResultSchema.ts):
 ```typescript
 // Data already extracted in raw JSON
 {

@@ -56,9 +56,9 @@ Your Design-MCP project has **excellent foundational work** with production-qual
 **Assessment:** Portfolio-quality work. No changes needed.
 
 **Files:**
-- [src/steps/0-extract-docs/crawler.ts](src/steps/0-extract-docs/crawler.ts)
-- [src/steps/0-extract-docs/extractors.ts](src/steps/0-extract-docs/extractors.ts)
-- [src/schemas/RAGResultSchema.ts](src/schemas/RAGResultSchema.ts)
+- [src/steps/0-extract-docs/crawler.ts](../../src/steps/0-extract-docs/crawler.ts)
+- [src/steps/0-extract-docs/extractors.ts](../../src/steps/0-extract-docs/extractors.ts)
+- [src/schemas/RAGResultSchema.ts](../../src/schemas/RAGResultSchema.ts)
 
 ---
 
@@ -87,10 +87,10 @@ Your Design-MCP project has **excellent foundational work** with production-qual
 **Assessment:** Excellent implementation, demonstrates advanced NLP/ML pipeline design.
 
 **Files:**
-- [src/steps/1-normalize/transformers/codeExampleTransformer.ts](src/steps/1-normalize/transformers/codeExampleTransformer.ts)
-- [src/steps/1-normalize/inference/](src/steps/1-normalize/inference/) (4 modules)
-- [src/steps/1-normalize/generators/](src/steps/1-normalize/generators/) (2 modules)
-- [src/steps/1-normalize/config/](src/steps/1-normalize/config/) (3 config files)
+- [src/steps/1-normalize/transformers/codeExampleTransformer.ts](../../src/steps/1-normalize/transformers/codeExampleTransformer.ts)
+- [src/steps/1-normalize/inference/](../../src/steps/1-normalize/inference/) (4 modules)
+- [src/steps/1-normalize/generators/](../../src/steps/1-normalize/generators/) (2 modules)
+- [src/steps/1-normalize/config/](../../src/steps/1-normalize/config/) (3 config files)
 
 **Missing:** 6 additional chunk transformers
 1. ComponentOverviewChunk (schema defined)
@@ -176,8 +176,8 @@ Your Design-MCP project has **excellent foundational work** with production-qual
 - These fields are NOT being populated during extraction
 
 **Evidence:**
-- [src/schemas/RAGResultSchema.ts:24-35](src/schemas/RAGResultSchema.ts#L24-L35) - Defines unused fields
-- [artifacts/raw-json/Button-*.json](artifacts/raw-json/Button-*.json) - Only has `code`, `score`, `complexity`
+- [src/schemas/RAGResultSchema.ts:24-35](../../src/schemas/RAGResultSchema.ts#L24-L35) - Defines unused fields
+- [artifacts/raw-json/Button-*.json](../../artifacts/raw-json/Button-*.json) - Only has `code`, `score`, `complexity`
 
 **Impact:**
 - ✅ No runtime errors (RawCodeExampleSchema matches actual data)

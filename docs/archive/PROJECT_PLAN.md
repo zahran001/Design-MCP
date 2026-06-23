@@ -2967,9 +2967,9 @@ curl -X POST https://api.component-generator.com/api/component \
 
 ### Reference Documentation
 
-- [Week 1 Implementation](./docs/week1/WEEK1_IMPLEMENTATION.md)
-- [CLAUDE.md](./CLAUDE.md) - Project quick facts
-- [README.md](./README.md) - Current state and quick start
+- [Week 1 Implementation](../week1/WEEK1_IMPLEMENTATION.md)
+- [CLAUDE.md](../../CLAUDE.md) - Project quick facts
+- [README.md](../../README.md) - Current state and quick start
 
 ---
 

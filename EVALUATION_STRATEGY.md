@@ -219,7 +219,7 @@ isolates prose; the re-crawl also discovered ~50 new components, set aside in
   exist in [NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts).
 
 ### Related docs
-- [CHUNK_TYPE_STRATEGY.md](CHUNK_TYPE_STRATEGY.md) — ROI analysis of the 7 chunk types.
-- [RETRIEVAL_TEST_REPORT.md](RETRIEVAL_TEST_REPORT.md) — the original 5-query manual test the
-  golden set was seeded from.
+- [docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md) — ROI analysis of the 7 chunk types.
+- [docs/archive/RETRIEVAL_TEST_REPORT.md](docs/archive/RETRIEVAL_TEST_REPORT.md) — the original
+  5-query manual test the golden set was seeded from.
 - [CLAUDE.md](CLAUDE.md) — project quick facts & contribution rules.

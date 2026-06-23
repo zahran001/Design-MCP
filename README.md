@@ -79,24 +79,21 @@ The project follows a **step-based pipeline architecture**:
 ├── Extraction (CSS selectors & DOM parsing)
 └── Storage (JSON artifacts)
 
-✅ Step 1: Normalize & Transform (COMPLETE - CodeExampleChunk + PropReferenceChunk)
-├── Phase 1a: CodeExampleChunk transformer ✅ (387 chunks)
-├── Phase 2a: PropExplanationGenerator ✅ (37/37 tests, 5 functions)
-├── Phase 2b: Template Config Refactoring ✅ (Maintenance)
-├── Code analysis & pattern detection
-├── Intent classification & section inference
-├── Natural language generation (with refinements)
-└── Ready for integration into normalizer
+✅ Step 1: Normalize & Transform (CodeExampleChunk + PropReferenceChunk — 2 of 7 types)
+├── CodeExampleChunk transformer ✅ (410 chunks; embeds real docs prose)
+├── PropReferenceChunk transformer ✅ (374 chunks)
+├── Code analysis, intent classification & section inference
+└── 784 normalized chunks from 50 components
 
-✅ Step 2: Embed & Vector Store (POC IMPLEMENTED)
-├── Embedding generation
-├── Vector store integration
+✅ Step 2: Embed & Vector Store
+├── OpenAI text-embedding-3-small (1536d)
+├── Qdrant vector store (784 points, no drift)
 └── Batch ingestion
 
-✅ Step 3: Search & Retrieval (POC IMPLEMENTED)
-├── Vector similarity search
-├── Metadata filtering
-└── Query interface
+✅ Step 3: Search & Retrieval + Evaluation
+├── Vector similarity search + metadata filtering
+├── LLM-as-judge eval harness (gP@k / nDCG, paraphrase leakage test)
+└── Verdict: authentic docs prose > synthesized templates
 ```
 
 ### Current Implementation Status
@@ -116,55 +113,40 @@ The project follows a **step-based pipeline architecture**:
 - ✅ Related components detection
 - ✅ Quality validation suite (smoke tests + sample viewer)
 
-**📊 Extraction Quality (49 Chakra UI components):**
-- Schema validation: 100% (49/49 files)
-- Description coverage: 100% (49/49 components)
-- Code examples: High coverage (400+ total examples)
-- Props extraction: 588 total props extracted
-  - Avg 14.0 props per component (for components with props tables)
-  - Pattern detection: Handles simple, composite, and no-props patterns
-  - Dot notation for composite components (e.g., "Root.collection")
-- Avg 7.1 code examples per component (filtered from ~40 raw blocks)
+**📊 Extraction Quality (50 Chakra UI components):**
+- Schema validation: 100% (50/50 files)
+- Description coverage: 100% (50/50 components)
+- **Section + prose capture: ~100%** of code examples now carry their real heading **and** intro
+  prose (Phase 3 scraper rewrite; was 1/16 headings + 0 prose on the Button page)
+- Props extraction: handles simple, composite, and no-props patterns (dot notation for composites,
+  e.g. "Root.collection")
 
-**✅ Week 2 Phase 1 Complete - CodeExampleChunk Transformer:**
-- ✅ Advanced normalization schemas (7 chunk types defined)
-- ✅ **CodeExampleChunk transformer fully implemented** (1/7 chunk types)
-- ✅ Inference engine (code analyzer, section inferrer, intent classifier)
-- ✅ Natural language generation (template-based explanation generator)
-- ✅ Configuration system (categories, patterns, transformer config)
-- ✅ Error handling & fallback generation
-- ✅ Metrics tracking & logging (JSONL format)
-- ✅ **470 tests passing** across 15 test suites
-- ✅ **387 normalized chunks** created from 50 components
+**✅ Step 1 — Normalization (2 of 7 chunk types implemented):**
+- ✅ **CodeExampleChunk** transformer — **410 chunks**. Embeds the **authentic section prose**
+  captured from the docs; the hardcoded template generator is demoted to a fallback used only for
+  prose-less sections.
+- ✅ **PropReferenceChunk** transformer — **374 chunks** (PropExplanationGenerator + externalized
+  template config).
+- ✅ Inference engine (code analyzer, section inferrer, intent classifier), config system, and
+  graceful fallback generation.
+- ✅ **784 normalized chunks** total from 50 components.
+- 📋 Not yet implemented (5 of 7 types): `component-overview`, `capability-reference`, `prop-group`,
+  `composition-pattern`, `api-reference`.
 
-**✅ Week 2 Phase 2a Complete - Natural Language Generation (PropExplanationGenerator):**
-- ✅ `propExplanationGenerator.ts` (324 lines, 5 core functions)
-  - `generatePropContent()` - Main orchestrator
-  - `generateDescription()` - Template lookup + type-aware fallback
-  - `generateTypeExplanation()` - Handles 8 type kinds with Refinement A (union truncation)
-  - `generateUsageGuidance()` - Semantic guidance with component-aware framework
-  - `generateDefaultBehavior()` - Honest defaults with Refinement B (no assumptions)
-- ✅ **37/37 tests passing** (100% pass rate)
-- ✅ Refinement A: Union truncation (saves 80-90 tokens per large enum)
-- ✅ Refinement B: Honest defaults (prevents 10-15% of embedding lies)
-- ✅ Refinement C: Component-aware framework (foundation for Phase 3)
+**✅ Step 2 — Embedding:** all **784 chunks embedded** into Qdrant (`chakra-ui-docs`,
+text-embedding-3-small, 1536d); drift detection clean (784 points = 784 chunks).
 
-**✅ Week 2 Phase 2b Complete - Template Config Refactoring (Preventive Maintenance):**
-- ✅ Created `prop-templates.ts` (206 lines)
-  - `COMMON_PROP_DESCRIPTIONS` - 60+ prop description templates
-  - `COMMON_USAGE_GUIDANCE` - 20+ semantic guidance templates
-- ✅ Extracted templates from generator
-  - Reduced generator from 474 → 324 lines (32% reduction)
-  - Fixed maintenance bottleneck before scaling to 50+ components
-  - Merge conflict risk reduced, maintainability improved
-- ✅ All 37 tests still passing after refactoring
+**✅ Step 3 — Search + Evaluation:** LLM-as-judge retrieval eval (`npm run quality:eval:judge`)
+reporting graded precision (gP@k), no-relevant count, and nDCG over the golden set plus a held-out
+paraphrased set (leakage test). It proved **authentic prose beats templates** (gpt-4o judge:
+paraphrased gP@k 0.684 → 0.748, no-relevant queries 3 → 0). See
+[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md).
 
-**🎯 Next: Week 2 Phase 3 - Normalizer Integration (READY):**
-- Integrate Phase 2a generator with Phase 1 transformer in normalizer.ts
-- Error handling per-prop (don't stop on one failure)
-- Zod validation before saving chunks
-- Statistics collection for 50+ components
-- Estimated: 3.5 hours remaining (phases 3-5)
+**🧪 Tests:** 609 passing across 20 suites.
+
+**🎯 Next:** implement the high-value missing chunk types (`component-overview`,
+`capability-reference`) and/or expand coverage with the ~50 additional components the re-crawl
+discovered.
 
 ## Project Structure
 
@@ -215,22 +197,62 @@ Design-MCP/
 │       ├── chunkId.ts                         # Stable chunk ID generation
 │       └── tokenEstimator.ts                  # Token counting
 ├── artifacts/
-│   ├── raw-json/                              # ✅ 49 extracted component files
-│   ├── normalized/                            # ✅ 50 normalized files (387 chunks)
+│   ├── raw-json/                              # ✅ 50 extracted component files
+│   ├── normalized/                            # ✅ 84 normalized files (784 chunks)
 │   ├── metrics/                               # ✅ Transformation metrics (JSONL)
 │   └── logs/                                  # ✅ Error logs
-├── docs/                                       # 📂 ARCHIVED (historical documentation)
+├── docs/                                       # 📂 Documentation (see "Documentation" below)
+│   ├── CHUNK_TYPE_STRATEGY.md                  # ROI analysis of the 7 chunk types
+│   ├── NORMALIZATION_TECHNICAL_GUIDE.md        # Normalization transformer deep-dive
+│   ├── NORMALIZATION_USAGE_GUIDE.md            # Normalization usage & design
+│   ├── archive/                               # Historical / superseded docs
 │   ├── week1/                                 # Week 1 implementation docs
-│   └── week2/                                 # Week 2 phase docs (archived)
+│   └── week2/                                 # Week 2 phase docs
 ├── scripts/                                    # Build & utility scripts
 ├── .env.example                               # Environment configuration template
 ├── Dockerfile                                 # Multi-stage Docker build
 ├── package.json                               # Dependencies & scripts
 ├── tsconfig.json                              # TypeScript configuration
+├── README.md                                  # This file
 ├── CLAUDE.md                                  # Project quick facts & contribution guide
-├── NORMALIZATION_TECHNICAL_GUIDE.md           # Technical implementation details
-└── NORMALIZATION_USAGE_GUIDE.md               # Usage, design decisions, testing
+├── AGENTS.md                                  # Agent-facing project overview
+├── EVALUATION_STRATEGY.md                     # Active retrieval-quality plan
+└── TEST_CHECKLIST.md                          # Manual verification checklist
 ```
+
+## Documentation
+
+Active docs live in the repo root; reference material is under `docs/`; superseded historical
+docs are under `docs/archive/` (kept for provenance).
+
+### Root — active
+| Doc | What it is |
+|---|---|
+| [README.md](README.md) | This file — overview, setup, CLI, project structure. |
+| [CLAUDE.md](CLAUDE.md) | Contribution rules & quick facts for AI agents working in this repo. |
+| [AGENTS.md](AGENTS.md) | Agent-facing project & pipeline overview. |
+| [EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md) | Active retrieval-quality plan + results: LLM-as-judge eval, paraphrase leakage test, and the authentic-prose-vs-template verdict. |
+| [TEST_CHECKLIST.md](TEST_CHECKLIST.md) | Manual verification checklist for pipeline steps 0–3. |
+
+### Reference — `docs/`
+| Doc | What it is |
+|---|---|
+| [docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md) | ROI analysis of the 7 chunk types — which to implement next and why. |
+| [docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md) | Deep-dive on the normalization transformer (inference → generation → chunk assembly). |
+| [docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md) | How to run/use normalization, plus design decisions. |
+
+> The two normalization guides predate PropReferenceChunk; their "1/7 chunk types" status headers
+> are out of date (prop-reference is implemented), but the architectural content remains accurate.
+
+### Archive — `docs/archive/` (historical / superseded)
+| Doc | Why archived |
+|---|---|
+| [docs/archive/PROJECT_PLAN.md](docs/archive/PROJECT_PLAN.md) | Original Week 1–4 technical plan (Oct 2025); superseded by EVALUATION_STRATEGY.md and actual progress. |
+| [docs/archive/VECTOR_DB_POC_GUIDE.md](docs/archive/VECTOR_DB_POC_GUIDE.md) | Build plan/timeline for the vector-DB POC — now complete. |
+| [docs/archive/PROJECT_REVIEW.md](docs/archive/PROJECT_REVIEW.md) | Point-in-time project health assessment (Dec 2025). |
+| [docs/archive/RETRIEVAL_TEST_REPORT.md](docs/archive/RETRIEVAL_TEST_REPORT.md) | Original 5-query manual retrieval test; the golden eval set was seeded from it. |
+
+Dated implementation/design notes also live under `docs/week1/` and `docs/week2/`.
 
 ## Installation
 
@@ -478,68 +500,44 @@ Example output structure:
 
 **📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
 
-### ✅ Week 2 Phase 1-2b Complete: Normalization Pipeline
+### ✅ Step 1 Complete: Normalization Pipeline (2 of 7 chunk types)
 
-**Phase 1: CodeExampleChunk Transformer (Complete)**
-- [x] Advanced chunk schema definition (7 types defined, 1 implemented)
-- [x] Chunk ID generation utilities
+**CodeExampleChunk Transformer**
 - [x] Inference engine (code analyzer, section inferrer, intent classifier)
-- [x] Natural language generation (template-based)
-- [x] Transformation pipeline (raw JSON → CodeExampleChunk)
-- [x] Configuration system (categories, patterns, behavior)
-- [x] Error handling & fallback generation
+- [x] Embeds **authentic docs prose**; the template generator is demoted to a fallback
+- [x] Transformation pipeline (raw JSON → CodeExampleChunk), config system, fallback generation
 - [x] Metrics tracking & JSONL logging
-- [x] **470 tests passing** across 15 test suites
-- [x] **387 normalized chunks** from 50 components
+- [x] **410 code-example chunks** from 50 components
 
-**Phase 2a: Natural Language Generation (Complete)**
-- [x] `propExplanationGenerator.ts` (5 core functions, 324 lines)
-- [x] **37/37 tests passing** (100% pass rate)
-- [x] Refinement A: Union truncation (80-90 token savings per enum)
-- [x] Refinement B: Honest defaults (prevents 10-15% embedding lies)
-- [x] Refinement C: Component-aware guidance framework
-- [x] Type-aware fallback descriptions for unknown props
-- [x] Semantic guidance templates (20+)
-- [x] Prop description templates (60+)
+**PropReferenceChunk Transformer**
+- [x] `propExplanationGenerator.ts` + externalized `prop-templates.ts` (60+ description, 20+ guidance)
+- [x] Type-aware fallbacks; union truncation; honest defaults
+- [x] `normalizePropReferences()` orchestrator — per-prop error handling + Zod validation
+- [x] **374 prop-reference chunks** from 50 components
 
-**Phase 2b: Template Config Refactoring (Complete)**
-- [x] Created `prop-templates.ts` (206 lines)
-- [x] Extracted templates from generator (474→324 lines)
-- [x] Fixed maintenance bottleneck before scaling
-- [x] All 37 tests passing after refactoring
-- [x] Clear separation of concerns (logic vs data)
+**📋 Remaining chunk types (5 of 7):**
+- [ ] `component-overview` ("what is X") and `capability-reference` ("what can X do") — highest value
+- [ ] `prop-group`, `composition-pattern`, `api-reference`
 
-**📋 Phase 3: Normalizer Integration (READY)**
-- [ ] Integrate Phase 2a generator with Phase 1 transformer
-- [ ] `normalizePropReferences()` orchestrator function
-- [ ] Per-prop error handling & validation
-- [ ] Zod schema validation before saving
-- [ ] Statistics collection & reporting
-- [ ] File I/O for 50+ component props
+### ✅ Step 2 Complete: Embedding & Vector Store
+- [x] OpenAI text-embedding-3-small (1536d)
+- [x] Qdrant store — **784 points embedded**, drift detection clean
+- [x] Idempotent upsert via `uuidv5(chunkId)` (after fixing a collision bug that dropped 26% of points)
 
-**📋 Phase 4: Full Test Suite + Validation (NEXT)**
-- [ ] Integration tests with real component data
-- [ ] Verify ~500 total PropReferenceChunks
-- [ ] Token count statistics (100-250 range)
-- [ ] Zero validation errors
-- [ ] Quality metrics dashboard
+### ✅ Step 3 Complete: Search & Evaluation
+- [x] Vector similarity search + metadata filtering, CLI query interface
+- [x] **LLM-as-judge eval harness** (`quality:eval:judge`): graded precision (gP@k), no-relevant count, nDCG
+- [x] Held-out **paraphrased** query set (leakage / circularity test)
+- [x] **Verdict: authentic prose > templates** (paraphrased gP@k 0.684 → 0.748). See [EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)
 
-**📋 Phase 5: Vector DB POC (POST-PHASE-3)**
-- [ ] Embedding generation for all chunks
-- [ ] Vector store integration (Qdrant)
-- [ ] Basic vector search implementation
-- [ ] Query interface (CLI)
-- [ ] POC validation with real queries
-
-**🔮 Future (Post-POC):**
-- [ ] Evaluate retrieval quality with combined chunks
-- [ ] Decide which additional chunk types to implement
-- [ ] Extend normalization to selected chunk types
-- [ ] LLM re-ranking (if needed)
+**🔮 Next:**
+- [ ] Implement `component-overview` + `capability-reference` chunk types (the weakest eval categories)
+- [ ] Optional corpus expansion (~50 more components discovered during the re-crawl)
+- [ ] Spec-driven generation (Step 4) and LLM re-ranking (if needed)
 
 **📖 Technical Documentation:**
-- [NORMALIZATION_TECHNICAL_GUIDE.md](NORMALIZATION_TECHNICAL_GUIDE.md) - Implementation deep-dive
-- [NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md) - Usage & design decisions
+- [docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md) - Implementation deep-dive
+- [docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md) - Usage & design decisions
 
 ### Week 3+: Advanced Features (PLANNED)
 - [ ] Two-stage retrieval optimization
@@ -585,15 +583,15 @@ Example output structure:
 - Quality verification workflow
 
 **Normalization Pipeline** ([src/steps/1-normalize/](src/steps/1-normalize/))
-- **Transformer**: CodeExampleChunk fully implemented (1/7 chunk types)
+- **Transformers**: CodeExampleChunk + PropReferenceChunk implemented (2/7 chunk types)
 - **Inference Engine**: Code analyzer, section inferrer, intent classifier
-- **Content Generation**: Template-based explanation generator
+- **Content Generation**: Authentic docs prose, with template generator as a fallback
 - **Configuration**: External JSON configs for categories, patterns, behavior
 - **Error Handling**: Graceful fallbacks, detailed logging
 - **Metrics**: JSONL-based transformation tracking
 
 **Normalization Schemas** ([src/schemas/NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts))
-- 7 specialized chunk types defined (CodeExampleChunk implemented)
+- 7 specialized chunk types defined (CodeExampleChunk + PropReferenceChunk implemented)
 - Dual content strategy (embedding-optimized + API reference)
 - Type-safe with Zod validation
 
@@ -603,7 +601,7 @@ Example output structure:
 - Sequential fallback for non-semantic cases
 
 **Quality Assurance**
-- 470 passing tests across 15 test suites
+- 609 passing tests across 20 test suites
 - Configuration-driven pattern matching
 - Fallback generation for error recovery
 
@@ -694,29 +692,29 @@ Use extracted specs to train or prompt LLMs for generating:
 3. **Review samples:** `npm run quality:samples`
 4. **Adjust configuration** in `.env` if targeting different docs
 
-### If continuing from Week 2 Phase 2b:
-- ✅ **Step 0: Extraction is complete!** (49 components in [artifacts/raw-json/](artifacts/raw-json/))
-- ✅ **Step 1: Normalization Phase 1 complete!** (CodeExampleChunk transformer - 387 chunks created)
-- ✅ **Step 1: Normalization Phase 2a-2b complete!** (PropExplanationGenerator ready + template refactoring done)
-- 📋 **Next: Step 1 Phase 3 - Normalizer Integration** (Wire Phase 2a into normalizer, handle 50+ component props)
-- 🎯 **Goal:** Generate ~500 PropReferenceChunks, then validate combined retrieval quality with Vector DB POC
+### Where things stand:
+- ✅ **Step 0 — Extraction:** 50 components in [artifacts/raw-json/](artifacts/raw-json/); captures real section headings + prose
+- ✅ **Step 1 — Normalization:** CodeExampleChunk + PropReferenceChunk (2/7 types), **784 chunks**
+- ✅ **Step 2 — Embedding:** 784 points in Qdrant (`chakra-ui-docs`)
+- ✅ **Step 3 — Search + Evaluation:** LLM-as-judge harness; authentic prose beats templates
+- 📋 **Next:** remaining chunk types (`component-overview`, `capability-reference`) and/or corpus expansion
 
 ### Key Documentation:
 - **[CLAUDE.md](CLAUDE.md)** - Project quick facts & contribution guide
-- **[NORMALIZATION_TECHNICAL_GUIDE.md](NORMALIZATION_TECHNICAL_GUIDE.md)** - Technical implementation details
-- **[NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md)** - Usage, design decisions, testing
+- **[docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md)** - Technical implementation details
+- **[docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md)** - Usage, design decisions, testing
 - **[.env.example](.env.example)** - Configuration reference
-- **[docs/](docs/)** - Archived historical documentation
+- **[Documentation](#documentation)** - Full doc index
 
 ---
 
-**Status:** ✅ **Step 0 Complete** | ✅ **Step 1 Partial (Phase 1+2a+2b)** | 📋 **Next: Step 1 Phase 3 (Normalizer Integration)** | 🎯 **Post-Phase-3: Vector DB POC**
+**Status:** ✅ **Steps 0–3 Complete** (extract → normalize → embed → search + eval) | 📋 **Next: more chunk types / corpus expansion / spec-driven generation**
 
 **Details:**
-- Week 1: ✅ Extraction complete (49 components, 100% schema validation)
-- Week 2 Phase 1: ✅ CodeExampleChunk transformer (387 chunks, 470 tests)
-- Week 2 Phase 2a: ✅ PropExplanationGenerator (37/37 tests, 3 refinements)
-- Week 2 Phase 2b: ✅ Template config refactoring (32% reduction, maintenance fixed)
-- Week 2 Phase 3+: 📋 Ready to start (normalizer integration, ~3.5h remaining)
+- Step 0 — Extraction: ✅ 50 components, 100% schema validation; real headings + prose captured
+- Step 1 — Normalization: ✅ CodeExampleChunk (410) + PropReferenceChunk (374) = 784 chunks, 2/7 types
+- Step 2 — Embedding: ✅ 784 points in Qdrant (text-embedding-3-small, 1536d)
+- Step 3 — Search + Eval: ✅ LLM-as-judge harness; authentic prose > templates (see EVALUATION_STRATEGY.md)
+- Tests: ✅ 609 passing across 20 suites
 
 For questions, issues, or feature requests, please open an issue on GitHub.

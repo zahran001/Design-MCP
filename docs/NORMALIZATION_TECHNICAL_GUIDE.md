@@ -100,7 +100,7 @@ src/steps/1-normalize/
 
 **Purpose:** Extract structural metadata from raw code strings
 
-**Location:** [src/steps/1-normalize/inference/codeAnalyzer.ts](src/steps/1-normalize/inference/codeAnalyzer.ts)
+**Location:** [src/steps/1-normalize/inference/codeAnalyzer.ts](../src/steps/1-normalize/inference/codeAnalyzer.ts)
 
 **Key Function:**
 ```typescript
@@ -158,7 +158,7 @@ const eventHandlerRegex = /\b(on[A-Z]\w+)\s*=/g;
 - `hasInteractivity`: `eventHandlers.length > 0`
 - `hasState`: `hooks.some(h => h === 'useState' || h === 'useReducer')`
 
-**Test Coverage:** [13 tests](src/steps/1-normalize/inference/__tests__/codeAnalyzer.test.ts)
+**Test Coverage:** [13 tests](../src/steps/1-normalize/inference/__tests__/codeAnalyzer.test.ts)
 
 ---
 
@@ -166,7 +166,7 @@ const eventHandlerRegex = /\b(on[A-Z]\w+)\s*=/g;
 
 **Purpose:** Infer semantic section titles from code patterns
 
-**Location:** [src/steps/1-normalize/inference/sectionInferrer.ts](src/steps/1-normalize/inference/sectionInferrer.ts)
+**Location:** [src/steps/1-normalize/inference/sectionInferrer.ts](../src/steps/1-normalize/inference/sectionInferrer.ts)
 
 **Key Function:**
 ```typescript
@@ -208,7 +208,7 @@ if (sizeMatches && sizeMatches.length >= 2) {
 }
 ```
 
-**Test Coverage:** [27 tests](src/steps/1-normalize/inference/__tests__/sectionInferrer.test.ts)
+**Test Coverage:** [27 tests](../src/steps/1-normalize/inference/__tests__/sectionInferrer.test.ts)
 
 ---
 
@@ -216,7 +216,7 @@ if (sizeMatches && sizeMatches.length >= 2) {
 
 **Purpose:** Classify code examples by primary intent for template selection
 
-**Location:** [src/steps/1-normalize/inference/intentClassifier.ts](src/steps/1-normalize/inference/intentClassifier.ts)
+**Location:** [src/steps/1-normalize/inference/intentClassifier.ts](../src/steps/1-normalize/inference/intentClassifier.ts)
 
 **Key Function:**
 ```typescript
@@ -268,7 +268,7 @@ if (hasEventHandlers && hasStateManagement) {
 }
 ```
 
-**Test Coverage:** [16 tests](src/steps/1-normalize/inference/__tests__/intentClassifier.test.ts)
+**Test Coverage:** [16 tests](../src/steps/1-normalize/inference/__tests__/intentClassifier.test.ts)
 
 ---
 
@@ -276,7 +276,7 @@ if (hasEventHandlers && hasStateManagement) {
 
 **Purpose:** Extract structured data from code analysis for template population
 
-**Location:** [src/steps/1-normalize/generators/templateDataExtractor.ts](src/steps/1-normalize/generators/templateDataExtractor.ts)
+**Location:** [src/steps/1-normalize/generators/templateDataExtractor.ts](../src/steps/1-normalize/generators/templateDataExtractor.ts)
 
 **Key Function:**
 ```typescript
@@ -352,7 +352,7 @@ interface InteractionData {
 - Returns fallback values instead of throwing errors
 - Always returns valid TemplateData structure
 
-**Test Coverage:** [15 tests](src/steps/1-normalize/generators/__tests__/templateDataExtractor.test.ts)
+**Test Coverage:** [15 tests](../src/steps/1-normalize/generators/__tests__/templateDataExtractor.test.ts)
 
 ---
 
@@ -360,7 +360,7 @@ interface InteractionData {
 
 **Purpose:** Generate natural language content using hardcoded templates
 
-**Location:** [src/steps/1-normalize/generators/explanationGenerator.ts](src/steps/1-normalize/generators/explanationGenerator.ts)
+**Location:** [src/steps/1-normalize/generators/explanationGenerator.ts](../src/steps/1-normalize/generators/explanationGenerator.ts)
 
 **Key Function:**
 ```typescript
@@ -422,7 +422,7 @@ function generateCompositionContent(data: CompositionData): GeneratedContent {
 - ✅ Easy to test (simple string assertions)
 - ✅ Sufficient to prove pipeline architecture
 
-**Test Coverage:** [18 tests](src/steps/1-normalize/generators/__tests__/explanationGenerator.test.ts)
+**Test Coverage:** [18 tests](../src/steps/1-normalize/generators/__tests__/explanationGenerator.test.ts)
 
 ---
 
@@ -430,7 +430,7 @@ function generateCompositionContent(data: CompositionData): GeneratedContent {
 
 **Purpose:** Orchestrate transformation from raw example to CodeExampleChunk
 
-**Location:** [src/steps/1-normalize/transformers/codeExampleTransformer.ts](src/steps/1-normalize/transformers/codeExampleTransformer.ts)
+**Location:** [src/steps/1-normalize/transformers/codeExampleTransformer.ts](../src/steps/1-normalize/transformers/codeExampleTransformer.ts)
 
 **Key Function:**
 ```typescript
@@ -538,7 +538,7 @@ function getCategoryFromComponent(componentName: string): ComponentCategory {
 
 **Purpose:** Main orchestrator - file I/O + batch processing
 
-**Location:** [src/steps/1-normalize/normalizer.ts](src/steps/1-normalize/normalizer.ts)
+**Location:** [src/steps/1-normalize/normalizer.ts](../src/steps/1-normalize/normalizer.ts)
 
 **Key Function:**
 ```typescript
@@ -780,36 +780,36 @@ function extractSizingData(analysis: CodeAnalysis, componentName: string): Sizin
 1. **Difficulty Scoring** (2-3 hours)
    - Separate code complexity from learning difficulty
    - Combine both factors for accurate difficulty rating
-   - See [POC_NORMALIZATION_DECISIONS.md](POC_NORMALIZATION_DECISIONS.md#difficulty-scoring)
+   - See [POC_NORMALIZATION_DECISIONS.md](week2/Phase1/POC_NORMALIZATION_DECISIONS.md#difficulty-scoring)
 
 2. **Tag Generation** (2-3 hours)
    - Derive multiple tags from code patterns
    - Add feature tags (responsive, icons, forms, etc.)
-   - See [POC_NORMALIZATION_DECISIONS.md](POC_NORMALIZATION_DECISIONS.md#tag-generation)
+   - See [POC_NORMALIZATION_DECISIONS.md](week2/Phase1/POC_NORMALIZATION_DECISIONS.md#tag-generation)
 
 3. **Chunk Relationships** (4-6 hours)
    - Link related chunks (example → prop reference, progression, composition)
    - Enable "explore related" features
-   - See [POC_NORMALIZATION_DECISIONS.md](POC_NORMALIZATION_DECISIONS.md#chunk-relationships)
+   - See [POC_NORMALIZATION_DECISIONS.md](week2/Phase1/POC_NORMALIZATION_DECISIONS.md#chunk-relationships)
 
 ### Medium Priority
 
 4. **Category Mapping Config** (1-2 hours)
    - Move regex patterns to configuration file
    - 100% accuracy vs current ~90%
-   - See [POC_NORMALIZATION_DECISIONS.md](POC_NORMALIZATION_DECISIONS.md#category-mapping-1)
+   - See [POC_NORMALIZATION_DECISIONS.md](week2/Phase1/POC_NORMALIZATION_DECISIONS.md#category-mapping-1)
 
 5. **Type Parser** (6-8 hours)
    - Parse TypeScript types (unions, objects, functions)
    - Required for PropReferenceChunk implementation
-   - See [GAP_ANALYSIS.md](GAP_ANALYSIS.md#2-propreferencechunk-requirements)
+   - See [GAP_ANALYSIS.md](week2/Phase1/GAP_ANALYSIS.md#2-propreferencechunk-requirements)
 
 ### Low Priority
 
 6. **Quality Scoring** (6-8 hours)
    - ML-based natural language quality assessment
    - Rank search results by quality
-   - See [POC_NORMALIZATION_DECISIONS.md](POC_NORMALIZATION_DECISIONS.md#quality-scoring)
+   - See [POC_NORMALIZATION_DECISIONS.md](week2/Phase1/POC_NORMALIZATION_DECISIONS.md#quality-scoring)
 
 7. **LLM Generation** (1-2 days)
    - Replace hardcoded templates with LLM API calls
@@ -821,27 +821,27 @@ function extractSizingData(analysis: CodeAnalysis, componentName: string): Sizin
 ## Code Reference Index
 
 ### Core Modules
-- [codeAnalyzer.ts](src/steps/1-normalize/inference/codeAnalyzer.ts:1) - Code structure extraction
-- [sectionInferrer.ts](src/steps/1-normalize/inference/sectionInferrer.ts:1) - Section title inference
-- [intentClassifier.ts](src/steps/1-normalize/inference/intentClassifier.ts:1) - Intent classification
-- [templateDataExtractor.ts](src/steps/1-normalize/generators/templateDataExtractor.ts:1) - Template data extraction
-- [explanationGenerator.ts](src/steps/1-normalize/generators/explanationGenerator.ts:1) - Natural language generation
-- [codeExampleTransformer.ts](src/steps/1-normalize/transformers/codeExampleTransformer.ts:1) - Transformation orchestration
-- [normalizer.ts](src/steps/1-normalize/normalizer.ts:1) - Main pipeline orchestrator
+- [codeAnalyzer.ts](../src/steps/1-normalize/inference/codeAnalyzer.ts:1) - Code structure extraction
+- [sectionInferrer.ts](../src/steps/1-normalize/inference/sectionInferrer.ts:1) - Section title inference
+- [intentClassifier.ts](../src/steps/1-normalize/inference/intentClassifier.ts:1) - Intent classification
+- [templateDataExtractor.ts](../src/steps/1-normalize/generators/templateDataExtractor.ts:1) - Template data extraction
+- [explanationGenerator.ts](../src/steps/1-normalize/generators/explanationGenerator.ts:1) - Natural language generation
+- [codeExampleTransformer.ts](../src/steps/1-normalize/transformers/codeExampleTransformer.ts:1) - Transformation orchestration
+- [normalizer.ts](../src/steps/1-normalize/normalizer.ts:1) - Main pipeline orchestrator
 
 ### Utilities
-- [chunkId.ts](src/utils/chunkId.ts:1) - Chunk ID generation with collision handling
-- [tokenEstimator.ts](src/utils/tokenEstimator.ts:1) - Token estimation utilities
+- [chunkId.ts](../src/utils/chunkId.ts:1) - Chunk ID generation with collision handling
+- [tokenEstimator.ts](../src/utils/tokenEstimator.ts:1) - Token estimation utilities
 
 ### Schemas
-- [NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts:1) - 7 chunk types defined
+- [NormalizedChunkSchema.ts](../src/schemas/NormalizedChunkSchema.ts:1) - 7 chunk types defined
 
 ### Tests
-- [codeAnalyzer.test.ts](src/steps/1-normalize/inference/__tests__/codeAnalyzer.test.ts:1) - 13 tests
-- [sectionInferrer.test.ts](src/steps/1-normalize/inference/__tests__/sectionInferrer.test.ts:1) - 27 tests
-- [intentClassifier.test.ts](src/steps/1-normalize/inference/__tests__/intentClassifier.test.ts:1) - 16 tests
-- [templateDataExtractor.test.ts](src/steps/1-normalize/generators/__tests__/templateDataExtractor.test.ts:1) - 15 tests
-- [explanationGenerator.test.ts](src/steps/1-normalize/generators/__tests__/explanationGenerator.test.ts:1) - 18 tests
+- [codeAnalyzer.test.ts](../src/steps/1-normalize/inference/__tests__/codeAnalyzer.test.ts:1) - 13 tests
+- [sectionInferrer.test.ts](../src/steps/1-normalize/inference/__tests__/sectionInferrer.test.ts:1) - 27 tests
+- [intentClassifier.test.ts](../src/steps/1-normalize/inference/__tests__/intentClassifier.test.ts:1) - 16 tests
+- [templateDataExtractor.test.ts](../src/steps/1-normalize/generators/__tests__/templateDataExtractor.test.ts:1) - 15 tests
+- [explanationGenerator.test.ts](../src/steps/1-normalize/generators/__tests__/explanationGenerator.test.ts:1) - 18 tests
 
 ---
 
@@ -879,4 +879,4 @@ function extractSizingData(analysis: CodeAnalysis, componentName: string): Sizin
 
 **Documentation:**
 - See [NORMALIZATION_USAGE_GUIDE.md](NORMALIZATION_USAGE_GUIDE.md) for usage & testing
-- See [README.md](README.md) for project overview & CLI commands
+- See [README.md](../README.md) for project overview & CLI commands
