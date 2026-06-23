@@ -70,13 +70,29 @@ export interface MetricsLogEntry {
 }
 
 /**
+ * Per-worker subdirectory used ONLY under Jest.
+ *
+ * The metrics/error logs are a single fixed file, but Jest runs test files in
+ * parallel worker processes that share `process.cwd()` — and the transformer
+ * appends to this file as a normal side effect. Concurrent workers therefore
+ * race on one file, breaking the exact-count/JSON assertions in
+ * transformationMetrics.test.ts. Isolating each worker under its own subdir
+ * removes the contention. Outside Jest (`JEST_WORKER_ID` unset) this returns ''
+ * and the path is byte-for-byte identical to before.
+ */
+function workerSubdir(): string {
+  const id = process.env.JEST_WORKER_ID;
+  return id ? `__worker-${id}` : '';
+}
+
+/**
  * Get metrics log file path
  *
  * @returns Absolute path to metrics log file
  */
 export function getMetricsLogPath(): string {
   const metricsDir = path.resolve(process.cwd(), TRANSFORMER_CONFIG.metrics.logPath);
-  return path.join(metricsDir, 'transformation-metrics.jsonl');
+  return path.join(metricsDir, workerSubdir(), 'transformation-metrics.jsonl');
 }
 
 /**
@@ -86,15 +102,18 @@ export function getMetricsLogPath(): string {
  */
 export function getErrorLogPath(): string {
   const logDir = path.resolve(process.cwd(), TRANSFORMER_CONFIG.logging.logPath);
-  return path.join(logDir, 'transformation-errors.log');
+  return path.join(logDir, workerSubdir(), 'transformation-errors.log');
 }
 
 /**
- * Ensure log directories exist
+ * Ensure log directories exist.
+ *
+ * Creates the directory that actually contains each log file (which includes the
+ * per-worker subdir when present), so appendFileSync never hits ENOENT.
  */
 export function ensureLogDirectories(): void {
-  const metricsDir = path.resolve(process.cwd(), TRANSFORMER_CONFIG.metrics.logPath);
-  const logDir = path.resolve(process.cwd(), TRANSFORMER_CONFIG.logging.logPath);
+  const metricsDir = path.dirname(getMetricsLogPath());
+  const logDir = path.dirname(getErrorLogPath());
 
   if (!fs.existsSync(metricsDir)) {
     fs.mkdirSync(metricsDir, { recursive: true });

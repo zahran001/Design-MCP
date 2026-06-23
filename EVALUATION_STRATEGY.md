@@ -1,8 +1,9 @@
 # Evaluation Strategy & Retrieval-Quality Roadmap
 
 > **Status:** active plan. Branch `week2_eval_harness`.
-> **Phase 1 (build the instrument): DONE — 2026-06-22.** Phase 2 (lock baseline): essentially
-> captured by the gpt-4o run below; Phase 3 (scraper) is the next real work.
+> **Phases 1–3: DONE — 2026-06-22.** Verdict reached: **authentic prose beats templates**
+> (Phase 3 result table in §4). Instrument built (Phase 1), gpt-4o baseline locked (Phase 2),
+> scraper rewritten + re-embedded + measured (Phase 3).
 > **Audience:** the next coding agent / contributor picking this up in a fresh session.
 > **One-line goal:** build a *trustworthy* retrieval evaluation, then use it to prove whether
 > **authentic documentation prose beats our synthesized template prose** as embedding input.
@@ -91,18 +92,44 @@ yields a true, unvarnished baseline — expected to be **meaningfully lower than
 100%** component-hit number. Commit this as the reference (alongside the existing
 `artifacts/eval/baseline.json`).
 
-### Phase 3 — Fix the scraper (Experiment #1)
-Rewrite the DOM-traversal in the crawler so it correctly captures, per example: (a) its **real
-section heading** and (b) the **introductory prose block** beneath it. Then:
-1. Re-crawl (`0-extract-docs`).
-2. Re-normalize so the embedded text is the **authentic heading + prose + code** (demote the
-   template generator to a *fallback* for genuinely prose-less sections).
-3. Re-embed (`2-embed`) and re-run the eval.
+### Phase 3 — Fix the scraper (Experiment #1) — ✅ DONE, real prose WINS
+Rewrite the DOM-traversal so it captures, per example: (a) its **real section heading** and (b) the
+**introductory prose block** beneath it, then re-crawl → re-normalize → re-embed → re-eval.
 
-**The mathematical delta between this run and the Phase-2 baseline conclusively proves whether
-human-written prose outperforms templates** (and resolves the vector-homogeneity / low-
-distinctiveness issue). If real prose wins, templates retire. If it surprisingly doesn't, we've
-avoided a large re-crawl on a hunch.
+**What the live DOM actually revealed (bigger than the original premise):** each Chakra v3 demo is
+a Preview/Code/Stackblitz **tab widget whose code `<pre>` is unmounted until the "Code" tab is
+clicked** — on the Button page only 10 of 27 code blocks exist on load. So the old crawler wasn't
+just mislabeling headings; most demo code wasn't in the DOM at all. The fix (in
+[extractors.ts](src/steps/0-extract-docs/extractors.ts)) is two parts:
+1. `revealCodeTabs(page)` — click every `main [role="tab"]` named "Code" to mount the demo `<pre>`.
+2. `computeSectionContexts(page)` — one **document-order** `TreeWalker` pass over `<main>` that
+   attributes each `<pre>` its nearest heading + buffered intro `<p>` prose, skipping
+   `[role="tabpanel"]` preview noise (color-swatch labels etc.). Replaces the old fragile
+   sibling/parent walk.
+
+Capture on Button went **1/16 headings + 0 prose → 22/22 + 22/22** (Checkbox 21/20, Stack 6/6). New
+fields `sectionId`/`sectionDescription` flow through `CodeExampleSchema` → `RawCodeExampleSchema`
+(must be declared there — zod strips unknown keys) → `codeExampleTransformer`, where real prose
+becomes the embedded `explanation` and the real heading the `Title:` anchor; the template is demoted
+to a fallback (`sectionDescription` < 12 chars or absent).
+
+**Result — gpt-4o judge, k=5, identical 50-component corpus** (Phase-3 report
+`artifacts/eval/baseline-judged-gpt4o-phase3.json`; baseline `…gpt4o.json`):
+
+| metric | Phase 2 (template) | Phase 3 (real prose) | Δ |
+|---|---|---|---|
+| golden gP@k | 0.852 | **0.884** | +0.032 |
+| paraphrased gP@k | 0.684 | **0.748** | **+0.064** |
+| paraphrased no-rel queries | **3** | **0** | **−3** |
+| paraphrased component hit@5 | 84% | 90% | +6% |
+| leakage Δ gP@k (golden→para) | −0.168 | −0.135 | narrower (more robust) |
+
+**Verdict: authentic prose beats templates.** The gain is *larger on the held-out paraphrased
+(non-circular) queries* than on the golden set — real prose generalizes to developer phrasing where
+template-vocabulary overlap could not — and it eliminated the 3 catastrophic zero-relevant cases.
+Templates are retired to a fallback. (Corpus held to the baseline's 50 components so the delta
+isolates prose; the re-crawl also discovered ~50 new components, set aside in
+`artifacts/raw-json-phase3-extra/` for a future coverage expansion.)
 
 ---
 
@@ -113,8 +140,9 @@ avoided a large re-crawl on a hunch.
   the golden set and a held-out paraphrased set (with a leakage Δ), written to `artifacts/eval/`.
 - **Phase 2 done:** a committed baseline of the current template approach under the new metric.
   The **gpt-4o** run is the reference (`artifacts/eval/baseline-judged-gpt4o.json`; numbers below).
-- **Phase 3 done:** a second eval run on re-extracted real-prose data, and a documented delta vs
-  baseline that makes the templates-vs-prose verdict unambiguous.
+- **Phase 3 done ✅:** real-prose re-extraction + re-embed (784 chunks, same 50 components) and a
+  documented gpt-4o delta (golden gP@k +0.032, paraphrased +0.064, paraphrased no-rel 3→0). Verdict:
+  authentic prose wins; templates demoted to fallback. See §4 table.
 
 ---
 

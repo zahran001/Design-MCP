@@ -27,6 +27,13 @@ export const CodeExampleSchema = z.object({
   title: z.string().optional(),     // Extracted from preceding heading
   section: z.string().optional(),   // Section name where code was found
 
+  // Real authored prose captured from the docs page (Phase 3, 2026-06-22).
+  // sectionId: the heading's anchor id (e.g. "sizes", "variants").
+  // sectionDescription: the intro paragraph(s) beneath the heading — the
+  // human-written prose we previously discarded and replaced with templates.
+  sectionId: z.string().optional(),
+  sectionDescription: z.string().optional(),
+
   // Classification metadata (added 2025-10-21)
   score: z.number().int().min(0).optional(),  // Composition quality score (0-20+)
   complexity: z.enum(['trivial', 'basic', 'intermediate', 'advanced']).optional(),

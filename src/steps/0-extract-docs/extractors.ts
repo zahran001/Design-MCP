@@ -75,117 +75,107 @@ function log(...args: any[]) {
 // Batch 4: Playwright Interaction
 // =============================================================================
 
+/** Per-code-block section context, aligned to `main pre` document order. */
+interface SectionContext {
+  section: string;            // cleaned heading text (e.g. "Sizes")
+  sectionId: string;          // heading anchor id (e.g. "sizes")
+  sectionDescription: string; // intro prose beneath the heading, if any
+}
+
 /**
- * Find the heading that precedes a code block in the DOM
+ * Reveal demo code that Chakra v3 hides behind tabs.
  *
- * PURPOSE: Extract section context for code examples (e.g., "Usage", "Props", "Installation")
+ * WHY (Phase 3, empirically verified 2026-06-22): each interactive demo on a
+ * Chakra v3 component page is a Preview / Code / Stackblitz tab widget. The
+ * `<pre><code>` for the demo lives in the *Code* tabpanel, which is NOT mounted
+ * in the DOM until that tab is activated. On the Button page only 10 of 27 code
+ * blocks are present on load; clicking every "Code" tab raises it to 27. Without
+ * this step a re-crawl SILENTLY DROPS the demo examples (Sizes, Variants, ...).
  *
- * CHALLENGE: Chakra UI's MDX structure is unpredictable - headings may be:
- *   - Direct siblings of code blocks
- *   - Wrapped in different container elements
- *   - Nested at varying depths
- *
- * From exploration: Simple sibling-only search succeeds ~40% of the time
- *
- * SOLUTION: Multi-strategy fallback approach
- *
- * STRATEGY 1: Sibling Walk (fastest, works 40% of time)
- *   - Start from code block's parent
- *   - Walk backwards through previous siblings (max 20 elements)
- *   - Return first h1-h6 element found
- *
- * STRATEGY 2: Parent Tree Search (slower, catches remaining cases)
- *   - Walk up parent tree (max 5 levels)
- *   - At each level, find all h1-h6 elements
- *   - Search backwards through headings
- *   - Return first heading that appears BEFORE the code block in document order
- *   - Uses compareDocumentPosition() to check ordering
- *
- * DOCUMENT_POSITION_FOLLOWING: Bitmask flag indicating an element comes after another
- *
- * RETURN: { section: string, found: boolean }
- *   - section: Cleaned heading text (see cleanHeadingText)
- *   - found: true if a heading was found, false otherwise
- *
- * Used by: extractCodeExamples() to populate CodeExample.section field
+ * Resilient by design: clicks are best-effort (short timeout, errors swallowed);
+ * a demo whose tab fails to open simply yields no code block, exactly as today.
  */
-async function findPrecedingHeading(codeBlock: Page['locator'] extends (...args: any[]) => infer R ? R : never): Promise<{ section: string; found: boolean }> {
-  try {
-    log('findPrecedingHeading - searching for heading...');
+async function revealCodeTabs(page: Page): Promise<void> {
+  const codeTabs = page.locator('main [role="tab"]', { hasText: /^Code$/ });
+  const count = await codeTabs.count();
+  log(`revealCodeTabs - found ${count} Code tabs to activate`);
 
-    // Strategy 1: Walk backwards through siblings (up to 20 elements)
-    // This is the fast path - works when heading and code are at the same nesting level
-    const siblingResult = await codeBlock.evaluate((el) => {
-      let current = el.parentElement?.previousElementSibling;
-      let distance = 0;
-
-      while (current && distance < 20) {
-        const tag = current.tagName.toLowerCase();
-        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
-          return {
-            found: true,
-            text: current.textContent?.trim() || '',
-            method: 'sibling',
-            distance,
-          };
-        }
-        current = current.previousElementSibling;
-        distance++;
-      }
-      return { found: false, text: '', method: 'sibling', distance };
-    });
-
-    if (siblingResult.found) {
-      const cleaned = cleanHeadingText(siblingResult.text);
-      log('findPrecedingHeading - found via sibling walk:', cleaned, `(${siblingResult.distance} siblings away)`);
-      return { section: cleaned, found: true };
+  for (let i = 0; i < count; i++) {
+    try {
+      await codeTabs.nth(i).click({ timeout: 2000 });
+    } catch {
+      // Overlapping/offscreen tabs may not be clickable; degrade gracefully.
     }
-
-    // Strategy 2: Walk up parent tree and search backwards
-    // This is the fallback for nested/wrapped structures
-    const parentResult = await codeBlock.evaluate((el) => {
-      let parentEl = el.parentElement;
-      let level = 0;
-
-      while (parentEl && level < 5) {
-        // Get all headings within this parent
-        const headings = parentEl.querySelectorAll('h1, h2, h3, h4, h5, h6');
-
-        // Search backwards through headings (reverse order)
-        for (let i = headings.length - 1; i >= 0; i--) {
-          const heading = headings[i];
-
-          // Check if heading comes BEFORE the code block in document order
-          // DOCUMENT_POSITION_FOLLOWING = heading appears after code block = heading comes first
-          if (heading.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) {
-            return {
-              found: true,
-              text: heading.textContent?.trim() || '',
-              method: 'parent-search',
-              level,
-            };
-          }
-        }
-
-        // Move up one level in the tree
-        parentEl = parentEl.parentElement;
-        level++;
-      }
-      return { found: false, text: '', method: 'parent-search', level };
-    });
-
-    if (parentResult.found) {
-      const cleaned = cleanHeadingText(parentResult.text);
-      log('findPrecedingHeading - found via parent search:', cleaned, `(${parentResult.level} levels up)`);
-      return { section: cleaned, found: true };
-    }
-
-    log('findPrecedingHeading - no heading found');
-    return { section: '', found: false };
-  } catch (error) {
-    log('findPrecedingHeading - error:', error);
-    return { section: '', found: false };
   }
+
+  if (count > 0) {
+    // Let the newly-activated tabpanels mount their <pre> before extraction.
+    await page.waitForTimeout(400);
+  }
+}
+
+/**
+ * Compute section context for every `<pre>` in `<main>`, in document order.
+ *
+ * Replaces the old sibling/parent heading walk, which failed because Chakra v3
+ * nests demo code far from its heading. Instead we make ONE document-order pass
+ * over `<main>` (a TreeWalker visits nodes in document order regardless of
+ * nesting depth) and, for each code block, attribute:
+ *   - section / sectionId: the most recent preceding heading, and
+ *   - sectionDescription: the intro paragraph(s) since that heading (or since
+ *     the previous code block under the same heading).
+ *
+ * Preview-panel noise (e.g. the color-swatch labels "gray, red, ...", rendered
+ * INSIDE a [role="tabpanel"]) is excluded, so only real authored prose counts.
+ *
+ * The returned array is index-aligned with `main.locator('pre')`, because both
+ * enumerate `<pre>` in the same document order. Call AFTER revealCodeTabs().
+ */
+async function computeSectionContexts(page: Page): Promise<SectionContext[]> {
+  const raw = await page.locator('main').evaluate((main) => {
+    const out: Array<{ section: string; sectionId: string; description: string }> = [];
+    const walker = document.createTreeWalker(main, NodeFilter.SHOW_ELEMENT);
+
+    let currentHeading = '';
+    let currentHeadingId = '';
+    let proseBuffer: string[] = [];
+
+    let node = walker.currentNode as Element | null;
+    while (node) {
+      const tag = node.tagName.toLowerCase();
+
+      if (/^h[1-6]$/.test(tag)) {
+        currentHeading = (node.textContent || '').replace(/\s+/g, ' ').trim();
+        currentHeadingId = (node as HTMLElement).id || '';
+        proseBuffer = [];
+      } else if (tag === 'p') {
+        // Only count intro prose that lives OUTSIDE the demo tab widgets;
+        // paragraphs inside a tabpanel are rendered preview content, not docs.
+        if (!node.closest('[role="tabpanel"]')) {
+          const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+          if (text) proseBuffer.push(text);
+        }
+      } else if (tag === 'pre') {
+        out.push({
+          section: currentHeading,
+          sectionId: currentHeadingId,
+          description: proseBuffer.join(' ').trim(),
+        });
+        // Clear so a second demo under the same heading doesn't re-claim the
+        // first demo's intro prose.
+        proseBuffer = [];
+      }
+
+      node = walker.nextNode() as Element | null;
+    }
+    return out;
+  });
+
+  return raw.map((r) => ({
+    section: cleanHeadingText(r.section),
+    sectionId: r.sectionId,
+    sectionDescription: r.description,
+  }));
 }
 
 // =============================================================================
@@ -251,9 +241,16 @@ async function extractCodeExamples(page: Page): Promise<{
 }> {
   log('extractCodeExamples - starting extraction...');
 
+  // Phase 3: materialize demo code hidden behind Chakra v3 "Code" tabs, THEN
+  // compute each block's heading + intro prose from a single document-order pass.
+  await revealCodeTabs(page);
+
   const main = page.locator('main');
   const codeBlocks = main.locator('pre');
   const count = await codeBlocks.count();
+
+  // Index-aligned with codeBlocks (both enumerate `main pre` in document order).
+  const sectionContexts = await computeSectionContexts(page);
 
   log('extractCodeExamples - found', count, 'code blocks');
 
@@ -281,8 +278,10 @@ async function extractCodeExamples(page: Page): Promise<{
 
     log(`extractCodeExamples - block ${i + 1}: ${code.split('\n').length} lines`);
 
-    // Find preceding heading
-    const { section, found } = await findPrecedingHeading(block);
+    // Section context from the document-order map (heading + intro prose)
+    const ctx = sectionContexts[i] ?? { section: '', sectionId: '', sectionDescription: '' };
+    const section = ctx.section;
+    const found = section.length > 0;
 
     // ALWAYS extract imports (even if code will be filtered)
     const importsInBlock = extractImports(code, section);
@@ -336,6 +335,15 @@ async function extractCodeExamples(page: Page): Promise<{
     }
     if (section) {
       example.section = section;
+      // Heading also seeds the embedding `Title:` anchor downstream.
+      example.title = section;
+    }
+    if (ctx.sectionId) {
+      example.sectionId = ctx.sectionId;
+    }
+    if (ctx.sectionDescription) {
+      example.sectionDescription = ctx.sectionDescription;
+      log(`extractCodeExamples - block ${i + 1}: prose (${ctx.sectionDescription.length} chars)`);
     }
 
     examples.push(example);
