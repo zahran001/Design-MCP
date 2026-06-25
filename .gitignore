@@ -54,3 +54,11 @@ stores/*
 artifacts/normalized-phase2-backup/
 artifacts/raw-json-phase2-backup/
 artifacts/raw-json-phase3-extra/
+
+# Step 4 generation: temp file the tsc validator writes (sandbox tsconfig is tracked)
+gen-sandbox/generated.tsx
+gen-sandbox/*.tsbuildinfo
+# Regenerable run artifacts (metrics tracked in GENERATION_EXPERIMENT.md instead)
+artifacts/gen-spike.log
+artifacts/gen-ab*.log
+artifacts/gen-eval/

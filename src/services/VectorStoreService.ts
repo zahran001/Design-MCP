@@ -50,15 +50,20 @@ export class VectorStoreService {
   }
 
   // Search Method (Used by retriever.ts CLI)
+  // `filter` is an optional Qdrant payload filter (e.g.
+  // `{ must: [{ key: 'componentName', match: { value: 'Number Input' } }] }`)
+  // used by reserved-slot retrieval to fetch a specific component + chunk type.
   async search(
     collectionName: string,
     queryVector: number[], // The embedding of the USER'S query
-    limit: number = 5
+    limit: number = 5,
+    filter?: Record<string, unknown>
   ): Promise<Array<{ id: string | number; score: number; payload: Record<string, unknown> }>> {
     // Ask Qdrant for the nearest neighbors to our query vector
     const results = await this.client.search(collectionName, {
       vector: queryVector,
       limit,
+      ...(filter ? { filter } : {}),
     });
     // Map the raw Qdrant result back to a clean object
     return results.map((r: any) => ({
