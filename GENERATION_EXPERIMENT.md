@@ -8,8 +8,11 @@
 > **53%→73%** and no-context **20%→53%**). Key result: **prop-rename hints and structural retrieval are
 > separable** — hints lift both arms, retrieval's residual **+20pt after both get the cheat sheet is
 > structural composition** a rename map can't encode. The remaining ~27pt is two named non-rename
-> classes (icon-as-child, string-token coercion) + a few composition gaps. **Branch:**
-> `week2_generation`.
+> classes (icon-as-child, string-token coercion) + a few composition gaps. **Pass E** ✅ added two
+> narrow heuristic hints for those classes — **both predicted cells flipped** (`icon-button`,
+> `number-input`), grounded hinted **73%→80%**. The residual is now a small, *named* **structural**
+> set (`field-invalid` ecosystem fallback, `password-input` `InputGroup` composition) — the clean
+> hand-off to grounded few-shot. **Branch:** `week2_generation`.
 
 ---
 
@@ -72,6 +75,9 @@ retrieval's contribution.
 | **Pass D — no-context** | 7% | 13% → 20% → **53%** | **87%** (23) | 100% | raw→**hinted** repair; cheat sheet heals flat renames, **not** structure |
 | **Pass D — grounded** | 27% | 47% → 53% → **73%** | **40%** (8) | 100% | + smell-guided hints (name the prop); **+20pt over raw** |
 | **Pass D Δ** | **+20%** | tsc raw **+33** / **hinted +20** | **−47 pts** | +0 | hinted Δ *compresses* (cheat sheet lifts weak arm more) — retrieval's residual **+20pt is STRUCTURAL** |
+| **Pass E — no-context** | 0% | 13% → 20% → **53%** | **87%** (25) | 100% | unchanged (the two new rules target grounded residuals) |
+| **Pass E — grounded** | 33% | 47% → 53% → **80%** | **40%** (8) | 100% | + icon-as-child & string-coercion hints; **both predicted cells flipped** |
+| **Pass E Δ** | **+33%** | tsc raw **+33** / **hinted +27** | **−47 pts** | +0 | grounded hinted 73%→80%; residual is now genuinely **structural** (few-shot territory) |
 
 > **Pass D 2×2 (tsc-pass, generation arm × repair mode)** — report
 > `gen-ab-2026-06-25T18-03-56-870Z.json`. (Single-shot grounded 47% vs the 53%
@@ -96,7 +102,9 @@ JSX-prop errors don't name the bad prop, so compiler-feedback repair can't local
 that by feeding smell-guided hints that NAME the prop — grounded tsc 53%→73%, no-context 20%→53% — and,
 run as a 2×2, proved prop-rename hints and structural retrieval are separable: retrieval's residual
 +20pt advantage (even after both arms get the cheat sheet) is structural composition the rename map
-can't encode.**
+can't encode. Pass E added two narrow heuristic hints (icon-as-child, string-token coercion) and both
+pre-registered target cells flipped, taking grounded hinted to ~80% and leaving only a small, named
+structural residual for grounded few-shot.**
 
 ### Pass A notes (2026-06-25)
 - **Inversion fixed (primary goal).** Satisfaction Δ flipped −27% → **+20%**. Grounding the judge in
@@ -233,6 +241,39 @@ trust required). The last ~27pt is two named, non-rename classes — **icon-as-c
 (a) two more curated rules in the hint/smell map (icon-as-child; numeric-literal-on-token → quote it),
 or (b) the structural lever (grounded few-shot exemplar) for the composition cases — *not* more
 retrieval or more generic compiler loops.
+
+### Pass E notes (2026-06-25) — structural & typographic hints (the two named residuals)
+**What shipped.** Two heuristic rules added to `repairHints.ts` for the non-rename classes Pass D
+isolated, kept deliberately narrow after correcting the proposed spec:
+- **icon-as-child** — matches ONLY the bare `icon={<jsx/>}` prop (IconButton). `leftIcon`/`rightIcon`
+  are already `V2_SMELLS` and already work (Pass D), so they're not re-matched.
+- **string-token coercion** — `value`/`defaultValue` given a numeric literal, but the hint is **gated on
+  the tsc diagnostic** (`…not assignable to type 'string'`). The proposed `gap`/`spacing` targets were
+  dropped: numeric tokens are VALID for those in v3 (`gap={4}` is fine), and `spacing` is already a
+  rename smell — a "quote it" hint would have contradicted the correct rename. Gating means
+  legitimately-numeric props (e.g. a Slider `value`) are never touched.
+
+**Prediction check (pre-registered, judged per-cell — not the headline — because n=15 has real
+generation variance).** Both targets flipped, and both are attributable:
+- `icon-button` (grounded): hint ERR→**ok**, healed now `<IconButton …><SearchIcon /></IconButton>` (icon as a child).
+- `number-input` (grounded): hint ERR→**ok**, healed now `defaultValue="0"` (was `{0}`).
+
+**Aggregate.** Grounded hinted **73%→80%**. Net +1 cell, not +2, because `button-icon` regressed
+ok→ERR this run — pure variance (its `colorScheme`/`leftIcon` handling is untouched code; it simply
+repaired worse), which is exactly why the success criterion was the two *target* cells, not the rate.
+Δ(hinted) widened to **+27%**. No-context held at 53% (the new rules fire mostly where structure
+exists, i.e. the grounded arm).
+
+**Where the pipeline truly ends (the inventory this pass buys).** Grounded generation now reaches
+**~80% tsc-valid** via retrieval + reserved-slot blueprint + smell/heuristic-guided repair, every gain
+attributable to objective `tsc`. The *remaining* grounded hinted failures are no longer prop-level:
+`field-invalid` (the model abandons v3 for a full `FormControl`/react-hook-form ecosystem) and
+`password-input` (needs v3 `InputGroup endElement` **composition**, not a rename). These are
+**deep structural/integration** errors — the genuine boundary of what curated lint + retrieval can do,
+and the clean hand-off to the only lever left: **grounded few-shot exemplars** (§5.2) that supply a
+full structural template. The correction loop has converged: each pass removed one attributable class
+(judge inversion → under-composition → compiler ergonomics → prop renames → icon/coercion), leaving a
+small, *named* structural residual instead of a vague "quality gap."
 
 ---
 

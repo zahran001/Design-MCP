@@ -19,13 +19,45 @@
 
 import { V2_SMELLS } from './v2SmellDetector.js';
 
+// Pass E: heuristic hints for the two residual NON-rename failure classes Pass D
+// isolated (icon-as-child, string-token coercion). Unlike V2_SMELLS these are
+// structural/typographic, so they match code shape (and, for coercion, the tsc
+// diagnostic) rather than a v2 token. Deliberately narrow to avoid false
+// positives:
+//   - icon: ONLY the bare `icon={<jsx/>}` prop (IconButton). leftIcon/rightIcon
+//     are already V2_SMELLS and already work (Pass D), so they're NOT re-matched
+//     here (the lowercase `icon=` boundary excludes `leftIcon=`/`rightIcon=`).
+//   - coercion: `value`/`defaultValue` assigned a numeric literal — but ONLY
+//     emitted when tsc actually complains "...not assignable to type 'string'",
+//     so legitimately-numeric props (e.g. a Slider value) are left alone. `gap`/
+//     `spacing` are intentionally excluded: numeric tokens are VALID in v3 (and
+//     `spacing` is already a rename smell).
+const ICON_AS_PROP = /\bicon=\{\s*<[^>]+>\s*\}/;
+const NUMERIC_TOKEN = /\b(?:defaultValue|value)=\{\s*-?\d+(?:\.\d+)?\s*\}/;
+const WANTS_STRING = /not assignable to type '"?string"?'/;
+
+const ICON_HINT =
+  'The `icon={...}` prop was removed in Chakra v3 — pass the icon as a direct child instead, ' +
+  'e.g. <IconButton aria-label="..."><YourIcon /></IconButton>.';
+const COERCION_HINT =
+  'A numeric literal was given where Chakra v3 types the prop as a string (e.g. NumberInput.Root / ' +
+  "PinInput.Root `value`/`defaultValue`). Quote it: defaultValue=\"0\" instead of defaultValue={0}.";
+
 /**
- * Build one surgical migration hint per v2 smell present in the code. Empty
- * array when no known v2 drift is detected (then the repair runs on the raw tsc
- * diagnostics alone, exactly like Pass C).
+ * Build surgical migration hints from (a) the curated V2_SMELLS rename map and
+ * (b) the Pass E heuristics. `diagnostics` (the raw tsc error lines) gate the
+ * coercion hint so it only fires when the compiler actually demands a string.
+ * Empty array = no known drift, repair falls back to raw tsc errors (Pass C).
  */
-export function buildRepairHints(code: string): string[] {
-  return V2_SMELLS.filter((s) => s.pattern.test(code)).map(
+export function buildRepairHints(code: string, diagnostics: string[] = []): string[] {
+  const hints = V2_SMELLS.filter((s) => s.pattern.test(code)).map(
     (s) => `Legacy v2 "${s.id}" is removed in Chakra v3 — use "${s.v3}" instead.`
   );
+
+  if (ICON_AS_PROP.test(code)) hints.push(ICON_HINT);
+  if (NUMERIC_TOKEN.test(code) && diagnostics.some((d) => WANTS_STRING.test(d))) {
+    hints.push(COERCION_HINT);
+  }
+
+  return hints;
 }

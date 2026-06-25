@@ -95,7 +95,7 @@ async function runRepairLoop(
       component: healed,
       diagnostics: diag,
       contextBlock: armContext,
-      hints: withHints ? buildRepairHints(healed) : undefined,
+      hints: withHints ? buildRepairHints(healed, diag) : undefined,
     });
     const rt = await tscValidate(healed);
     tscOk = rt.ok;
