@@ -193,7 +193,8 @@ async function computeSectionContexts(page: Page): Promise<SectionContext[]> {
  *   1. Find all <pre> elements in <main> (Chakra's code block container)
  *   2. For each code block:
  *      a. Extract code text from nested <code> element
- *      b. Find preceding heading using findPrecedingHeading()
+ *      b. Look up the block's heading/section from the precomputed
+ *         computeSectionContexts() map (document-order pass; see above)
  *      c. Extract imports (ALWAYS, even if code will be filtered)
  *      d. Apply 2-stage filtering pipeline (see below)
  *      e. Classify by composition score and complexity
