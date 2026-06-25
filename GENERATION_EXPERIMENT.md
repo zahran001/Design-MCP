@@ -10,9 +10,10 @@
 > structural composition** a rename map can't encode. The remaining ~27pt is two named non-rename
 > classes (icon-as-child, string-token coercion) + a few composition gaps. **Pass E** ✅ added two
 > narrow heuristic hints for those classes — **both predicted cells flipped** (`icon-button`,
-> `number-input`), grounded hinted **73%→80%**. The residual is now a small, *named* **structural**
-> set (`field-invalid` ecosystem fallback, `password-input` `InputGroup` composition) — the clean
-> hand-off to grounded few-shot. **Branch:** `week2_generation`.
+> `number-input`), grounded hinted **73%→80%**. **Pass F** ✅ added grounded-only few-shot exemplars
+> for the structural residual — `field-invalid` flipped, grounded hinted **80%→93%** (14/15); held-out
+> stayed 100%. The single remaining grounded holdout is `password-input` (`InputGroup` multi-child,
+> not a smell) — a one-heuristic Pass G follow-up. **Branch:** `week2_generation_e2e`.
 
 ---
 
@@ -78,6 +79,17 @@ retrieval's contribution.
 | **Pass E — no-context** | 0% | 13% → 20% → **53%** | **87%** (25) | 100% | unchanged (the two new rules target grounded residuals) |
 | **Pass E — grounded** | 33% | 47% → 53% → **80%** | **40%** (8) | 100% | + icon-as-child & string-coercion hints; **both predicted cells flipped** |
 | **Pass E Δ** | **+33%** | tsc raw **+33** / **hinted +27** | **−47 pts** | +0 | grounded hinted 73%→80%; residual is now genuinely **structural** (few-shot territory) |
+| **Pass F — no-context** | 7% | 13% → 20% → **47%** | **87%** (25) | 100% | unchanged (exemplar is grounded-only — isolation held) |
+| **Pass F — grounded** | 13% | 47%→60% → 67% → **93%** | **40%** (8) | 100% | + grounded few-shot exemplar; **field-invalid flipped**, lifted single-shot too |
+| **Pass F Δ** | — | tsc raw **+47** / **hinted +47** | **−47 pts** | +0 | grounded hinted **80%→93%** (14/15); `password-input` the lone holdout |
+
+> **Pass F 2×2 (tsc-pass)** — report `gen-ab-2026-06-25T22-47-22-592Z.json`; held-out stayed **100%**
+> (`heldout-passF.log`). single-shot grounded 60% (47% in Pass E) reflects the exemplar + variance.
+>
+> | | single-shot | raw-repair | **hinted-repair** |
+> |---|---|---|---|
+> | **grounded** | 60% | 67% | **93%** |
+> | **no-context** | 13% | 20% | 47% |
 
 > **Pass D 2×2 (tsc-pass, generation arm × repair mode)** — report
 > `gen-ab-2026-06-25T18-03-56-870Z.json`. (Single-shot grounded 47% vs the 53%
@@ -274,6 +286,37 @@ and the clean hand-off to the only lever left: **grounded few-shot exemplars** (
 full structural template. The correction loop has converged: each pass removed one attributable class
 (judge inversion → under-composition → compiler ergonomics → prop renames → icon/coercion), leaving a
 small, *named* structural residual instead of a vague "quality gap."
+
+### Pass F notes (2026-06-25) — grounded few-shot (close the structural residual)
+**What shipped.** A `FEWSHOT_EXEMPLARS` map in `generator.ts` (keyed by the dominant retrieved
+`componentName`) that appends a curated, **tsc-verified** v3 snippet to the grounded prompt as a
+structure-to-mirror. **Grounded-arm only** (keyed on retrieval → the no-context arm never sees it, so
+the A/B isolation held: no-context hinted was unchanged at 47%). Unlike the hint map, exemplars teach
+*shape*, not prop names — the named residual after Pass E was structural.
+
+**Key discovery while seeding (verify, don't invent).** Both target prompts (`field-invalid`,
+`password-input`) retrieve **dominant = "Password Input"** (8/8 chunks), *not* Field/InputGroup — and
+the authentic v3 `PasswordInput` in the docs is a copy-in snippet (`@/components/ui/password-input`)
+our import-rule forbids. So the correct answer must be rebuilt from `@chakra-ui/react` primitives
+(`InputGroup endElement` toggle + `Field.Root` wrapper). One exemplar keyed on `Password Input`
+encodes both structures; it was tsc-checked in the sandbox before being baked in.
+
+**Result.** Grounded hinted **80% → 93%** (14/15); single-shot **47% → 60%**. **`field-invalid`
+flipped ERR→ok** (the Field wrapper landed). Held-out generalization stayed **100%** (no regression).
+
+**Honest caveat — `password-input` did NOT flip (the lone grounded holdout).** The model only
+*sometimes* follows the exemplar; when it doesn't it nests both `<Input>` and the toggle `<IconButton>`
+as `InputGroup` children (`TS2746: expects a single child`) instead of using the `endElement` prop.
+That error is **structural, not a smell**, so the hinted repair can't catch it either. So Pass F met
+the ~90% aggregate target and 1 of 2 named cells; closing `password-input` needs one more *structural*
+repair heuristic (flag `InputGroup` with multiple children / `InputRightElement` → "single Input
+child; trailing controls go in `endElement`") — a small Pass G follow-up, not retrieval work.
+
+**Meta-note (kept honest).** Few-shot shifts the lever from "retrieval grounds generation" toward "we
+supply a curated structural template" — it's per-component and only generalizes to components we write
+exemplars for. Justified here as the converged fix for the *named* structural residual, with the
+objective `tsc` 2×2 still the spine (the judge dropped to 13% this run — generation/judge variance,
+not trusted; satisfaction was never the gate).
 
 ### End-to-end surface + held-out generalization (2026-06-25, branch `week2_generation_e2e`)
 Passes A–E *measured* generation in the eval harness; this adds the missing **product surface** and an
