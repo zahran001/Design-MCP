@@ -53,6 +53,21 @@ Rules:
 - Output EXACTLY ONE \`\`\`tsx code block containing a complete, standalone component. No prose
   before or after it.`;
 
+// Pass C (5.3): repair-pass system prompt. Fired ONLY when the first generation
+// fails `tsc`. The compiler errors are the oracle — symmetric across both A/B
+// arms — so this prompt stays generic (no v2->v3 rename map; same isolation rule
+// as SYSTEM_PROMPT). It just instructs the model to resolve the exact diagnostics.
+const REPAIR_SYSTEM_PROMPT = `You are an expert Chakra UI v3 engineer fixing TypeScript compile
+errors. You are given a component that failed \`tsc\` against the real Chakra UI v3 types, plus the
+exact error lines.
+
+Rules:
+- Return a corrected, standalone component that resolves ALL the listed errors.
+- Do NOT change the core functional intent of the REQUEST.
+- Import ONLY from "@chakra-ui/react" and "react". Do NOT add icon libraries or local/doc helper
+  modules. If an icon is needed, use an inline <svg> or omit it.
+- Output EXACTLY ONE \`\`\`tsx code block. No prose before or after it.`;
+
 function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
@@ -111,6 +126,49 @@ function extractComponent(reply: string): { component: string; clean: boolean } 
   return { component: reply.trim(), clean: false };
 }
 
+/** Map a raw retrieval result into a prompt-ready ContextChunk. */
+function toContextChunk(r: SearchResult, rank: number): ContextChunk {
+  return {
+    rank,
+    score: r.score,
+    componentName: str(r.payload['componentName']) || '?',
+    chunkType: str(r.payload['chunkType']) || '?',
+    rendered: renderContext(r.payload),
+  };
+}
+
+/** A Qdrant payload filter matching one component + chunk type. */
+function slotFilter(componentName: string, chunkType: string): Record<string, unknown> {
+  return {
+    must: [
+      { key: 'componentName', match: { value: componentName } },
+      { key: 'chunkType', match: { value: chunkType } },
+    ],
+  };
+}
+
+/**
+ * The component that dominates an initial top-k result set, by frequency
+ * (ties broken by best rank — results arrive in descending score order).
+ * This is the component we reserve structural slots for. Returns '' if none.
+ */
+function dominantComponent(results: SearchResult[]): string {
+  const counts = new Map<string, number>();
+  for (const r of results) {
+    const name = str(r.payload['componentName']);
+    if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const [name, count] of counts) {
+    if (count > bestCount) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 export class GenerationService {
   private client: OpenAI;
   private model: string;
@@ -134,23 +192,21 @@ export class GenerationService {
    */
   async generate(
     query: string,
-    options: { k?: number; useContext?: boolean } = {}
+    options: { k?: number; useContext?: boolean; reservedSlots?: boolean } = {}
   ): Promise<GenerationResult> {
     const k = options.k ?? 8;
     const useContext = options.useContext ?? true;
+    // Pass B: reserved-slot context mixing (default on for the grounded arm).
+    // Set false to reproduce the flat top-k baseline for ablation.
+    const reservedSlots = options.reservedSlots ?? true;
 
     let context: ContextChunk[] = [];
     let userMessage = `REQUEST: ${query}`;
 
     if (useContext) {
-      const { results } = await this.retrieval.searchDetailed(query, k);
-      context = results.map((r: SearchResult) => ({
-        rank: r.rank,
-        score: r.score,
-        componentName: str(r.payload['componentName']) || '?',
-        chunkType: str(r.payload['chunkType']) || '?',
-        rendered: renderContext(r.payload),
-      }));
+      context = reservedSlots
+        ? await this.assembleReservedSlots(query, k)
+        : await this.assembleTopK(query, k);
       const contextBlock = context.map((c, i) => `[${i + 1}] ${c.rendered}`).join('\n\n');
       userMessage =
         `REQUEST: ${query}\n\n` +
@@ -171,5 +227,85 @@ export class GenerationService {
     const { component, clean } = extractComponent(rawReply);
 
     return { query, model: this.model, context, component, cleanCodeBlock: clean, rawReply };
+  }
+
+  /**
+   * Pass C (5.3) repair pass. Given a component that failed `tsc` and the exact
+   * diagnostics, return a corrected component. `contextBlock` is the arm's OWN
+   * retrieval context (the grounded v3 docs, or '' for the no-context arm) — kept
+   * symmetric so grounded repair is grounded and no-context repair is not. The
+   * compiler errors are the shared oracle either way.
+   */
+  async repair(opts: {
+    query: string;
+    component: string;
+    diagnostics: string[];
+    contextBlock?: string;
+  }): Promise<string> {
+    const ctx = opts.contextBlock
+      ? `\n\nDOCUMENTATION CONTEXT (authoritative Chakra v3 API — fix against this):\n${opts.contextBlock}`
+      : '';
+    const userMessage =
+      `REQUEST: ${opts.query}\n\n` +
+      `PREVIOUS COMPONENT (failed tsc):\n\`\`\`tsx\n${opts.component}\n\`\`\`\n\n` +
+      `TYPESCRIPT ERRORS (resolve ALL of these):\n${opts.diagnostics.join('\n')}` +
+      ctx;
+
+    const completion = await this.client.chat.completions.create({
+      model: this.model,
+      temperature: 0,
+      messages: [
+        { role: 'system', content: REPAIR_SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+    });
+
+    const rawReply = completion.choices[0]?.message?.content ?? '';
+    const { component } = extractComponent(rawReply);
+    return component;
+  }
+
+  /** Baseline strategy: flat top-k retrieval, ranked by score. */
+  private async assembleTopK(query: string, k: number): Promise<ContextChunk[]> {
+    const { results } = await this.retrieval.searchDetailed(query, k);
+    return results.map((r, i) => toContextChunk(r, i + 1));
+  }
+
+  /**
+   * Pass B reserved-slot strategy. top-k retrieval is dominated by flat
+   * prop-reference chunks — the model learns valid props but gets no STRUCTURAL
+   * blueprint for how subcomponents nest, so it emits hollow `.Root`s. We fix
+   * the context budget so a blueprint is always present:
+   *   [1] the dominant component's overview (top-level structure)
+   *   [2-3] its 1-2 best code-examples (HOW subcomponents nest)
+   *   [rest] the remaining top-k (prop/capability reference)
+   * One query embedding is reused across all filtered fetches.
+   */
+  private async assembleReservedSlots(query: string, k: number): Promise<ContextChunk[]> {
+    const { queryVector, results } = await this.retrieval.searchDetailed(query, k);
+    const component = dominantComponent(results);
+    if (!component) return results.map((r, i) => toContextChunk(r, i + 1));
+
+    // Reserved structural slots for the dominant component, by the SAME vector.
+    const [overview, examples] = await Promise.all([
+      this.retrieval.searchByVector(queryVector, 1, slotFilter(component, 'component-overview')),
+      this.retrieval.searchByVector(queryVector, 2, slotFilter(component, 'code-example')),
+    ]);
+
+    const picked: SearchResult[] = [];
+    const seen = new Set<string | number>();
+    const add = (r: SearchResult) => {
+      if (picked.length >= k || seen.has(r.id)) return;
+      seen.add(r.id);
+      picked.push(r);
+    };
+
+    overview.forEach(add);
+    examples.forEach(add);
+    // Fill the remaining budget with the highest-scoring top-k chunks (props/
+    // capabilities), skipping any already pulled into a reserved slot.
+    results.forEach(add);
+
+    return picked.map((r, i) => toContextChunk(r, i + 1));
   }
 }

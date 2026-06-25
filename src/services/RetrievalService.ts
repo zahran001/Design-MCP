@@ -44,6 +44,26 @@ export class RetrievalService {
   }
 
   /**
+   * Search with a pre-computed query vector and an optional Qdrant payload
+   * filter. Lets callers reuse one embedding across several filtered fetches
+   * (e.g. reserved-slot retrieval: same query vector, different
+   * componentName/chunkType filters) without re-embedding each time.
+   */
+  async searchByVector(
+    queryVector: number[],
+    limit: number = 5,
+    filter?: Record<string, unknown>
+  ): Promise<SearchResult[]> {
+    const raw = await this.vectorStore.search(this.collectionName, queryVector, limit, filter);
+    return raw.map((result, index) => ({
+      rank: index + 1,
+      score: result.score,
+      id: result.id,
+      payload: result.payload,
+    }));
+  }
+
+  /**
    * Detailed search with full pipeline transparency
    * Returns: query, embedding vector, search time, and full results
    */

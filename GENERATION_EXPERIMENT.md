@@ -1,10 +1,12 @@
 # Step 4 — Spec-Driven Generation: Experiment & Correction Loop
 
-> **Status:** Phase 4a (thin slice) ✅ verified. Phase 4b A/B harness ✅ built and run — produced a
-> sensational baseline (below). Now executing a two-pass correction loop: **Pass A** (fix the eval
-> confounders / metric inversion) in the current session, **Pass B** (retrieval mixing to fix
-> under-composition) in a **new session** — this doc is the handoff for it.
-> **Branch:** `week2_generation` (off `week2_chunk_types`).
+> **Status:** Phase 4a (thin slice) ✅ verified. Phase 4b A/B harness ✅ built and run. Correction
+> loop: **Pass A** ✅ (fixed eval confounders / judge inversion), **Pass B** ✅ (reserved-slot retrieval
+> mixing; satisfaction Δ +20%→+27%, tsc held 53%), **Pass C** ✅ (tsc self-correction loop —
+> **negative result**: grounded 53%→53%, no-context 13%→20%; compiler-feedback repair failed because
+> TS's JSX-prop errors don't name the offending prop). Net: grounding's single-shot wins are robust
+> (Δ +40 tsc, −47 v2-smell), but the path past 53% is **grounded few-shot / smell-guided hints**, not
+> more compiler loops or retrieval tuning (see §3 Pass C notes). **Branch:** `week2_generation`.
 
 ---
 
@@ -58,10 +60,20 @@ retrieval's contribution.
 | **Pass A — no-context** | 0% | 13% | **87%** (25) | 100% | grounded judge now correctly rejects all v2 |
 | **Pass A — grounded** | 20% | 53% | **47%** (15) | 100% | + import-rule + grounded judge + completeness lint |
 | **Pass A Δ** | **+20%** ✅ | **+40 pts** | **−40 pts** | +0 | **judge un-inverted (−27%→+20%)**; objective wins hold |
-| After Pass B — grounded | _tbd_ | _tbd_ | _tbd_ | _tbd_ | + retrieval mixing |
+| **Pass B — no-context** | 0% | 13% | **87%** (22) | 100% | unchanged control arm |
+| **Pass B — grounded** | 27% | 53% | **40%** (14) | 100% | + reserved-slot context mixing (overview+code-example blueprint) |
+| **Pass B Δ** | **+27%** ✅ | **+40 pts** | **−47 pts** | +0 | satisfaction lifted (Δ +20%→+27%); tsc cap is now **non-composition** |
+| **Pass C — no-context** | 0% | 13% → **20%** | **87%** (25) | 100% | + tsc self-correction loop (cap 2). 25 repair iters → **1** fix (number-input) |
+| **Pass C — grounded** | 27% | 53% → **53%** | **40%** (8) | 100% | self-correction recovered **0** of 7 fails in 14 iters — see §3 Pass C notes |
+| **Pass C Δ** | **+27%** ✅ | single **+40** / repaired **+33** | **−47 pts** | +0 | **self-heal failed**; Δ(repaired) *shrank* (only fix was in the control arm) |
 
 Headline: **grounding cut deprecated-API usage by ~40–53 pts and ~tripled–quadrupled type-validity,
-and Pass A flipped the judge from −27% to +20% by grounding it in the retrieved v3 reference.**
+Pass A flipped the judge from −27% to +20% by grounding it in the retrieved v3 reference, and Pass B's
+reserved-slot blueprint pushed satisfaction Δ to +27% and v2-smell Δ to −47 pts — while exposing that
+the tsc ceiling (53%) is a generation-quality problem, not a retrieval one. Pass C then tested the
+"obvious" fix (a tsc self-correction loop) and it FAILED (grounded 53%→53%): TypeScript's coarse
+JSX-prop errors don't name the bad prop, so compiler-feedback repair can't localize it. The real lever
+is grounded few-shot / smell-guided repair hints, not more compiler loops.**
 
 ### Pass A notes (2026-06-25)
 - **Inversion fixed (primary goal).** Satisfaction Δ flipped −27% → **+20%**. Grounding the judge in
@@ -80,6 +92,81 @@ and Pass A flipped the judge from −27% to +20% by grounding it in the retrieve
     real lever for the remaining grounded tsc failures**.
   - The grounded judge is better but still imperfect (e.g. it called `number-input` "incomplete" while
     the objective lint+tsc say it's fine). **Objective signals remain the trustworthy spine.**
+
+### Pass B notes (2026-06-25) — reserved-slot retrieval mixing
+**What shipped.** A reserved-slot context strategy in `generator.ts`
+(`assembleReservedSlots`): an initial top-k finds the **dominant `componentName`**, then we explicitly
+fetch that component's `component-overview` (top-level structure) + its 1–2 best `code-example`
+chunks (HOW subcomponents nest — the structural blueprint), and fill the remaining budget with the
+top-k prop/capability references. Backed by a Qdrant **payload filter** added to
+`VectorStoreService.search` + a vector-reuse `RetrievalService.searchByVector` (one query embedding
+reused across all filtered fetches — no re-embed). Verified the slots fire as designed: e.g. *"a
+number input…"* → `[1] Number Input overview, [2-3] Number Input code-examples, [4-8] prop-refs`
+(report: `gen-ab-2026-06-25T16-54-49-923Z.json`).
+
+**Result — the blueprint helped the headline, not the compiler.**
+- **Satisfaction rose** 20%→**27%** grounded; the Δ vs no-context improved **+20%→+27%**. The richer
+  blueprint also grounds the judge's reference better.
+- **v2-smell fell** 47%→**40%** (15→14); Δ widened to **−47 pts**.
+- **tsc-pass held flat at 53%** — short of the ~90% target. **This is the honest, important result.**
+
+**Why tsc didn't move (evidence, not excuse).** Reserved slots were designed to fix
+**under-composition** — but Pass A's completeness nudge had *already* driven the composition lint to
+**0 missing parts (100% complete)**. With no hollow `.Root` left to repair, the blueprint had little
+tsc headroom to recover. The 7 remaining grounded tsc-failures are a **different, non-composition
+class** (confirmed by reading each):
+  - **icon-as-prop** — `IconButton icon={<…/>}` / `Button leftIcon` (`button-icon`, `icon-button`):
+    v3 takes the icon as a **child**; `tsc` *does* catch this prop (`TS2322` on `IconButtonProps`).
+  - **stubborn v2 fallback** — `field-invalid` emitted full `FormControl`/`FormLabel`/react-hook-form,
+    **ignoring the v3 context entirely** (5 tsc errors, 7 smells). Mixing better context can't *force*
+    the model to use it; the v2 prior occasionally wins outright.
+  - **minor prop-type** — `number-input` is **correctly composed** (`NumberInput.Root/.Control/.Input`)
+    and fails on a single `defaultValue={0}` numeric-vs-string (`TS2322`).
+
+**Conclusion (the result that matters).** Reserved-slot mixing was the *right* fix for
+under-composition, but Pass A had already closed that gap — so its marginal tsc lift was small while
+it still delivered a real **semantic** win (+7pt satisfaction, −7pt smell). The remaining tsc cap is
+**generation-adherence and prop-level correctness, a generation lever — not a retrieval lever.** The
+next move is on the generator/prompt side (explicit icon-as-child + prop-type rules, few-shot from the
+retrieved code-example, or temperature-0 / ≥3-sample averaging to separate signal from variance), not
+more retrieval tuning. Objective signals (tsc + smell + completeness) again kept the story honest:
+they show *where* grounding's ceiling actually is.
+
+### Pass C notes (2026-06-25) — tsc self-correction loop (the plan was wrong, and that's the finding)
+**What shipped.** A bounded compiler-feedback repair loop (`GenerationService.repair`, cap 2 iters,
+temp 0): on a single-shot `tsc` failure, feed the exact `error TS####` lines back to the model with
+the arm's OWN context (grounded docs / nothing), and re-check. The harness now reports BOTH
+single-shot tsc-pass (retrieval thesis, unchanged) and post-repair tsc-pass (product). Report:
+`gen-ab-2026-06-25T17-21-57-766Z.json`.
+
+**Prediction vs reality.** The plan claimed self-correction "typically repairs almost all minor type
+mismatches… pushing tsc-pass toward 90%." **It did not.**
+- **grounded: 53% → 53%.** Zero of 7 failures recovered, across **14** repair attempts.
+- **no-context: 13% → 20%.** Exactly **one** fix (`number-input`) in **25** attempts.
+- The retrieval thesis still fully reproduced single-shot (**Δ +40 pts**), but **Δ(repaired) *shrank* to
+  +33 pts** — because the one successful repair landed in the *control* arm, not the grounded one.
+
+**Root cause (the real result): the compiler is a great DETECTOR but a poor TEACHER.** I read every
+healed-but-still-failing component. After 2 iters with the errors fed back, `button-loading` still
+carried `isLoading`/`colorScheme`, `stack-gap` still `spacing`, `icon-button` still `icon={…}`. Why:
+TypeScript's JSX-prop error is **coarse** — a wrong attribute yields one aggregate line,
+`TS2322: Type '{ …the entire props object… }' is not assignable to ButtonProps`, that **never names
+the offending prop**. Handed that, the model can't localize the fix and returns near-identical code.
+Even the one *precise* diagnostic — `number-input`'s `Type 'number' is not assignable to type
+'string'` (`defaultValue={0}`) — was left unfixed in the grounded arm (and only fixed once, in
+no-context). So error-feedback alone is unreliable even when the message is clear.
+
+**The deeper meta-finding (consistent with Pass A/B).** To make self-correction work cleanly you'd
+have to *translate* the coarse diagnostic into an actionable instruction — "drop `isLoading`, v3 uses
+`loading`; `colorScheme`→`colorPalette`; `spacing`→`gap`." But that **is** the v2→v3 rename map, which
+is exactly the §5.1 contamination we ruled out (it leaks the answer into the shared prompt and
+collapses the Δ). **So the clean-experiment ceiling on compiler-feedback self-correction is set by the
+compiler's error ergonomics, not by the model's willingness to retry.** The path to ~90% is *not* more
+compiler loops; it needs the rename knowledge injected where it doesn't break the experiment:
+**grounded-only few-shot (§5.2)** — a flawless v3 exemplar for the dominant component, which carries
+the correct prop names structurally without a global prompt edict — or a **smell-guided repair hint**
+(pair each coarse `TS2322` with the matched `V2_SMELLS` entry to name the prop for the model). Pass C's
+value was diagnostic: it proved the "free" lever isn't free, and sharpened where the real lever is.
 
 ---
 
