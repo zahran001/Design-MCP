@@ -18,18 +18,21 @@ export interface GenerationGrade {
 }
 
 const SYSTEM_PROMPT = `You are a strict reviewer of generated Chakra UI v3 components.
-Given a REQUEST and a generated COMPONENT, grade how well the component satisfies the request
-using the CURRENT Chakra UI v3 API.
+Given a REQUEST and a generated COMPONENT, grade how well the component satisfies the request.
+
+CRITICAL: A REFERENCE section with authoritative Chakra v3 documentation may be provided. When it
+is, treat it as THE source of truth for the v3 API and judge the component against IT — do NOT rely
+on your own memory of Chakra, which may be outdated (v3 was a major breaking change, and the v3 API
+uses composed components like Checkbox.Root / Field.Root / NumberInput.Root and props like
+colorPalette — these are CORRECT v3, not "old").
 
 Grade:
-  2 = Correct and complete. Satisfies the request AND uses valid, current Chakra v3 API
-      (e.g. colorPalette not colorScheme; composed components like Checkbox.Root / Field.Root
-      fully assembled with their required parts).
+  2 = Correct and complete. Satisfies the request AND uses valid, current v3 API as shown in the
+      REFERENCE (composed components fully assembled with their required parts).
   1 = Partially correct. Right intent but uses outdated v2 API (colorScheme, isLoading, leftIcon,
-      FormControl, monolithic components, spacing, etc.) OR is incomplete/under-composed.
+      FormControl, monolithic components, spacing) OR is incomplete / under-composed.
   0 = Wrong or broken. Does not satisfy the request, or uses invented/incorrect components.
 
-Be strict about v3 correctness — Chakra v3 was a major breaking change from v2.
 Respond ONLY with the structured object.`;
 
 const RESPONSE_FORMAT = {
@@ -65,13 +68,22 @@ export class GenerationJudge {
     return this.model;
   }
 
-  async grade(query: string, component: string): Promise<GenerationGrade> {
+  /**
+   * Grade a component. Pass `reference` (the retrieved v3 doc context) to ground
+   * the judge against real v3 truth — without it, a v2-biased judge inverts and
+   * rates correct v3 as "outdated". The SAME reference should be used for both
+   * A/B arms so they are judged against one authoritative spec.
+   */
+  async grade(query: string, component: string, reference?: string): Promise<GenerationGrade> {
+    const refBlock = reference
+      ? `\n\nREFERENCE (authoritative Chakra v3 documentation — judge against THIS):\n${reference}`
+      : '';
     const completion = await this.client.chat.completions.create({
       model: this.model,
       temperature: 0,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `REQUEST:\n${query}\n\nCOMPONENT:\n${component}` },
+        { role: 'user', content: `REQUEST:\n${query}\n\nCOMPONENT:\n${component}${refBlock}` },
       ],
       response_format: RESPONSE_FORMAT,
     });

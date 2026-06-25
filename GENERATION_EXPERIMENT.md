@@ -50,17 +50,36 @@ retrieval's contribution.
 > "After Pass B" rows as each pass completes.** (Baseline report:
 > `artifacts/gen-eval/gen-ab-2026-06-23T18-43-04-438Z.json`, gen=gpt-4o, judge=gpt-4o-mini, n=15.)
 
-| Run | judge satisfaction | tsc-pass | **v2-smell rate** | notes |
-|---|---|---|---|---|
-| **Baseline — no-context** | 47% | 13% | **87%** (24 total) | model's memory; v2-riddled |
-| **Baseline — grounded** | 20% ⚠️ | 47% | **33%** (8 total) | grounded in retrieved v3 docs |
-| **Baseline Δ (grounded − no-ctx)** | **−27%** ⚠️ | **+33 pts** | **−53 pts** | objective metrics confirm thesis; judge inverted |
-| After Pass A — no-context | _tbd_ | _tbd_ | _tbd_ | + import-rule, completeness lint, grounded judge |
-| After Pass A — grounded | _tbd_ | _tbd_ | _tbd_ | |
-| After Pass B — grounded | _tbd_ | _tbd_ | _tbd_ | + retrieval mixing |
+| Run | judge satisfaction | tsc-pass | **v2-smell rate** | complete% | notes |
+|---|---|---|---|---|---|
+| **Baseline — no-context** | 47% ⚠️ | 13% | **87%** (24) | — | model's memory; v2-riddled. judge INVERTED |
+| **Baseline — grounded** | 20% ⚠️ | 47% | **33%** (8) | — | grounded; judge wrongly rated correct v3 low |
+| **Baseline Δ** | **−27%** ⚠️ | **+33 pts** | **−53 pts** | — | objective metrics confirm thesis; judge lying |
+| **Pass A — no-context** | 0% | 13% | **87%** (25) | 100% | grounded judge now correctly rejects all v2 |
+| **Pass A — grounded** | 20% | 53% | **47%** (15) | 100% | + import-rule + grounded judge + completeness lint |
+| **Pass A Δ** | **+20%** ✅ | **+40 pts** | **−40 pts** | +0 | **judge un-inverted (−27%→+20%)**; objective wins hold |
+| After Pass B — grounded | _tbd_ | _tbd_ | _tbd_ | _tbd_ | + retrieval mixing |
 
-Headline takeaway: **grounding cut deprecated-API usage by 53 points and tripled type-validity.**
-Add a **composition-completeness** column in Pass A.
+Headline: **grounding cut deprecated-API usage by ~40–53 pts and ~tripled–quadrupled type-validity,
+and Pass A flipped the judge from −27% to +20% by grounding it in the retrieved v3 reference.**
+
+### Pass A notes (2026-06-25)
+- **Inversion fixed (primary goal).** Satisfaction Δ flipped −27% → **+20%**. Grounding the judge in
+  the SAME retrieved v3 reference made it recognize `Field.Root` / `NumberInput.Root` as correct v3
+  (verified in the report reasons). No-context satisfaction fell to 0% — the judge now correctly
+  rejects the v2-riddled ungrounded output.
+- **Objective wins hold:** tsc-pass +40 pts (grounded 53% vs 13%), v2-smell −40 pts.
+- **Caveats (single-run noise + residual judge error):**
+  - Grounded v2-smell *rose* vs baseline (33%→47%) — this is **generation variance** (e.g. this run's
+    grounded `field-invalid` slipped to 6 smells; baseline had 0). The **Δ vs no-context is the robust
+    signal**, not the grounded absolute. Future rigor: average ≥3 generations or temperature 0.
+  - **Completeness lint read 100%/100% (inc=0 everywhere)** — the prompt's "assemble all required
+    parts" nudge largely resolved hollow roots (e.g. grounded `number-input` went tsc-ERR→ok), and the
+    no-context arm uses v2 *monolithic* components (no `.Root`, so the lint is N/A). So the lint did not
+    discriminate this run; it stands as a **regression guard**, and **Pass B (retrieval mixing) is the
+    real lever for the remaining grounded tsc failures**.
+  - The grounded judge is better but still imperfect (e.g. it called `number-input` "incomplete" while
+    the objective lint+tsc say it's fine). **Objective signals remain the trustworthy spine.**
 
 ---
 

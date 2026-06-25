@@ -45,7 +45,11 @@ React component in TypeScript (TSX) for the user's REQUEST, targeting the CURREN
 
 Rules:
 - Use only components and props that are valid in Chakra UI v3.
-- Include the necessary import(s) from "@chakra-ui/react".
+- Import ONLY from "@chakra-ui/react" and "react". Do NOT import local or documentation helper
+  modules (e.g. "@/components/ui/*", "compositions/*"). If an icon is needed, use an inline <svg>
+  or omit it — do not import an icon library.
+- For composed components, assemble ALL required parts (e.g. Checkbox.Root with its Control and
+  Label; NumberInput.Root with its Input and Control) — do not emit a bare Root.
 - Output EXACTLY ONE \`\`\`tsx code block containing a complete, standalone component. No prose
   before or after it.`;
 

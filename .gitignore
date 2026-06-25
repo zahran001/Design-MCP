@@ -60,5 +60,5 @@ gen-sandbox/generated.tsx
 gen-sandbox/*.tsbuildinfo
 # Regenerable run artifacts (metrics tracked in GENERATION_EXPERIMENT.md instead)
 artifacts/gen-spike.log
-artifacts/gen-ab.log
+artifacts/gen-ab*.log
 artifacts/gen-eval/
