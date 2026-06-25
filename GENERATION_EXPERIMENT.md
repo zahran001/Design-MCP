@@ -275,6 +275,34 @@ full structural template. The correction loop has converged: each pass removed o
 (judge inversion → under-composition → compiler ergonomics → prop renames → icon/coercion), leaving a
 small, *named* structural residual instead of a vague "quality gap."
 
+### End-to-end surface + held-out generalization (2026-06-25, branch `week2_generation_e2e`)
+Passes A–E *measured* generation in the eval harness; this adds the missing **product surface** and an
+honest generalization test.
+- **`src/steps/4-generate/pipeline.ts`** — `runGenerationPipeline()`: grounded generate → bounded
+  self-heal (smell/heuristic-guided repair, the Pass D/E lever) → objective validate → write `.tsx`.
+  The LLM-judge is deliberately **not** a gate (Pass A showed it's unreliable on v3); the three
+  objective signals (tsc, v2-smell, composition) are the spine. Wired as a real CLI command
+  `npm run cli -- 4-generate "<request>" [-o file] [--no-context]`.
+- **Held-out test** (`test-generation/heldout-prompts.ts` + `run-heldout.ts`): 5 prompts whose
+  components are in the embedded corpus (verified 16–65 chunks each) but appear in **neither** the 15
+  landmines **nor** the Pass E hint targets — a mix of simple (Close Button, Heading) and **composed**
+  (Checkbox Card, File Upload, Color Picker) cases the pipeline was never tuned on.
+
+**Result — held-out, n=5, grounded: 100% / 100% / 100% / 100%** (tsc single-shot, tsc post-heal,
+v2-smell-free, composition-complete). No repair was even needed. The composed outputs are genuine,
+non-trivial v3 — e.g. `ColorPicker` came out as the full canonical tree (`Root/HiddenInput/Label/
+Control/Input/Trigger/Positioner/Content/Area/EyeDropper/Sliders` + `parseColor` + `Portal`), the
+reserved-slot blueprint retrieval (Pass B) generalizing to a complex composite it had no specific
+tuning for.
+
+**Honest caveat (don't overread the 100%).** The held-out prompts are *less adversarial* than the
+landmines, which were deliberately engineered as v2→v3 traps (`colorScheme`, `isLoading`,
+`FormControl`, …). So 100% means "on ordinary, non-trap held-out prompts the grounded pipeline emits
+clean v3 single-shot" — **not** "the pipeline never fails." The right combined reading: the landmine
+numbers (47% single-shot → 80% post-heal) are the **worst-case adversarial stress test**; held-out
+generalization on normal prompts is **clean**. Real-world reliability sits between, closer to the
+held-out end for non-trap requests. n=5, single run — a generalization *signal*, not a guarantee.
+
 ---
 
 ## 4. The three issues exposed (what Pass A/B fix)
