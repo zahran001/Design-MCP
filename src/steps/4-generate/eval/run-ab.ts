@@ -17,8 +17,13 @@
 //
 // Pass C (5.3) adds a bounded tsc SELF-CORRECTION loop: on a single-shot tsc
 // failure, the compiler diagnostics are fed back to a temp-0 repair call (cap
-// MAX_REPAIR_ITERS) using the arm's OWN context. We report BOTH single-shot
-// tsc-pass (the retrieval thesis, unchanged) AND post-repair tsc-pass (product).
+// MAX_REPAIR_ITERS) using the arm's OWN context.
+//
+// Pass D (5.3b) runs the repair as a 2x2: from the SAME failed component, BOTH
+// `raw` (tsc errors only, = Pass C) and `hinted` (errors + smell-guided v2->v3
+// migration hints that NAME the offending prop) loops run. Raw cells preserve
+// the comparable baseline; the hint is the orthogonal repair-mode factor. We
+// report single-shot tsc-pass (retrieval thesis) and BOTH repaired rates.
 //
 // Usage: npx tsx src/steps/4-generate/eval/run-ab.ts
 // Prereq: Qdrant up + embedded; OPENAI_API_KEY; DEBUG=false.
@@ -31,6 +36,7 @@ import { GenerationService, type GenerationResult } from '../generator.js';
 import { GenerationJudge } from './generationJudge.js';
 import { tscValidate } from '../validators/tscValidator.js';
 import { detectV2Smells } from '../validators/v2SmellDetector.js';
+import { buildRepairHints } from '../validators/repairHints.js';
 import { lintComposition } from '../validators/compositionLint.js';
 import { LANDMINE_PROMPTS } from '../test-generation/landmine-prompts.js';
 
@@ -39,6 +45,16 @@ const OUT_DIR = path.join(process.cwd(), 'artifacts', 'gen-eval');
 // Pass C (5.3): bounded tsc self-correction. Cap repair attempts so a model that
 // can't fix its own output doesn't loop forever (or burn tokens).
 const MAX_REPAIR_ITERS = 2;
+
+// Pass D: one repair mode's result (the 2x2's repair-time factor). `raw` feeds
+// only the tsc diagnostics back (= Pass C); `hinted` also feeds smell-guided
+// migration hints that name the offending prop.
+interface RepairOutcome {
+  tscOk: boolean; // tsc-valid after this repair mode (or single-shot if it already passed)
+  iters: number; // repair attempts used (0 = passed first try, loop skipped)
+  smells: number; // v2-smells remaining in the healed component
+  healed: string; // the final (possibly repaired) component
+}
 
 interface Outcome {
   grade: number;
@@ -49,11 +65,44 @@ interface Outcome {
   incomplete: string[]; // e.g. "Checkbox:Control/Label"
   cleanCodeBlock: boolean;
   component: string;
-  // Pass C product metrics (post tsc self-correction):
-  repairTscOk: boolean; // tsc-valid after the repair loop (or single-shot if it already passed)
-  repairIters: number; // repair attempts actually used (0 = passed first try)
-  repairSmells: number; // v2-smells remaining in the healed component
-  healed: string; // the final (possibly repaired) component
+  // Pass D 2x2: BOTH repair modes run from the SAME single-shot component so the
+  // only difference is the hint (generation variance is controlled out).
+  repairRaw: RepairOutcome; // tsc errors only (= Pass C baseline, preserved)
+  repairHinted: RepairOutcome; // tsc errors + smell-guided migration hints
+}
+
+/**
+ * Bounded tsc self-correction loop. `hints` omitted = raw mode (Pass C); when
+ * `withHints` is true we recompute smell-guided hints from the CURRENT (failing)
+ * component each iteration so the named prop tracks what's actually still wrong.
+ */
+async function runRepairLoop(
+  gen: GenerationService,
+  query: string,
+  component: string,
+  diagnostics: string[],
+  armContext: string,
+  ok: boolean,
+  withHints: boolean
+): Promise<RepairOutcome> {
+  let healed = component;
+  let diag = diagnostics;
+  let tscOk = ok;
+  let iters = 0;
+  while (!tscOk && iters < MAX_REPAIR_ITERS) {
+    healed = await gen.repair({
+      query,
+      component: healed,
+      diagnostics: diag,
+      contextBlock: armContext,
+      hints: withHints ? buildRepairHints(healed) : undefined,
+    });
+    const rt = await tscValidate(healed);
+    tscOk = rt.ok;
+    diag = rt.diagnostics;
+    iters++;
+  }
+  return { tscOk, iters, smells: detectV2Smells(healed).length, healed };
 }
 
 interface Aggregate {
@@ -65,10 +114,13 @@ interface Aggregate {
   completeRate: number; // fraction with NO composition issues
   totalSmells: number;
   totalIncomplete: number;
-  // Pass C product metrics:
-  repairTscPassRate: number; // fraction tsc-valid AFTER self-correction
-  repairSmellRate: number; // fraction with >=1 v2 smell after self-correction
-  totalRepairIters: number; // sum of repair attempts across the arm
+  // Pass D 2x2 product metrics (post self-correction), per repair mode:
+  rawTscPassRate: number; // tsc-valid after RAW repair (= Pass C)
+  rawSmellRate: number;
+  rawIters: number;
+  hintedTscPassRate: number; // tsc-valid after SMELL-HINTED repair
+  hintedSmellRate: number;
+  hintedIters: number;
 }
 
 async function score(
@@ -85,22 +137,15 @@ async function score(
   const incomplete = lintComposition(g.component).map((i) => `${i.component}:${i.missing.join('/')}`);
   const { grade, reason } = await judge.grade(query, g.component, reference);
 
-  // Pass C (5.3): bounded tsc self-correction loop. Feed the compiler errors
-  // back to a temp-0 repair call until tsc passes or we hit the cap. The arm's
-  // OWN context (g.context: real docs for grounded, [] for no-context) is passed
-  // through, keeping the repair symmetric with the generation arm.
+  // Pass D 2x2: from the SAME failed component, run two independent repair loops
+  // — raw (tsc errors only) and hinted (tsc errors + smell-guided migration
+  // hints). The arm's OWN context (g.context: real docs for grounded, [] for
+  // no-context) is passed through both, keeping repair symmetric with the arm.
+  // Sequential, NOT parallel: tscValidate writes a shared sandbox file, so the
+  // two loops must not interleave.
   const armContext = g.context.map((c) => c.rendered).join('\n\n');
-  let healed = g.component;
-  let healedDiag = tsc.diagnostics;
-  let repairTscOk = tsc.ok;
-  let repairIters = 0;
-  while (!repairTscOk && repairIters < MAX_REPAIR_ITERS) {
-    healed = await gen.repair({ query, component: healed, diagnostics: healedDiag, contextBlock: armContext });
-    const rt = await tscValidate(healed);
-    repairTscOk = rt.ok;
-    healedDiag = rt.diagnostics;
-    repairIters++;
-  }
+  const repairRaw = await runRepairLoop(gen, query, g.component, tsc.diagnostics, armContext, tsc.ok, false);
+  const repairHinted = await runRepairLoop(gen, query, g.component, tsc.diagnostics, armContext, tsc.ok, true);
 
   return {
     grade,
@@ -111,10 +156,8 @@ async function score(
     incomplete,
     cleanCodeBlock: g.cleanCodeBlock,
     component: g.component,
-    repairTscOk,
-    repairIters,
-    repairSmells: detectV2Smells(healed).length,
-    healed,
+    repairRaw,
+    repairHinted,
   };
 }
 
@@ -130,9 +173,12 @@ function aggregate(outcomes: Outcome[]): Aggregate {
     completeRate: sum((o) => (o.incomplete.length === 0 ? 1 : 0)) / n,
     totalSmells: sum((o) => o.smells.length),
     totalIncomplete: sum((o) => o.incomplete.length),
-    repairTscPassRate: sum((o) => (o.repairTscOk ? 1 : 0)) / n,
-    repairSmellRate: sum((o) => (o.repairSmells > 0 ? 1 : 0)) / n,
-    totalRepairIters: sum((o) => o.repairIters),
+    rawTscPassRate: sum((o) => (o.repairRaw.tscOk ? 1 : 0)) / n,
+    rawSmellRate: sum((o) => (o.repairRaw.smells > 0 ? 1 : 0)) / n,
+    rawIters: sum((o) => o.repairRaw.iters),
+    hintedTscPassRate: sum((o) => (o.repairHinted.tscOk ? 1 : 0)) / n,
+    hintedSmellRate: sum((o) => (o.repairHinted.smells > 0 ? 1 : 0)) / n,
+    hintedIters: sum((o) => o.repairHinted.iters),
   };
 }
 
@@ -163,14 +209,14 @@ async function main(): Promise<void> {
     grounded.push(g);
     nocontext.push(n);
 
-    // tsc shows single-shot -> post-repair when a repair happened (e.g. ERR→ok i1).
+    // tsc cell shows single-shot, then raw/hinted repair outcomes when it failed.
     const fmt = (o: Outcome) => {
-      const tscCell = o.repairIters === 0
-        ? `tsc=${o.tscOk ? 'ok ' : 'ERR'}`
-        : `tsc=${o.tscOk ? 'ok ' : 'ERR'}->${o.repairTscOk ? 'ok' : 'ERR'}(i${o.repairIters})`;
+      const tscCell = o.tscOk
+        ? `tsc=ok`
+        : `tsc=ERR->raw:${o.repairRaw.tscOk ? 'ok' : 'ERR'}/hint:${o.repairHinted.tscOk ? 'ok' : 'ERR'}`;
       return `g=${o.grade} ${tscCell} sm=${o.smells.length} inc=${o.incomplete.length}`;
     };
-    console.log(`${p.id.padEnd(18)} |  ${fmt(g).padEnd(34)} |  ${fmt(n)}`);
+    console.log(`${p.id.padEnd(18)} |  ${fmt(g).padEnd(40)} |  ${fmt(n)}`);
 
     perPrompt.push({ id: p.id, query: p.query, risks: p.risks, grounded: g, nocontext: n });
   }
@@ -183,17 +229,21 @@ async function main(): Promise<void> {
   console.log('='.repeat(88));
   const row = (label: string, a: Aggregate) =>
     console.log(
-      `  ${label.padEnd(12)} satisfaction ${pct(a.satisfaction).padStart(4)}  |  tsc-pass ${pct(a.tscPassRate).padStart(4)} →${pct(a.repairTscPassRate).padStart(4)} (post-repair, ${a.totalRepairIters} iters)  |  v2-smell ${pct(a.smellRate).padStart(4)} (${a.totalSmells})  |  complete ${pct(a.completeRate).padStart(4)} (${a.totalIncomplete} missing)`
+      `  ${label.padEnd(12)} satisfaction ${pct(a.satisfaction).padStart(4)}  |  tsc single ${pct(a.tscPassRate).padStart(4)} → raw ${pct(a.rawTscPassRate).padStart(4)} (${a.rawIters}i) → hinted ${pct(a.hintedTscPassRate).padStart(4)} (${a.hintedIters}i)  |  v2-smell ${pct(a.smellRate).padStart(4)} (${a.totalSmells})  |  complete ${pct(a.completeRate).padStart(4)}`
     );
   row('GROUNDED', ag);
   row('no-context', an);
+  console.log('\n  The 2x2 (tsc-pass, generation arm × repair mode):');
+  console.log(`    ${''.padEnd(12)} single-shot | raw-repair | hinted-repair`);
+  console.log(`    ${'grounded'.padEnd(12)} ${pct(ag.tscPassRate).padStart(11)} | ${pct(ag.rawTscPassRate).padStart(10)} | ${pct(ag.hintedTscPassRate).padStart(13)}`);
+  console.log(`    ${'no-context'.padEnd(12)} ${pct(an.tscPassRate).padStart(11)} | ${pct(an.rawTscPassRate).padStart(10)} | ${pct(an.hintedTscPassRate).padStart(13)}`);
   console.log('\n  Δ (grounded − no-context):');
   console.log(
     `    satisfaction ${dpct(ag.satisfaction - an.satisfaction)}` +
-      `  |  tsc-pass(single) ${dpct(ag.tscPassRate - an.tscPassRate)}` +
-      `  |  tsc-pass(repaired) ${dpct(ag.repairTscPassRate - an.repairTscPassRate)}` +
-      `  |  v2-smell ${dpct(ag.smellRate - an.smellRate)}` +
-      `  |  complete ${dpct(ag.completeRate - an.completeRate)}`
+      `  |  tsc single ${dpct(ag.tscPassRate - an.tscPassRate)}` +
+      `  |  tsc raw ${dpct(ag.rawTscPassRate - an.rawTscPassRate)}` +
+      `  |  tsc hinted ${dpct(ag.hintedTscPassRate - an.hintedTscPassRate)}` +
+      `  |  v2-smell ${dpct(ag.smellRate - an.smellRate)}`
   );
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -202,7 +252,7 @@ async function main(): Promise<void> {
   fs.writeFileSync(
     reportPath,
     JSON.stringify(
-      { generatedAt: new Date().toISOString(), genModel: gen.modelName, judgeModel: judge.modelName, groundedJudge: true, selfCorrection: { maxIters: MAX_REPAIR_ITERS }, grounded: ag, nocontext: an, perPrompt },
+      { generatedAt: new Date().toISOString(), genModel: gen.modelName, judgeModel: judge.modelName, groundedJudge: true, selfCorrection: { maxIters: MAX_REPAIR_ITERS, modes: ['raw', 'smell-hint'] }, grounded: ag, nocontext: an, perPrompt },
       null,
       2
     ),

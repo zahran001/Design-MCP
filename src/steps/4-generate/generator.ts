@@ -241,14 +241,22 @@ export class GenerationService {
     component: string;
     diagnostics: string[];
     contextBlock?: string;
+    /** Pass D: surgical v2->v3 migration hints that NAME the offending prop,
+     *  translating tsc's coarse TS2322 into an actionable instruction. Omit for
+     *  the raw-error repair mode (= Pass C). */
+    hints?: string[];
   }): Promise<string> {
     const ctx = opts.contextBlock
       ? `\n\nDOCUMENTATION CONTEXT (authoritative Chakra v3 API — fix against this):\n${opts.contextBlock}`
+      : '';
+    const hintBlock = opts.hints && opts.hints.length
+      ? `\n\nMIGRATION HINTS (apply these exactly):\n${opts.hints.map((h) => `- ${h}`).join('\n')}`
       : '';
     const userMessage =
       `REQUEST: ${opts.query}\n\n` +
       `PREVIOUS COMPONENT (failed tsc):\n\`\`\`tsx\n${opts.component}\n\`\`\`\n\n` +
       `TYPESCRIPT ERRORS (resolve ALL of these):\n${opts.diagnostics.join('\n')}` +
+      hintBlock +
       ctx;
 
     const completion = await this.client.chat.completions.create({

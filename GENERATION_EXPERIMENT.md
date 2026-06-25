@@ -2,11 +2,14 @@
 
 > **Status:** Phase 4a (thin slice) ✅ verified. Phase 4b A/B harness ✅ built and run. Correction
 > loop: **Pass A** ✅ (fixed eval confounders / judge inversion), **Pass B** ✅ (reserved-slot retrieval
-> mixing; satisfaction Δ +20%→+27%, tsc held 53%), **Pass C** ✅ (tsc self-correction loop —
-> **negative result**: grounded 53%→53%, no-context 13%→20%; compiler-feedback repair failed because
-> TS's JSX-prop errors don't name the offending prop). Net: grounding's single-shot wins are robust
-> (Δ +40 tsc, −47 v2-smell), but the path past 53% is **grounded few-shot / smell-guided hints**, not
-> more compiler loops or retrieval tuning (see §3 Pass C notes). **Branch:** `week2_generation`.
+> mixing; satisfaction Δ +20%→+27%, tsc held 53%), **Pass C** ✅ (tsc self-correction — **negative
+> result**: compiler-feedback repair failed because TS's JSX-prop errors don't name the offending
+> prop), **Pass D** ✅ (**smell-guided repair, run as a 2×2**: naming the prop lifted grounded tsc
+> **53%→73%** and no-context **20%→53%**). Key result: **prop-rename hints and structural retrieval are
+> separable** — hints lift both arms, retrieval's residual **+20pt after both get the cheat sheet is
+> structural composition** a rename map can't encode. The remaining ~27pt is two named non-rename
+> classes (icon-as-child, string-token coercion) + a few composition gaps. **Branch:**
+> `week2_generation`.
 
 ---
 
@@ -66,14 +69,34 @@ retrieval's contribution.
 | **Pass C — no-context** | 0% | 13% → **20%** | **87%** (25) | 100% | + tsc self-correction loop (cap 2). 25 repair iters → **1** fix (number-input) |
 | **Pass C — grounded** | 27% | 53% → **53%** | **40%** (8) | 100% | self-correction recovered **0** of 7 fails in 14 iters — see §3 Pass C notes |
 | **Pass C Δ** | **+27%** ✅ | single **+40** / repaired **+33** | **−47 pts** | +0 | **self-heal failed**; Δ(repaired) *shrank* (only fix was in the control arm) |
+| **Pass D — no-context** | 7% | 13% → 20% → **53%** | **87%** (23) | 100% | raw→**hinted** repair; cheat sheet heals flat renames, **not** structure |
+| **Pass D — grounded** | 27% | 47% → 53% → **73%** | **40%** (8) | 100% | + smell-guided hints (name the prop); **+20pt over raw** |
+| **Pass D Δ** | **+20%** | tsc raw **+33** / **hinted +20** | **−47 pts** | +0 | hinted Δ *compresses* (cheat sheet lifts weak arm more) — retrieval's residual **+20pt is STRUCTURAL** |
+
+> **Pass D 2×2 (tsc-pass, generation arm × repair mode)** — report
+> `gen-ab-2026-06-25T18-03-56-870Z.json`. (Single-shot grounded 47% vs the 53%
+> of Passes B/C is generation variance at temp 0.2; the *contrasts within this
+> run* are the robust signal.)
+>
+> | | single-shot | raw-repair | **hinted-repair** |
+> |---|---|---|---|
+> | **grounded** | 47% | 53% | **73%** |
+> | **no-context** | 13% | 20% | **53%** |
+>
+> - **Hint effect \| grounded:** +20pt (53→73). **Hint effect \| no-context:** **+33pt** (20→53) — the single biggest lift in the experiment.
+> - **Retrieval residual *after both get hints*:** 73−53 = **+20pt**, and it is **structural** (composed components a rename map can't encode).
+> - **Pure thesis (raw cells) preserved:** +33pt — directly comparable to Pass C.
 
 Headline: **grounding cut deprecated-API usage by ~40–53 pts and ~tripled–quadrupled type-validity,
 Pass A flipped the judge from −27% to +20% by grounding it in the retrieved v3 reference, and Pass B's
 reserved-slot blueprint pushed satisfaction Δ to +27% and v2-smell Δ to −47 pts — while exposing that
 the tsc ceiling (53%) is a generation-quality problem, not a retrieval one. Pass C then tested the
 "obvious" fix (a tsc self-correction loop) and it FAILED (grounded 53%→53%): TypeScript's coarse
-JSX-prop errors don't name the bad prop, so compiler-feedback repair can't localize it. The real lever
-is grounded few-shot / smell-guided repair hints, not more compiler loops.**
+JSX-prop errors don't name the bad prop, so compiler-feedback repair can't localize it. Pass D fixed
+that by feeding smell-guided hints that NAME the prop — grounded tsc 53%→73%, no-context 20%→53% — and,
+run as a 2×2, proved prop-rename hints and structural retrieval are separable: retrieval's residual
++20pt advantage (even after both arms get the cheat sheet) is structural composition the rename map
+can't encode.**
 
 ### Pass A notes (2026-06-25)
 - **Inversion fixed (primary goal).** Satisfaction Δ flipped −27% → **+20%**. Grounding the judge in
@@ -167,6 +190,49 @@ compiler loops; it needs the rename knowledge injected where it doesn't break th
 the correct prop names structurally without a global prompt edict — or a **smell-guided repair hint**
 (pair each coarse `TS2322` with the matched `V2_SMELLS` entry to name the prop for the model). Pass C's
 value was diagnostic: it proved the "free" lever isn't free, and sharpened where the real lever is.
+
+### Pass D notes (2026-06-25) — smell-guided repair, run as a 2×2 (the payoff pass)
+**Design.** Pass C said: compiler-feedback fails because the error never *names* the bad prop. Pass D
+translates the coarse `TS2322` into a surgical instruction by reusing `V2_SMELLS` (which already
+carries the v3 replacement per entry) — new `validators/repairHints.ts`, ~6 lines, no new knowledge.
+The hint is the v2→v3 rename map, i.e. curated knowledge, so feeding it to the control would
+contaminate the pure baseline (the §5.1 risk). To avoid the Option-1/Option-2 false choice, the hint
+is run as an **orthogonal repair-mode factor**: from the SAME single-shot component, the harness runs
+**two** repair loops — `raw` (tsc errors only, = Pass C) and `hinted` (errors + migration hints) — so
+generation variance is controlled out and the raw cells preserve the comparable baseline.
+
+**Result — the hint works, and confirms the Pass C diagnosis.** Naming the prop unlocked repair:
+grounded **53%→73%** (+20pt over raw), no-context **20%→53%** (+33pt — the biggest single lift in the
+whole experiment). The compiler is the detector; the smell map is the **teacher** it lacked.
+
+**The decomposition the 2×2 buys (this is the real finding):**
+- **The cheat sheet and retrieval are separable and complementary.** Hints own **flat prop renames**
+  (they lift *both* arms); retrieval owns **structural composition** (the residual). After *both* arms
+  get the cheat sheet, grounded still leads by **+20pt (73 vs 53)** — and reading the still-failing
+  cells shows that gap is *structural*: no-context+hint dropped `isChecked` but kept a **monolithic
+  `<Checkbox>`** (nonexistent in v3 — needs `Checkbox.Root/.Control/.HiddenInput`); a rename map can't
+  supply that, the retrieved blueprint can.
+- **Why keeping the raw baseline mattered (the 2×2 vindicated over Option 1).** Δ(hinted) **compressed
+  to +20%** from Δ(raw) **+33%** — *not* because retrieval got less valuable, but because the cheat
+  sheet helps the weaker (ungrounded) arm more. Had we run Option 1 (hint-only, both arms) we'd have
+  seen just the compressed +20% and risked concluding "retrieval matters less now." The raw cells prove
+  retrieval's contribution is unchanged; the hint adds an orthogonal, arm-asymmetric lift.
+
+**Prediction check (calibration, on the record).** Pre-registered: hints fix the rename class but miss
+`icon-button` (`icon={…}` is icon-as-child, **not** a smell) and `number-input` (`defaultValue={0}` is
+a value-type, not a rename). **Both confirmed still ERR** after hinting. Estimate was grounded
+~75–85%; **actual 73%**, slightly under — because two *smell-class* cases needed **structure, not just
+a rename**: `password-input` (hint named `InputRightAddon→InputGroup endElement` but the model emitted
+v2 `InputRightElement` — structural pattern under-specified) and a variance-driven non-smell
+`field-invalid`. Honest takeaway: a rename hint heals a prop swap but **not** a composition change.
+
+**Where this leaves the pipeline.** Grounded generation: 47% single-shot → **73%** with retrieval +
+reserved-slot blueprint + smell-guided repair, every gain attributable to objective `tsc` (no judge
+trust required). The last ~27pt is two named, non-rename classes — **icon-as-child** and
+**string-token coercion** — plus a couple of **structural** composition gaps. Closing them is either
+(a) two more curated rules in the hint/smell map (icon-as-child; numeric-literal-on-token → quote it),
+or (b) the structural lever (grounded few-shot exemplar) for the composition cases — *not* more
+retrieval or more generic compiler loops.
 
 ---
 
