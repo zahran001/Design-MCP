@@ -1,0 +1,150 @@
+// =============================================================================
+// Phase 4b — Generation A/B harness
+// =============================================================================
+// The experiment: does grounding generation in retrieved real v3 docs reduce
+// v2/hallucinated API and improve correctness — vs the SAME model with no
+// context? Same model, same prompts, the only difference is the retrieved
+// context. Per (prompt, arm) we record:
+//   - judge satisfaction (HEADLINE: 0/1/2, correct & complete v3)
+//   - tsc-validity        (diagnostic: component/import/syntax errors)
+//   - v2-smell count      (diagnostic: prop-level v2 drift tsc is blind to)
+//
+// Usage: npx tsx src/steps/4-generate/eval/run-ab.ts
+// Prereq: Qdrant up + embedded; OPENAI_API_KEY; DEBUG=false.
+// =============================================================================
+
+import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
+import { GenerationService } from '../generator.js';
+import { GenerationJudge } from './generationJudge.js';
+import { tscValidate } from '../validators/tscValidator.js';
+import { detectV2Smells } from '../validators/v2SmellDetector.js';
+import { LANDMINE_PROMPTS } from '../test-generation/landmine-prompts.js';
+
+const OUT_DIR = path.join(process.cwd(), 'artifacts', 'gen-eval');
+
+interface Outcome {
+  grade: number;
+  reason: string;
+  tscOk: boolean;
+  tscErrors: number;
+  smells: string[];
+  cleanCodeBlock: boolean;
+  component: string;
+}
+
+interface Aggregate {
+  n: number;
+  meanGrade: number;
+  satisfaction: number; // fraction grade === 2
+  tscPassRate: number;
+  smellRate: number; // fraction of prompts with >=1 smell
+  totalSmells: number;
+}
+
+async function evaluate(
+  gen: GenerationService,
+  judge: GenerationJudge,
+  query: string,
+  useContext: boolean
+): Promise<Outcome> {
+  const g = await gen.generate(query, { k: 8, useContext });
+  const tsc = await tscValidate(g.component);
+  const smells = detectV2Smells(g.component);
+  const { grade, reason } = await judge.grade(query, g.component);
+  return {
+    grade,
+    reason,
+    tscOk: tsc.ok,
+    tscErrors: tsc.errorCount,
+    smells,
+    cleanCodeBlock: g.cleanCodeBlock,
+    component: g.component,
+  };
+}
+
+function aggregate(outcomes: Outcome[]): Aggregate {
+  const n = outcomes.length;
+  const sum = (f: (o: Outcome) => number) => outcomes.reduce((a, o) => a + f(o), 0);
+  return {
+    n,
+    meanGrade: sum((o) => o.grade) / n,
+    satisfaction: sum((o) => (o.grade === 2 ? 1 : 0)) / n,
+    tscPassRate: sum((o) => (o.tscOk ? 1 : 0)) / n,
+    smellRate: sum((o) => (o.smells.length > 0 ? 1 : 0)) / n,
+    totalSmells: sum((o) => o.smells.length),
+  };
+}
+
+function pct(x: number): string {
+  return `${(x * 100).toFixed(0)}%`;
+}
+
+async function main(): Promise<void> {
+  const gen = new GenerationService();
+  const judge = new GenerationJudge();
+
+  console.log('='.repeat(82));
+  console.log(`GENERATION A/B — grounded vs no-context  (gen: ${gen.modelName}, judge: ${judge.modelName})`);
+  console.log('='.repeat(82));
+  console.log(`prompt`.padEnd(18) + ' | grounded (grade/tsc/smells) | no-context (grade/tsc/smells)');
+  console.log('-'.repeat(82));
+
+  const grounded: Outcome[] = [];
+  const nocontext: Outcome[] = [];
+  const perPrompt: Array<Record<string, unknown>> = [];
+
+  for (const p of LANDMINE_PROMPTS) {
+    const g = await evaluate(gen, judge, p.query, true);
+    const n = await evaluate(gen, judge, p.query, false);
+    grounded.push(g);
+    nocontext.push(n);
+
+    const fmt = (o: Outcome) =>
+      `g=${o.grade} tsc=${o.tscOk ? 'ok ' : 'ERR'} smell=${o.smells.length}`;
+    console.log(`${p.id.padEnd(18)} |  ${fmt(g).padEnd(26)} |  ${fmt(n)}${n.smells.length ? '  [' + n.smells.join(',') + ']' : ''}`);
+
+    perPrompt.push({ id: p.id, query: p.query, risks: p.risks, grounded: g, nocontext: n });
+  }
+
+  const ag = aggregate(grounded);
+  const an = aggregate(nocontext);
+
+  console.log('\n' + '='.repeat(82));
+  console.log('AGGREGATE');
+  console.log('='.repeat(82));
+  const row = (label: string, a: Aggregate) =>
+    console.log(
+      `  ${label.padEnd(12)} satisfaction ${pct(a.satisfaction).padStart(4)}  |  mean-grade ${a.meanGrade.toFixed(2)}  |  tsc-pass ${pct(a.tscPassRate).padStart(4)}  |  v2-smell ${pct(a.smellRate).padStart(4)} (${a.totalSmells} total)`
+    );
+  row('GROUNDED', ag);
+  row('no-context', an);
+  console.log('\n  Δ (grounded − no-context):');
+  console.log(
+    `    satisfaction ${(ag.satisfaction - an.satisfaction >= 0 ? '+' : '')}${pct(ag.satisfaction - an.satisfaction)}` +
+      `  |  mean-grade ${(ag.meanGrade - an.meanGrade >= 0 ? '+' : '')}${(ag.meanGrade - an.meanGrade).toFixed(2)}` +
+      `  |  tsc-pass ${(ag.tscPassRate - an.tscPassRate >= 0 ? '+' : '')}${pct(ag.tscPassRate - an.tscPassRate)}` +
+      `  |  v2-smell ${(ag.smellRate - an.smellRate >= 0 ? '+' : '')}${pct(ag.smellRate - an.smellRate)}`
+  );
+
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const reportPath = path.join(OUT_DIR, `gen-ab-${stamp}.json`);
+  fs.writeFileSync(
+    reportPath,
+    JSON.stringify(
+      { generatedAt: new Date().toISOString(), genModel: gen.modelName, judgeModel: judge.modelName, grounded: ag, nocontext: an, perPrompt },
+      null,
+      2
+    ),
+    'utf8'
+  );
+  console.log(`\n💾 Report: ${path.relative(process.cwd(), reportPath)}`);
+  console.log('='.repeat(82));
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

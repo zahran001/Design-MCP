@@ -31,3 +31,12 @@ export function getEmbeddingDimensions(): number {
 export function getJudgeModel(): string {
   return process.env.EVAL_JUDGE_MODEL?.trim() || DEFAULT_JUDGE_MODEL;
 }
+
+// Component generator (Step 4). Strong model on purpose — Chakra v3's breaking
+// changes are exactly where a capable model still hallucinates the old API, so
+// the value of grounding it in retrieved real v3 docs is most visible here.
+const DEFAULT_GENERATION_MODEL = 'gpt-4o';
+
+export function getGenerationModel(): string {
+  return process.env.GEN_MODEL?.trim() || DEFAULT_GENERATION_MODEL;
+}
