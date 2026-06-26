@@ -68,6 +68,75 @@ Rules:
   modules. If an icon is needed, use an inline <svg> or omit it.
 - Output EXACTLY ONE \`\`\`tsx code block. No prose before or after it.`;
 
+// Pass F (5.2): grounded few-shot exemplars. Passes A–E closed the prop-rename
+// gap; the residual was STRUCTURAL — composed shapes the retrieved chunks
+// describe but don't lay out as a copyable blueprint (e.g. the v3 "PasswordInput"
+// in the docs is a copy-in snippet from "@/components/ui/*", which our import-rule
+// forbids, so the model must rebuild it from `@chakra-ui/react` primitives —
+// `InputGroup endElement` + `Field.Root`, which it kept botching as v2
+// `InputRightElement`/`FormControl`). Each exemplar is a curated, tsc-VERIFIED v3
+// snippet keyed by the dominant retrieved component. Appended GROUNDED-ARM ONLY
+// (keyed on retrieval), so the A/B isolation Passes A–E maintained holds: the
+// no-context arm never sees these. They teach structure, not prop names.
+const FEWSHOT_EXEMPLARS: Record<string, string> = {
+  // A password field assembled from primitives: visibility toggle via
+  // `InputGroup endElement`, wrapped in `Field.Root` for required/invalid/error.
+  // One exemplar covers both structural targets (password-input + field-invalid).
+  'Password Input': `import { Field, Input, InputGroup, IconButton } from "@chakra-ui/react";
+import { useState } from "react";
+
+const PasswordField = () => {
+  const [show, setShow] = useState(false);
+  return (
+    <Field.Root required invalid>
+      <Field.Label>Password</Field.Label>
+      <InputGroup
+        endElement={
+          <IconButton aria-label="Toggle password visibility" size="xs" variant="ghost" onClick={() => setShow((v) => !v)}>
+            {show ? "Hide" : "Show"}
+          </IconButton>
+        }
+      >
+        <Input type={show ? "text" : "password"} placeholder="Enter password" />
+      </InputGroup>
+      <Field.ErrorText>Password is too weak</Field.ErrorText>
+    </Field.Root>
+  );
+};`,
+  // A labelled field with helper + error text and a required indicator.
+  Field: `import { Field, Input } from "@chakra-ui/react";
+
+const EmailField = () => {
+  return (
+    <Field.Root required invalid>
+      <Field.Label>Email <Field.RequiredIndicator /></Field.Label>
+      <Input type="email" placeholder="you@example.com" />
+      <Field.HelperText>We will never share it.</Field.HelperText>
+      <Field.ErrorText>That email looks invalid.</Field.ErrorText>
+    </Field.Root>
+  );
+};`,
+};
+
+/** Most-frequent componentName across the assembled context (the dominant). */
+function dominantFromContext(context: ContextChunk[]): string {
+  const counts = new Map<string, number>();
+  for (const c of context) {
+    if (c.componentName && c.componentName !== '?') {
+      counts.set(c.componentName, (counts.get(c.componentName) ?? 0) + 1);
+    }
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const [name, count] of counts) {
+    if (count > bestCount) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
@@ -208,10 +277,18 @@ export class GenerationService {
         ? await this.assembleReservedSlots(query, k)
         : await this.assembleTopK(query, k);
       const contextBlock = context.map((c, i) => `[${i + 1}] ${c.rendered}`).join('\n\n');
+      // Pass F: if the dominant retrieved component has a curated exemplar, give
+      // the model a structural blueprint to mirror (grounded-arm only).
+      const exemplar = FEWSHOT_EXEMPLARS[dominantFromContext(context)];
+      const exemplarBlock = exemplar
+        ? `\n\nREFERENCE EXAMPLE (mirror this v3 STRUCTURE — adapt labels/values to the REQUEST; ` +
+          `import only from "@chakra-ui/react" and "react"):\n\`\`\`tsx\n${exemplar}\n\`\`\``
+        : '';
       userMessage =
         `REQUEST: ${query}\n\n` +
         `DOCUMENTATION CONTEXT (real Chakra UI v3 API — use the exact component and prop names shown):\n` +
-        contextBlock;
+        contextBlock +
+        exemplarBlock;
     }
 
     const completion = await this.client.chat.completions.create({

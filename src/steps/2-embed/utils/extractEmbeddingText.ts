@@ -11,14 +11,18 @@
  * - Graceful error handling (fail fast with context if data is invalid)
  * - Extensible pattern for future chunk types
  *
- * Chunk Types Supported:
+ * Chunk Types Supported (4 of 7 implemented + embedded; routed below, lines ~57-71):
  * - ✅ CodeExampleChunk (fields: explanation, demonstrates, keyPoints)
  * - ✅ PropReferenceChunk (fields: description, typeExplanation, usageGuidance, defaultBehavior)
- * - ⏳ ComponentOverviewChunk (placeholder for future)
- * - ⏳ CapabilityReferenceChunk (placeholder for future)
+ * - ✅ ComponentOverviewChunk (extractComponentOverviewText)
+ * - ✅ CapabilityReferenceChunk (extractCapabilityReferenceText)
  * - ⏳ PropGroupChunk (placeholder for future)
  * - ⏳ CompositionPatternChunk (placeholder for future)
  * - ⏳ APIReferenceChunk (placeholder for future)
+ *
+ * Proof (Qdrant collection `chakra-ui-docs`, points/count by chunkType, 2026-06-25):
+ *   code-example 410, prop-reference 374, component-overview 50, capability-reference 63
+ *   (total 897); prop-group / composition-pattern / api-reference = 0.
  */
 
 import {

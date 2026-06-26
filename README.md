@@ -24,18 +24,25 @@ npm run quality:samples
 
 ---
 
-## 🎯 Current Focus: Trustworthy Retrieval Evaluation
+## 🎯 Current Focus: Ship the generation capability behind a UI
 
-The pipeline now reaches end-to-end (extract → normalize → embed → search), so the active work is
-**proving retrieval quality is real**, not just present. Full rationale, proof, and handoff
-context live in **[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)** — read it first if you're
-picking this up.
+The full pipeline (extract → normalize → embed → search → **generate**) is built and validated. Step 4
+spec-driven generation reached **~93% grounded tsc-valid** via the A–F correction loop (method +
+results in **[GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)**). The active work is exposing that
+tested capability through an accessibility-first UI (type a request → see the v3 component rendered
+live + its code + the objective report) — plan in **[README_FULLSTACK.md](README_FULLSTACK.md)**.
 
-**The fundamental question:** the text we embed for code examples is *synthesized from hardcoded
-templates*, while the live docs contain real, human-written prose we currently discard (the Button
-page has ~21 section headings + per-section descriptions; our raw JSON captured **1 heading and 0
-prose**). Is template-embedding a viable tactic, or must we embed the authentic prose? We answer
-this with data, in three phases:
+<details>
+<summary><b>✅ Resolved earlier — Trustworthy Retrieval Evaluation</b> (kept for history)</summary>
+
+The retrieval-quality question is **answered**: authentic docs prose beats synthesized templates
+(LLM-as-judge, paraphrase leakage test). Full rationale and proof in
+**[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)**.
+
+**The fundamental question (resolved):** the text we embed for code examples was once *synthesized from
+hardcoded templates*, while the live docs contain real prose we discarded (the Button page has ~21
+section headings + per-section descriptions; raw JSON once captured **1 heading and 0 prose**). Was
+template-embedding viable, or must we embed authentic prose? Answered with data, in three phases:
 
 - **Phase 1 — Build the trustworthy eval (do first).** Add LLM-as-judge *graded* chunk relevance
   (nDCG) and a paraphrased developer-query set. The current "100% component-hit" score is a mirage
@@ -56,6 +63,8 @@ this with data, in three phases:
 > floods stdout), ensure Qdrant is running, and **drop the `chakra-ui-docs` collection before
 > re-embedding if chunkIds changed** (point IDs are `uuidv5(chunkId)`; stale points orphan
 > otherwise). See [EVALUATION_STRATEGY.md §6](EVALUATION_STRATEGY.md) for the full gotcha list.
+
+</details>
 
 ---
 
@@ -79,21 +88,26 @@ The project follows a **step-based pipeline architecture**:
 ├── Extraction (CSS selectors & DOM parsing)
 └── Storage (JSON artifacts)
 
-✅ Step 1: Normalize & Transform (CodeExampleChunk + PropReferenceChunk — 2 of 7 types)
+✅ Step 1: Normalize & Transform (4 of 7 chunk types)
 ├── CodeExampleChunk transformer ✅ (410 chunks; embeds real docs prose)
 ├── PropReferenceChunk transformer ✅ (374 chunks)
-├── Code analysis, intent classification & section inference
-└── 784 normalized chunks from 50 components
+├── ComponentOverviewChunk ✅ (50) + CapabilityReferenceChunk ✅ (63)
+└── 897 normalized chunks from 50 components
 
 ✅ Step 2: Embed & Vector Store
 ├── OpenAI text-embedding-3-small (1536d)
-├── Qdrant vector store (784 points, no drift)
+├── Qdrant vector store (897 points, no drift)
 └── Batch ingestion
 
 ✅ Step 3: Search & Retrieval + Evaluation
 ├── Vector similarity search + metadata filtering
 ├── LLM-as-judge eval harness (gP@k / nDCG, paraphrase leakage test)
 └── Verdict: authentic docs prose > synthesized templates
+
+✅ Step 4: Spec-Driven Generation (NL → grounded v3 TSX)
+├── Retrieval-grounded generation + bounded tsc self-heal (Passes A–F)
+├── Objective gates: tsc-valid + v2-smell + composition lint
+└── Grounded ~93% tsc-valid (hinted); 100% on held-out prompts
 ```
 
 ### Current Implementation Status
@@ -121,20 +135,24 @@ The project follows a **step-based pipeline architecture**:
 - Props extraction: handles simple, composite, and no-props patterns (dot notation for composites,
   e.g. "Root.collection")
 
-**✅ Step 1 — Normalization (2 of 7 chunk types implemented):**
+**✅ Step 1 — Normalization (4 of 7 chunk types implemented):**
 - ✅ **CodeExampleChunk** transformer — **410 chunks**. Embeds the **authentic section prose**
   captured from the docs; the hardcoded template generator is demoted to a fallback used only for
   prose-less sections.
 - ✅ **PropReferenceChunk** transformer — **374 chunks** (PropExplanationGenerator + externalized
   template config).
+- ✅ **ComponentOverviewChunk** (50) + **CapabilityReferenceChunk** (63) — "what is X" / "what can X
+  do" chunks; both routed in `extractEmbeddingText.ts` and embedded (Pass B's reserved-slot retrieval
+  depends on them).
 - ✅ Inference engine (code analyzer, section inferrer, intent classifier), config system, and
   graceful fallback generation.
-- ✅ **784 normalized chunks** total from 50 components.
-- 📋 Not yet implemented (5 of 7 types): `component-overview`, `capability-reference`, `prop-group`,
-  `composition-pattern`, `api-reference`.
+- ✅ **897 normalized chunks** total from 50 components.
+- 📋 Not yet implemented (3 of 7 types, low ROI): `prop-group`, `composition-pattern`, `api-reference`.
 
-**✅ Step 2 — Embedding:** all **784 chunks embedded** into Qdrant (`chakra-ui-docs`,
-text-embedding-3-small, 1536d); drift detection clean (784 points = 784 chunks).
+**✅ Step 2 — Embedding:** all **897 chunks embedded** into Qdrant (`chakra-ui-docs`,
+text-embedding-3-small, 1536d); drift detection clean (897 points = 897 chunks). _Proof — Qdrant
+`points/count` by `chunkType` (2026-06-25): code-example 410, prop-reference 374, component-overview
+50, capability-reference 63; prop-group/composition-pattern/api-reference 0._
 
 **✅ Step 3 — Search + Evaluation:** LLM-as-judge retrieval eval (`npm run quality:eval:judge`)
 reporting graded precision (gP@k), no-relevant count, and nDCG over the golden set plus a held-out
@@ -144,9 +162,15 @@ paraphrased gP@k 0.684 → 0.748, no-relevant queries 3 → 0). See
 
 **🧪 Tests:** 609 passing across 20 suites.
 
-**🎯 Next:** implement the high-value missing chunk types (`component-overview`,
-`capability-reference`) and/or expand coverage with the ~50 additional components the re-crawl
-discovered.
+**✅ Step 4 — Spec-Driven Generation:** NL request → retrieval-grounded v3 TSX → bounded `tsc`
+self-heal, gated on objective signals (tsc-valid + v2-smell + composition lint, **not** the LLM judge,
+which Passes A proved unreliable on v3). The A–F correction loop reached **~93% grounded tsc-valid**
+(hinted repair) on the 15 v2-"landmine" prompts and **100%** on a held-out generalization set. CLI:
+`npm run cli -- 4-generate "<request>"`. Full method + results: [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md).
+
+**🎯 Next:** ship the tested generation capability behind a UI (live preview + code + objective
+report) — see [README_FULLSTACK.md](README_FULLSTACK.md). Then: corpus expansion (~50 more components
+in `raw-json-phase3-extra/`), the remaining 3 low-ROI chunk types, and an MCP server.
 
 ## Project Structure
 
@@ -198,7 +222,7 @@ Design-MCP/
 │       └── tokenEstimator.ts                  # Token counting
 ├── artifacts/
 │   ├── raw-json/                              # ✅ 50 extracted component files
-│   ├── normalized/                            # ✅ 84 normalized files (784 chunks)
+│   ├── normalized/                            # ✅ normalized chunk files (897 chunks, 4 types)
 │   ├── metrics/                               # ✅ Transformation metrics (JSONL)
 │   └── logs/                                  # ✅ Error logs
 ├── docs/                                       # 📂 Documentation (see "Documentation" below)
@@ -500,7 +524,7 @@ Example output structure:
 
 **📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
 
-### ✅ Step 1 Complete: Normalization Pipeline (2 of 7 chunk types)
+### ✅ Step 1 Complete: Normalization Pipeline (4 of 7 chunk types)
 
 **CodeExampleChunk Transformer**
 - [x] Inference engine (code analyzer, section inferrer, intent classifier)
@@ -515,13 +539,15 @@ Example output structure:
 - [x] `normalizePropReferences()` orchestrator — per-prop error handling + Zod validation
 - [x] **374 prop-reference chunks** from 50 components
 
-**📋 Remaining chunk types (5 of 7):**
-- [ ] `component-overview` ("what is X") and `capability-reference` ("what can X do") — highest value
+**✅ ComponentOverviewChunk + CapabilityReferenceChunk** — **50 + 63 chunks**; "what is X" / "what
+can X do". Routed in `extractEmbeddingText.ts` and embedded (Pass B reserved-slot retrieval uses them).
+
+**📋 Remaining chunk types (3 of 7, low ROI):**
 - [ ] `prop-group`, `composition-pattern`, `api-reference`
 
 ### ✅ Step 2 Complete: Embedding & Vector Store
 - [x] OpenAI text-embedding-3-small (1536d)
-- [x] Qdrant store — **784 points embedded**, drift detection clean
+- [x] Qdrant store — **897 points embedded**, drift detection clean
 - [x] Idempotent upsert via `uuidv5(chunkId)` (after fixing a collision bug that dropped 26% of points)
 
 ### ✅ Step 3 Complete: Search & Evaluation
@@ -583,7 +609,7 @@ Example output structure:
 - Quality verification workflow
 
 **Normalization Pipeline** ([src/steps/1-normalize/](src/steps/1-normalize/))
-- **Transformers**: CodeExampleChunk + PropReferenceChunk implemented (2/7 chunk types)
+- **Transformers**: CodeExample + PropReference + ComponentOverview + CapabilityReference (4/7 chunk types)
 - **Inference Engine**: Code analyzer, section inferrer, intent classifier
 - **Content Generation**: Authentic docs prose, with template generator as a fallback
 - **Configuration**: External JSON configs for categories, patterns, behavior
@@ -694,10 +720,11 @@ Use extracted specs to train or prompt LLMs for generating:
 
 ### Where things stand:
 - ✅ **Step 0 — Extraction:** 50 components in [artifacts/raw-json/](artifacts/raw-json/); captures real section headings + prose
-- ✅ **Step 1 — Normalization:** CodeExampleChunk + PropReferenceChunk (2/7 types), **784 chunks**
-- ✅ **Step 2 — Embedding:** 784 points in Qdrant (`chakra-ui-docs`)
+- ✅ **Step 1 — Normalization:** 4/7 chunk types, **897 chunks** (code-example 410, prop-reference 374, component-overview 50, capability-reference 63)
+- ✅ **Step 2 — Embedding:** 897 points in Qdrant (`chakra-ui-docs`)
 - ✅ **Step 3 — Search + Evaluation:** LLM-as-judge harness; authentic prose beats templates
-- 📋 **Next:** remaining chunk types (`component-overview`, `capability-reference`) and/or corpus expansion
+- ✅ **Step 4 — Generation:** grounded v3 TSX + tsc self-heal; ~93% grounded tsc-valid (see [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md))
+- 📋 **Next:** ship a UI over generation ([README_FULLSTACK.md](README_FULLSTACK.md)); then corpus expansion, 3 remaining chunk types, MCP server
 
 ### Key Documentation:
 - **[CLAUDE.md](CLAUDE.md)** - Project quick facts & contribution guide
@@ -708,13 +735,14 @@ Use extracted specs to train or prompt LLMs for generating:
 
 ---
 
-**Status:** ✅ **Steps 0–3 Complete** (extract → normalize → embed → search + eval) | 📋 **Next: more chunk types / corpus expansion / spec-driven generation**
+**Status:** ✅ **Steps 0–4 Complete** (extract → normalize → embed → search + eval → spec-driven generation, ~93% grounded tsc-valid) | 📋 **Next: ship a UI over generation ([README_FULLSTACK.md](README_FULLSTACK.md)); then corpus expansion / MCP server**
 
 **Details:**
 - Step 0 — Extraction: ✅ 50 components, 100% schema validation; real headings + prose captured
-- Step 1 — Normalization: ✅ CodeExampleChunk (410) + PropReferenceChunk (374) = 784 chunks, 2/7 types
-- Step 2 — Embedding: ✅ 784 points in Qdrant (text-embedding-3-small, 1536d)
+- Step 1 — Normalization: ✅ code-example (410) + prop-reference (374) + component-overview (50) + capability-reference (63) = 897 chunks, 4/7 types
+- Step 2 — Embedding: ✅ 897 points in Qdrant (text-embedding-3-small, 1536d)
 - Step 3 — Search + Eval: ✅ LLM-as-judge harness; authentic prose > templates (see EVALUATION_STRATEGY.md)
+- Step 4 — Generation: ✅ grounded v3 TSX + tsc self-heal; ~93% grounded tsc-valid (see GENERATION_EXPERIMENT.md)
 - Tests: ✅ 609 passing across 20 suites
 
 For questions, issues, or feature requests, please open an issue on GitHub.

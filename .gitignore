@@ -62,3 +62,6 @@ gen-sandbox/*.tsbuildinfo
 artifacts/gen-spike.log
 artifacts/gen-ab*.log
 artifacts/gen-eval/
+
+# generated component outputs (reproducible)
+artifacts/generated/
