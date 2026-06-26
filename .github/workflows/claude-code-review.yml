@@ -1,0 +1,54 @@
+name: Claude Code Review
+
+# Automatic AI review when a pull request is opened (CodeRabbit-style, powered by Claude).
+# Requires repo secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions).
+# Cost = Anthropic API usage per review. Fires once per PR (on open) — not on every push.
+# To re-review after changes, close/reopen the PR, or add `synchronize` to the types below.
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write   # post the review + inline comments
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    # Skip draft PRs and PRs from bots (incl. Claude's own automation).
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the action can diff against the base branch
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Pass-through CLI args. Pin a current model; raise turn budget for larger diffs.
+          claude_args: "--model claude-opus-4-8 --max-turns 25"
+          prompt: |
+            REPO_DIR is a checkout of pull request #${{ github.event.pull_request.number }}
+            ("${{ github.event.pull_request.title }}") on branch
+            "${{ github.event.pull_request.head.ref }}", base "${{ github.event.pull_request.base.ref }}".
+
+            Review ONLY the changes in this PR's diff (base...head). Read CLAUDE.md first and honor the
+            project's conventions (ESM/NodeNext, strict TypeScript, kebab-case modules, "never invent
+            commands/paths/APIs", small surgical diffs).
+
+            Focus, in priority order:
+            1. Correctness bugs: logic errors, unhandled edge cases, async/await mistakes, type holes,
+               broken imports, anything that would fail `tsc --noEmit` or the existing tests.
+            2. Reuse & simplification: duplicated logic that an existing util/service already covers,
+               needless complexity, dead code.
+            3. Project-fit: violations of the conventions in CLAUDE.md; stale or contradicted docs.
+
+            Post findings as INLINE review comments on the specific lines, plus one short summary
+            comment. Be concrete and cite file:line. Prefer fewer high-confidence findings over a long
+            list of nits. If the PR looks clean, say so briefly — do not invent problems.
+            Do NOT modify files, push commits, approve, or merge — review only.
