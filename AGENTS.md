@@ -1,9 +1,16 @@
 # AGENTS.md
 
+> **Status:** 2026-06-26 — current to steps 0–4.
+>
+> **[CLAUDE.md](CLAUDE.md) is the canonical, fuller agent guide and is kept current first.** This file
+> mirrors the essentials for tools that read `AGENTS.md`; if the two ever disagree, CLAUDE.md wins.
+
 ## Project Summary
 
 - **Name:** `spec-driven-generator`
-- **Purpose:** crawl design-system documentation, extract structured artifacts, normalize them for retrieval, and support embedding/search workflows for downstream component generation.
+- **Purpose:** a RAG → generation pipeline for Chakra UI **v3** — crawl docs, extract → normalize →
+  embed (Qdrant) → retrieve, then **generate** one grounded, self-contained TSX component from a
+  natural-language request, gated on objective `tsc` / v2-smell / composition checks.
 - **Primary target:** Chakra UI docs.
 - **Tech stack:** TypeScript, Node.js 20+, Playwright, Commander, Zod, OpenAI embeddings, Qdrant, Docker.
 
@@ -32,6 +39,13 @@ src/
       utils/
     3-search/
       retriever.ts
+      eval/
+    4-generate/
+      generator.ts
+      pipeline.ts
+      validators/
+      eval/
+      test-generation/
   schemas/
     RAGResultSchema.ts
     NormalizedChunkSchema.ts
@@ -67,9 +81,10 @@ npm run build
 
 ```bash
 npm run cli -- 0-extract-docs -m 10
-npm run start
-npm run embed
-npm run search
+npm run cli -- 1-normalize
+npm run cli -- 2-embed
+npm run cli -- 3-search "button color"
+npm run cli -- 4-generate "a green submit button"   # NL → grounded v3 TSX + tsc/smell/composition report
 ```
 
 ### Tests and Quality Checks
@@ -145,6 +160,20 @@ Key variables:
 - Keep embedding text deterministic for the same input.
 - Avoid shape drift between normalized artifacts and embedding payload builders.
 - Log vector-store operations with enough metadata to debug ingestion/search issues without exposing secrets.
+
+### Generation changes
+
+- Ground generation only in retrieved context; output imports come **only** from `@chakra-ui/react`
+  and `react` (no `@/components/ui/*`, no icon libraries).
+- Trust the objective gates — `tsc`-validity + `v2-smell` lint + composition lint. The LLM judge is
+  **not** trusted on v3 (it inverts); use it as a secondary signal only.
+- Never emit a Chakra **v3** API from memory — verify against the retrieved corpus or the
+  `gen-sandbox` `tsc` check (v3 broke heavily from v2).
+- Keep the A/B isolation: curated knowledge (v2→v3 renames, few-shot exemplars) stays grounded-arm-
+  only, keyed on retrieval — never in the shared prompt.
+- Verify with `npx tsx src/steps/4-generate/eval/run-ab.ts` and
+  `src/steps/4-generate/test-generation/run-heldout.ts`; judge per target prompt cell (generation is
+  non-deterministic), not the headline rate.
 
 ## Verification Flow
 

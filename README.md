@@ -1,5 +1,8 @@
 # Design-MCP: Spec-Driven Component Generator
 
+> **Status:** 2026-06-25 — full pipeline (steps 0–4) built; live per-step status below and in the
+> linked phase docs.
+
 A TypeScript-based documentation crawler and extraction tool designed to systematically gather component specifications from design system documentation (initially targeting Chakra UI) and transform them into structured, machine-readable formats suitable for RAG (Retrieval-Augmented Generation) systems.
 
 ## Quick Start

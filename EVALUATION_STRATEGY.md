@@ -1,6 +1,6 @@
 # Evaluation Strategy & Retrieval-Quality Roadmap
 
-> **Status:** active plan. Branch `week2_eval_harness`.
+> **Status:** active plan. Branch `week2_eval_harness`. _Chunk-type status refreshed 2026-06-26._
 > **Phases 1–3: DONE — 2026-06-22.** Verdict reached: **authentic prose beats templates**
 > (Phase 3 result table in §4). Instrument built (Phase 1), gpt-4o baseline locked (Phase 2),
 > scraper rewritten + re-embedded + measured (Phase 3).
@@ -140,7 +140,8 @@ isolates prose; the re-crawl also discovered ~50 new components, set aside in
   the golden set and a held-out paraphrased set (with a leakage Δ), written to `artifacts/eval/`.
 - **Phase 2 done:** a committed baseline of the current template approach under the new metric.
   The **gpt-4o** run is the reference (`artifacts/eval/baseline-judged-gpt4o.json`; numbers below).
-- **Phase 3 done ✅:** real-prose re-extraction + re-embed (784 chunks, same 50 components) and a
+- **Phase 3 done ✅:** real-prose re-extraction + re-embed (784 chunks across the two then-embedded
+  types, same 50 components; the corpus has since grown to 897 / 4 types — see Chunk-type status) and a
   documented gpt-4o delta (golden gP@k +0.032, paraphrased +0.064, paraphrased no-rel 3→0). Verdict:
   authentic prose wins; templates demoted to fallback. See §4 table.
 
@@ -212,11 +213,16 @@ isolates prose; the re-crawl also discovered ~50 new components, set aside in
 - Target: capture per example `section` (heading) **and** a new `sectionDescription` (intro
   prose), then thread both into the normalized chunk's embedded text.
 
-### Chunk-type status (for later, not Phase 1–3)
-- 2 of 7 chunk types implemented: `code-example` (387) and `prop-reference` (360).
-- Missing high-value types per the baseline's low expected-chunk-type score:
-  `component-overview` ("what is X") and `capability-reference` ("what can X do"). Schemas already
+### Chunk-type status (UPDATED 2026-06-26 — supersedes the Phase 1–3 snapshot)
+- **4 of 7 chunk types now implemented + embedded** (was 2/7 when this section was written):
+  `code-example` (410), `prop-reference` (374), `component-overview` (50), `capability-reference` (63).
+  The two "high-value missing" types called out previously were built after Phase 3 and are in
+  production — Step-4 Pass B's reserved-slot retrieval depends on them.
+- Remaining (3 of 7, low ROI): `prop-group`, `composition-pattern`, `api-reference`. Schemas already
   exist in [NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts).
+- _Proof — Qdrant `chakra-ui-docs` `points/count` by `chunkType` (2026-06-26): 897 total; code-example
+  410, prop-reference 374, component-overview 50, capability-reference 63; prop-group /
+  composition-pattern / api-reference = 0._
 
 ### Related docs
 - [docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md) — ROI analysis of the 7 chunk types.

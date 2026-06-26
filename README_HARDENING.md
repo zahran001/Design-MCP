@@ -1,6 +1,6 @@
 # Pipeline Hardening — Make Generation Trustworthy Before the UI
 
-> **Status:** PLAN / work-order (not yet built). This is the self-contained context to harden the
+> **Status:** PLAN / work-order — 2026-06-26 (not yet built). This is the self-contained context to harden the
 > generation pipeline so the metrics are reproducible and the outputs are proven to actually *render*,
 > **before** building the UI ([README_FULLSTACK.md](README_FULLSTACK.md)). Read this end-to-end before
 > starting — it captures the decisions already made so you don't re-litigate them.

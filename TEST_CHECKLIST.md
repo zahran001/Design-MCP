@@ -1,5 +1,7 @@
 # Test Checklist
 
+> **Status:** 2026-06-26 — covers steps 0–4.
+
 Manual verification checklist for the current Design-MCP implementation.
 
 Scope covered:
@@ -7,12 +9,11 @@ Scope covered:
 - Step 1: normalization
 - Step 2: embedding into Qdrant
 - Step 3: retrieval from Qdrant
+- Step 4: spec-driven generation (NL → grounded v3 TSX + objective `tsc`/smell/composition gates)
 
 Out of scope:
-- planner/spec generation
-- validator pipeline
 - MCP server
-- production API/deployment
+- production API / deployment / UI
 
 ## 1. Prerequisites
 
@@ -54,7 +55,7 @@ npm run cli -- --help
 Expected:
 - build succeeds
 - tests pass
-- CLI shows `0-extract-docs`, `1-normalize`, `2-embed`, `3-search`
+- CLI shows `0-extract-docs`, `1-normalize`, `2-embed`, `3-search`, `4-generate`
 
 ## 3. Step 0: Extraction
 
@@ -177,7 +178,35 @@ Verify manually:
 - payload logs show component name, source URL, and summary text
 - execution summary prints at the end
 
-## 8. Regression Checks
+## 8. Step 4: Generation
+
+Generate a component end-to-end (retrieve → generate → `tsc` self-heal → report). Needs
+`OPENAI_API_KEY`, Qdrant up, and `DEBUG=false`.
+
+```bash
+npm run cli -- 4-generate "a green submit button"
+npm run cli -- 4-generate "a checkbox with a label" -o artifacts/generated/checkbox.tsx
+npm run cli -- 4-generate "a number input from 0 to 10" --no-context
+```
+
+Verify manually:
+- a `.tsx` component prints (and is written when `-o` is given)
+- the report line shows `tsc=ok | v2-smells=... | composition=...`
+- `--no-context` visibly degrades output (more v2 smells / `tsc` errors) — confirms grounding helps
+- imports are only from `@chakra-ui/react` and `react`
+
+Objective harnesses (slower; several minutes):
+
+```bash
+npx tsx src/steps/4-generate/eval/run-ab.ts                 # grounded-vs-no-context 2×2
+npx tsx src/steps/4-generate/test-generation/run-heldout.ts # held-out generalization
+```
+
+Pass condition:
+- grounded hinted `tsc`-pass holds (~90%+), held-out ~100%, `v2-smell` Δ stays strongly negative
+- judge per target prompt cell, not the headline rate (generation is non-deterministic)
+
+## 9. Regression Checks
 
 Use these to confirm the recent fixes specifically:
 
@@ -217,7 +246,7 @@ Pass condition:
 - `extractEmbeddingText` tests pass
 - metadata anchors are accepted as intended behavior
 
-## 9. Code Pointers
+## 10. Code Pointers
 
 Use these files when investigating failures:
 
@@ -233,19 +262,22 @@ Use these files when investigating failures:
 - vector config: `src/config/vectorConfig.ts`
 - Qdrant service: `src/services/VectorStoreService.ts`
 - retrieval service: `src/services/RetrievalService.ts`
+- generation service: `src/steps/4-generate/generator.ts`
+- generation pipeline (generate→heal→validate): `src/steps/4-generate/pipeline.ts`
+- validators: `src/steps/4-generate/validators/` (`tscValidator`, `v2SmellDetector`, `compositionLint`, `repairHints`)
+- generation A/B harness: `src/steps/4-generate/eval/run-ab.ts`
 
-## 10. Current Completion Notes
+## 11. Current Completion Notes
 
 Implemented now:
 - extraction
-- code-example normalization
-- prop-reference normalization
-- embedding pipeline
-- vector search CLI
+- normalization: code-example, prop-reference, component-overview, capability-reference
+  (**4 of 7 chunk types** — counts verified via Qdrant `points/count`, 2026-06-26; see EVALUATION_STRATEGY.md)
+- embedding pipeline (Qdrant)
+- vector search CLI + retrieval eval harness
+- spec-driven generation (`4-generate`) + objective validators (`tsc` / v2-smell / composition / repair hints)
 
 Not implemented yet:
-- remaining 5 chunk types
-- planner/spec generation
-- validator pipeline
-- MCP server
-- production API/CI/CD
+- remaining 3 chunk types (`prop-group`, `composition-pattern`, `api-reference`)
+- UI / serving layer (see README_FULLSTACK.md), MCP server
+- production API / CI/CD

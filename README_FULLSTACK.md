@@ -1,6 +1,6 @@
 # Full-Stack Plan — Ship Generation Behind a UI
 
-> **Status:** PLAN (not yet built). This documents the next phase: wrap the tested generation
+> **Status:** PLAN — 2026-06-25 (not yet built). This documents the next phase: wrap the tested generation
 > pipeline in a web UI so users can type a request and **see** the Chakra v3 component. Backend
 > reuses the existing, validated `runGenerationPipeline()` — the UI is a thin layer, not a rewrite.
 

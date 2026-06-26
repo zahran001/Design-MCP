@@ -1,6 +1,6 @@
 # Step 4 — Spec-Driven Generation: Experiment & Correction Loop
 
-> **Status:** Phase 4a (thin slice) ✅ verified. Phase 4b A/B harness ✅ built and run. Correction
+> **Status (2026-06-25, through Pass F):** Phase 4a (thin slice) ✅ verified. Phase 4b A/B harness ✅ built and run. Correction
 > loop: **Pass A** ✅ (fixed eval confounders / judge inversion), **Pass B** ✅ (reserved-slot retrieval
 > mixing; satisfaction Δ +20%→+27%, tsc held 53%), **Pass C** ✅ (tsc self-correction — **negative
 > result**: compiler-feedback repair failed because TS's JSX-prop errors don't name the offending
