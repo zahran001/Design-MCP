@@ -262,6 +262,9 @@ docs are under `docs/archive/` (kept for provenance).
 | [TEST_CHECKLIST.md](TEST_CHECKLIST.md) | Manual verification checklist for pipeline steps 0–3. |
 
 ### Reference — `docs/`
+**Start at [docs/INDEX.md](docs/INDEX.md)** — it classifies every `docs/` file as 🟢 active vs 🗄️
+historical (the folder is mostly a point-in-time archive; trust the root docs for current facts).
+
 | Doc | What it is |
 |---|---|
 | [docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md) | ROI analysis of the 7 chunk types — which to implement next and why. |
