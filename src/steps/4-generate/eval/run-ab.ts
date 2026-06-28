@@ -185,8 +185,15 @@ function aggregate(outcomes: Outcome[]): Aggregate {
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 const dpct = (x: number) => `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}%`;
 
+// Measurement harness: temp 0 + a fixed seed so a single A/B run is a stable
+// signal (Item 1). Move 0 measured ~5.6% of tsc cells flipping run-to-run (all
+// in the grounded arm); this freezes the measurement. Product paths (the CLI)
+// keep the 0.2 default — variety is a feature there. The 2 genuinely bimodal
+// cells (button-icon, icon-button) still need k-sampling for an honest headline.
+const MEASUREMENT_SEED = 42;
+
 async function main(): Promise<void> {
-  const gen = new GenerationService();
+  const gen = new GenerationService({ temperature: 0, seed: MEASUREMENT_SEED });
   const judge = new GenerationJudge();
 
   console.log('='.repeat(88));

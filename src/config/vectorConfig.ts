@@ -40,3 +40,35 @@ const DEFAULT_GENERATION_MODEL = 'gpt-4o';
 export function getGenerationModel(): string {
   return process.env.GEN_MODEL?.trim() || DEFAULT_GENERATION_MODEL;
 }
+
+// Generation sampling knobs (Step 4 hardening, Item 1). PRODUCT default is 0.2
+// (variety is a feature in the CLI/UI). The MEASUREMENT harness overrides to
+// temp 0 + a fixed seed so a single A/B run is a stable signal — Move 0 found
+// ~5.6% of tsc cells flip run-to-run, all in the grounded arm. `seed` cuts
+// (not eliminates) the residual noise; OpenAI's seed is best-effort.
+const DEFAULT_GENERATION_TEMPERATURE = 0.2;
+
+// Float parser that ALLOWS 0 (the harness uses temp 0). parsePositiveInteger
+// rejects 0, so it can't be reused here.
+function parseTemperature(value: string | undefined, fallback: number): number {
+  if (!value || value.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+export function getGenerationTemperature(): number {
+  return parseTemperature(process.env.GEN_TEMP, DEFAULT_GENERATION_TEMPERATURE);
+}
+
+// Returns undefined when unset so we OMIT `seed` from the OpenAI call (rather
+// than sending a NaN). Any integer is valid, including 0 and negatives.
+export function getGenerationSeed(): number | undefined {
+  const value = process.env.GEN_SEED;
+  if (!value || value.trim() === '') {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
