@@ -1,8 +1,11 @@
 # Pipeline Hardening — Make Generation Trustworthy Before the UI
 
-> **Status:** IN PROGRESS — 2026-06-28. Move 0 (noise quantified) ✅ and **Item 1 variance control**
-> (temp + seed knob) ✅ landed; Items 2 (render-check) and 3 (stable failure set + expandability) not yet
-> built. This is the self-contained context to harden the generation pipeline so the metrics are
+> **Status:** IN PROGRESS — 2026-06-28. Move 0 (noise quantified) ✅, **Item 1 variance control**
+> (temp + seed knob) ✅, and **Item 2 headless render-check** (esbuild + Playwright, self-test 6/6, wired
+> + validated 100% on held-out) ✅ landed; Item 3 (stable failure set + Pass G + expandability) not yet
+> built — and the full landmine `run-ab` render-pass number is pending (the run hit an OpenAI quota 429;
+> the render column itself was confirmed working). This is the
+> self-contained context to harden the generation pipeline so the metrics are
 > reproducible and the outputs are proven to actually *render*, **before** building the UI
 > ([README_FULLSTACK.md](README_FULLSTACK.md)). Read this end-to-end before starting — it captures the
 > decisions already made so you don't re-litigate them.
@@ -107,10 +110,36 @@ the MCP server. Goal here = a **stable, trustworthy, expandable** pipeline first
 
 ---
 
-## Item 2 — Headless render-check (gap #7, the runtime oracle)
+## Item 2 — Headless render-check (gap #7, the runtime oracle) ✅ DONE (2026-06-28)
 **Goal:** a 4th objective gate — "does the generated component actually mount and render?" — that runs
 headless (no UI), catches what `tsc` misses, and becomes the proven foundation the UI's live preview
 reuses.
+
+> **Shipped (esbuild + Playwright, the doc's recommended path).** New
+> `validators/renderValidator.ts`: `renderValidate(code)` one-shot + a reusable `RenderValidator` class
+> (lazy browser, `validate()` / `close()`) that the batch harness reuses across all renders. Mechanism:
+> wrap the component in `<ChakraProvider value={defaultSystem}>` + an error boundary, esbuild-bundle to
+> a browser IIFE (`NODE_ENV=production`, jsx automatic), mount in Chromium, fail on uncaught error /
+> `console.error` / boundary catch / empty root DOM. Always resolves (failure is data). The Chakra v3
+> provider API was **verified against the installed `@chakra-ui/react@3.27.1`** (`ChakraProvider` takes
+> `{ value: SystemContext }`, `defaultSystem` is exported), not emitted from memory.
+> - **Self-test (`test-generation/render-selftest.ts`): 6/6 discriminate** — valid button + composed
+>   Checkbox mount; throw-on-render, a tsc-blind runtime throw (`JSON.parse`), blank render, and a
+>   bundle error (missing export) all caught. The runtime-throw case is the proof render catches what
+>   `tsc` is blind to.
+> - **Wired as a 4th signal:** `pipeline.ts` (`renderOk` / `renderError`, renders the final post-heal
+>   component once via the one-shot), `run-heldout.ts` (render-pass aggregate), `run-ab.ts` (`renderOk`
+>   per cell + `renderPassRate`, reusing ONE browser across all 30 renders).
+> - **Validated:** product CLI end-to-end (`render=ok`); held-out n=5 = **100% render-pass**, including
+>   the genuinely composed ColorPicker / File Upload / Checkbox Card. `npx tsc --noEmit` clean.
+> - **Temp files** `gen-sandbox/render/` (gitignored). New dep: `esbuild@0.28.1` (devDep).
+>
+> **Still open (blocked, not broken):** the full `run-ab.ts` render column was attempted (2026-06-28)
+> but the run hit an OpenAI **429 `insufficient_quota`** after 2 prompts — today's repeated harness runs
+> exhausted the API budget. The render column itself was confirmed working in that partial output
+> (every completed cell printed `rnd=ok`); only the *aggregate* landmine render-pass rate is pending.
+> Re-run once quota is restored to record it — that ~7-min adversarial run is where a render < tsc gap
+> would surface if it exists (held-out is non-trap, so it shows none).
 
 **Why before the UI:** (a) it's a *validator*, valuable with or without a UI; (b) live preview and
 this check are the *same mechanism* (Chakra component + provider, rendered) — solve it headless first,

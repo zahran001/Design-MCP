@@ -20,6 +20,7 @@ import { tscValidate } from './validators/tscValidator.js';
 import { detectV2Smells } from './validators/v2SmellDetector.js';
 import { buildRepairHints } from './validators/repairHints.js';
 import { lintComposition } from './validators/compositionLint.js';
+import { renderValidate } from './validators/renderValidator.js';
 
 export interface PipelineReport {
   query: string;
@@ -42,6 +43,10 @@ export interface PipelineReport {
   smells: string[];
   // Composition completeness (objective, on the final component)
   incomplete: string[]; // e.g. "Checkbox:Control/Label"; empty = fully composed
+  // Tier 3 — runtime correctness (objective): does the final component actually
+  // mount and produce DOM in a real browser? Catches what tsc is blind to.
+  renderOk: boolean;
+  renderError?: string; // failure reason when renderOk is false
 }
 
 const DEFAULT_OUT_DIR = path.join(process.cwd(), 'artifacts', 'generated');
@@ -97,6 +102,12 @@ export async function runGenerationPipeline(
     repairIters++;
   }
 
+  // Tier 3: mount the FINAL (post-heal) component once in a real browser. tsc
+  // proves types, not runtime — this is the only signal that the shipped artifact
+  // actually renders. One-shot (launch+close a browser); batch callers reuse a
+  // RenderValidator instead.
+  const render = await renderValidate(component);
+
   let outPath: string | null = null;
   if (opts.outPath !== null) {
     outPath = opts.outPath ?? path.join(DEFAULT_OUT_DIR, slugFromQuery(query));
@@ -118,6 +129,8 @@ export async function runGenerationPipeline(
     repairIters,
     smells: detectV2Smells(component),
     incomplete: lintComposition(component).map((i) => `${i.component}:${i.missing.join('/')}`),
+    renderOk: render.ok,
+    renderError: render.error,
   };
 }
 
@@ -130,5 +143,6 @@ export function formatReport(r: PipelineReport): string {
     : `tsc=ERR(${r.tscErrors}, ${r.repairIters} repairs tried)`;
   const smell = r.smells.length ? `v2-smells=[${r.smells.join(',')}]` : 'v2-smells=none';
   const comp = r.incomplete.length ? `incomplete=[${r.incomplete.join(',')}]` : 'composition=ok';
-  return `${tsc} | ${smell} | ${comp}`;
+  const render = r.renderOk ? 'render=ok' : `render=ERR(${r.renderError?.split('\n')[0] ?? ''})`;
+  return `${tsc} | ${smell} | ${comp} | ${render}`;
 }

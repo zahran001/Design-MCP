@@ -56,6 +56,7 @@ async function main(): Promise<void> {
   console.log(`  tsc-pass post-heal   : ${pct(frac((r) => r.tscOk))}`);
   console.log(`  v2-smell free        : ${pct(frac((r) => r.smells.length === 0))}`);
   console.log(`  composition complete : ${pct(frac((r) => r.incomplete.length === 0))}`);
+  console.log(`  render-pass (mounts) : ${pct(frac((r) => r.renderOk))}   (<= tsc-pass; the gap is the find)`);
   console.log(`\n💾 Components written to ${path.relative(process.cwd(), OUT_DIR)}/`);
   console.log('='.repeat(92));
 }

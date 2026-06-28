@@ -38,6 +38,7 @@ import { tscValidate } from '../validators/tscValidator.js';
 import { detectV2Smells } from '../validators/v2SmellDetector.js';
 import { buildRepairHints } from '../validators/repairHints.js';
 import { lintComposition } from '../validators/compositionLint.js';
+import { RenderValidator } from '../validators/renderValidator.js';
 import { LANDMINE_PROMPTS } from '../test-generation/landmine-prompts.js';
 
 const OUT_DIR = path.join(process.cwd(), 'artifacts', 'gen-eval');
@@ -69,6 +70,10 @@ interface Outcome {
   // only difference is the hint (generation variance is controlled out).
   repairRaw: RepairOutcome; // tsc errors only (= Pass C baseline, preserved)
   repairHinted: RepairOutcome; // tsc errors + smell-guided migration hints
+  // Tier 3 (Item 2): does the FINAL hinted-repair artifact actually mount in a
+  // real browser? Expect renderPass <= hintedTscPass — the gap is the find.
+  renderOk: boolean;
+  renderError?: string;
 }
 
 /**
@@ -121,6 +126,7 @@ interface Aggregate {
   hintedTscPassRate: number; // tsc-valid after SMELL-HINTED repair
   hintedSmellRate: number;
   hintedIters: number;
+  renderPassRate: number; // fraction whose final hinted artifact MOUNTS (Item 2)
 }
 
 async function score(
@@ -128,7 +134,8 @@ async function score(
   g: GenerationResult,
   query: string,
   reference: string,
-  judge: GenerationJudge
+  judge: GenerationJudge,
+  render: RenderValidator
 ): Promise<Outcome> {
   // SINGLE-SHOT metrics (the retrieval thesis) — all computed on the first
   // generation, identical to Pass A/B so the table stays comparable.
@@ -147,6 +154,10 @@ async function score(
   const repairRaw = await runRepairLoop(gen, query, g.component, tsc.diagnostics, armContext, tsc.ok, false);
   const repairHinted = await runRepairLoop(gen, query, g.component, tsc.diagnostics, armContext, tsc.ok, true);
 
+  // Render the FINAL hinted-repair artifact (the shippable one). Uses its own
+  // gen-sandbox/render/ files, so it doesn't collide with the tsc sandbox above.
+  const rendered = await render.validate(repairHinted.healed);
+
   return {
     grade,
     reason,
@@ -158,6 +169,8 @@ async function score(
     component: g.component,
     repairRaw,
     repairHinted,
+    renderOk: rendered.ok,
+    renderError: rendered.error,
   };
 }
 
@@ -179,6 +192,7 @@ function aggregate(outcomes: Outcome[]): Aggregate {
     hintedTscPassRate: sum((o) => (o.repairHinted.tscOk ? 1 : 0)) / n,
     hintedSmellRate: sum((o) => (o.repairHinted.smells > 0 ? 1 : 0)) / n,
     hintedIters: sum((o) => o.repairHinted.iters),
+    renderPassRate: sum((o) => (o.renderOk ? 1 : 0)) / n,
   };
 }
 
@@ -195,6 +209,9 @@ const MEASUREMENT_SEED = 42;
 async function main(): Promise<void> {
   const gen = new GenerationService({ temperature: 0, seed: MEASUREMENT_SEED });
   const judge = new GenerationJudge();
+  // One browser, reused across all 30 (prompt × arm) renders — a launch per call
+  // would dominate the run. Closed in the finally below.
+  const render = new RenderValidator();
 
   console.log('='.repeat(88));
   console.log(`GENERATION A/B — grounded vs no-context  (gen: ${gen.modelName}, judge: ${judge.modelName}, grounded-judge)`);
@@ -211,17 +228,18 @@ async function main(): Promise<void> {
     const nGen = await gen.generate(p.query, { k: 8, useContext: false });
     const reference = gGen.context.map((c) => c.rendered).join('\n\n');
 
-    const g = await score(gen, gGen, p.query, reference, judge);
-    const n = await score(gen, nGen, p.query, reference, judge);
+    const g = await score(gen, gGen, p.query, reference, judge, render);
+    const n = await score(gen, nGen, p.query, reference, judge, render);
     grounded.push(g);
     nocontext.push(n);
 
-    // tsc cell shows single-shot, then raw/hinted repair outcomes when it failed.
+    // tsc cell shows single-shot, then raw/hinted repair outcomes when it failed;
+    // rnd = does the final hinted artifact mount.
     const fmt = (o: Outcome) => {
       const tscCell = o.tscOk
         ? `tsc=ok`
         : `tsc=ERR->raw:${o.repairRaw.tscOk ? 'ok' : 'ERR'}/hint:${o.repairHinted.tscOk ? 'ok' : 'ERR'}`;
-      return `g=${o.grade} ${tscCell} sm=${o.smells.length} inc=${o.incomplete.length}`;
+      return `g=${o.grade} ${tscCell} sm=${o.smells.length} inc=${o.incomplete.length} rnd=${o.renderOk ? 'ok' : 'ERR'}`;
     };
     console.log(`${p.id.padEnd(18)} |  ${fmt(g).padEnd(40)} |  ${fmt(n)}`);
 
@@ -236,7 +254,7 @@ async function main(): Promise<void> {
   console.log('='.repeat(88));
   const row = (label: string, a: Aggregate) =>
     console.log(
-      `  ${label.padEnd(12)} satisfaction ${pct(a.satisfaction).padStart(4)}  |  tsc single ${pct(a.tscPassRate).padStart(4)} → raw ${pct(a.rawTscPassRate).padStart(4)} (${a.rawIters}i) → hinted ${pct(a.hintedTscPassRate).padStart(4)} (${a.hintedIters}i)  |  v2-smell ${pct(a.smellRate).padStart(4)} (${a.totalSmells})  |  complete ${pct(a.completeRate).padStart(4)}`
+      `  ${label.padEnd(12)} satisfaction ${pct(a.satisfaction).padStart(4)}  |  tsc single ${pct(a.tscPassRate).padStart(4)} → raw ${pct(a.rawTscPassRate).padStart(4)} (${a.rawIters}i) → hinted ${pct(a.hintedTscPassRate).padStart(4)} (${a.hintedIters}i)  |  v2-smell ${pct(a.smellRate).padStart(4)} (${a.totalSmells})  |  complete ${pct(a.completeRate).padStart(4)}  |  render ${pct(a.renderPassRate).padStart(4)}`
     );
   row('GROUNDED', ag);
   row('no-context', an);
@@ -267,6 +285,8 @@ async function main(): Promise<void> {
   );
   console.log(`\n💾 Report: ${path.relative(process.cwd(), reportPath)}`);
   console.log('='.repeat(88));
+
+  await render.close();
 }
 
 main().catch((e) => {

@@ -58,6 +58,8 @@ artifacts/raw-json-phase3-extra/
 # Step 4 generation: temp file the tsc validator writes (sandbox tsconfig is tracked)
 gen-sandbox/generated.tsx
 gen-sandbox/*.tsbuildinfo
+# Step 4 generation: temp files the render validator writes (esbuild + Playwright)
+gen-sandbox/render/
 # Regenerable run artifacts (metrics tracked in GENERATION_EXPERIMENT.md instead)
 artifacts/gen-spike.log
 artifacts/gen-ab*.log
