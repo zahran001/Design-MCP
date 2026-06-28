@@ -1,7 +1,8 @@
 # CLAUDE.md
 
-> **Status:** 2026-06-26 — current to steps 0–4. Canonical agent guide; orientation only, no volatile
-> metrics (those live in `README.md` / `GENERATION_EXPERIMENT.md`).
+> **Status:** 2026-06-28 — current to steps 0–4 (+ Step-4 hardening Items 1–2 in progress on
+> `hardening/variance-control`). Canonical agent guide; orientation only, no volatile metrics (those
+> live in `README.md` / `GENERATION_EXPERIMENT.md` / `README_HARDENING.md`).
 
 ## 1) Project quick facts
 
@@ -114,6 +115,16 @@ npm run quality:smoke                # step-0 extraction sanity
   only. When you claim an improvement, back it with the objective numbers.
 * **Small, surgical diffs.** Focused changes, rationale in the message. Re-runs must stay idempotent
   (don't duplicate artifacts; point IDs are `uuidv5(chunkId)`).
+* **Cost discipline — batch dev/eval work, keep product paths sync.** When OpenAI requests are
+  independent fan-out and *nobody is waiting interactively* (eval harnesses, embedding the corpus,
+  `--samples k`, paraphrase/judge generation), prefer the **async Batch API** — ~50% cheaper, separate
+  higher rate limits, and it carries `seed`/`temperature` through unchanged (same request body, just
+  queued; so Item-1 reproducibility holds — same best-effort-seed caveat as sync). **Do not batch the
+  interactive product path** (the `4-generate` CLI, the future UI) — the ≤24h async SLA is bad UX there;
+  keep it synchronous. Dependent loops (the `repair→tsc→repair` self-heal) aren't simple fan-out — leave
+  sync or wavefront-batch by iteration depth. Reuse one shared `BatchService` so sync and batch modes
+  share the local validators (tsc/render/smell) and the report shape. Rule of thumb: **batch the work
+  *you* run to build/measure; keep sync the work a *user* runs and waits on.**
 * **Guardrails (crawl):** only follow URLs matching `CRAWL_URL_PATTERN`; strip hash fragments when
   enqueueing; be resilient to selector drift (semantic queries, optional chaining).
 * **Guardrails (generate):** the generation/repair prompts import **only** from `@chakra-ui/react` and
