@@ -69,9 +69,19 @@ the MCP server. Goal here = a **stable, trustworthy, expandable** pipeline first
 > `button-icon`→PASS → 14/15 (93%). The seeded number is a stable *regression* signal, **not** the true
 > reliability of the two bimodal cells — that still needs `--samples k`.
 >
-> **Still open from Item 1:** the optional `--samples k` mode — Move 0 + this Verify *confirm* it's
-> needed (seed pins coin-flips to one arbitrary side), but it's a milestone-only headline tool, not yet
-> built.
+> **`--samples k` ✅ DONE (2026-06-29).** Added to `run-ab.ts` (`--samples <k>` / `-k`): draws k
+> generations per (prompt, arm) at the PRODUCT temp (0.2) with a varied seed per draw
+> (`MEASUREMENT_SEED + i` → reproducible set, varied samples), reports the per-cell PASS RATE
+> (hinted-tsc / render) and flags cells strictly between 0–100% as bimodal. Skips the judge (untrusted
+> on v3, not part of the headline → ~⅓ fewer calls). The default (no flag) k=1 2×2 A/B is untouched.
+> First run (k=3, report `gen-samples-k3-2026-06-29T06-42`): **honest grounded headline hinted-tsc 96%
+> / render 100%** (45/45 grounded draws mounted) — supersedes the variance-prone single-run 87–93%. It
+> pinpointed `button-icon` as the **lone** genuinely-flaky grounded tsc cell (33% tsc / **100% render** —
+> runtime-harmless); `number-input` came back 100% grounded (its Pass-G-run failure was a one-draw
+> fluke, not bimodality); `password-input` held **100%/100%** across all 3 draws (Pass G robust).
+> No-context aggregate 60%/60% → retrieval Δ ≈ +36–40pt. **Synchronous first cut; k-sampling is pure
+> fan-out and the ideal Batch API candidate** (CLAUDE.md cost rule) — batching it is the natural
+> follow-up.
 
 - **Measurement harness** (`run-ab.ts`, `run-heldout.ts`): generate at **temperature 0 + a fixed
   `seed`** so one run is a stable signal. (OpenAI's `seed` + `system_fingerprint` is best-effort, not

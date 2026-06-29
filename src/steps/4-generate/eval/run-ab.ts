@@ -206,6 +206,120 @@ const dpct = (x: number) => `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}%`;
 // cells (button-icon, icon-button) still need k-sampling for an honest headline.
 const MEASUREMENT_SEED = 42;
 
+// --- k-sample headline mode (Item 1, final piece) -------------------------------
+function parseSamples(): number {
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--samples' || argv[i] === '-k') {
+      const v = Number.parseInt(argv[i + 1] ?? '', 10);
+      if (Number.isFinite(v) && v > 0) return v;
+    }
+    const m = /^--samples=(\d+)$/.exec(argv[i]);
+    if (m) return Number.parseInt(m[1], 10);
+  }
+  return 1;
+}
+
+interface CellRates {
+  id: string;
+  arm: 'grounded' | 'nocontext';
+  tscPass: number; // fraction of k draws whose FINAL hinted artifact passes tsc
+  renderPass: number; // fraction that mounts
+  k: number;
+}
+
+// One lean draw: generate -> tsc -> hinted-repair -> render. NO judge — it is
+// untrusted on v3 (Pass A) and not part of the reliability headline, so sampling
+// skips it to cut cost. Mirrors the shippable hinted path.
+async function sampleOnce(
+  gen: GenerationService,
+  query: string,
+  useContext: boolean,
+  render: RenderValidator
+): Promise<{ tscOk: boolean; renderOk: boolean }> {
+  const g = await gen.generate(query, { k: 8, useContext });
+  const armContext = g.context.map((c) => c.rendered).join('\n\n');
+  const first = await tscValidate(g.component);
+  const hinted = await runRepairLoop(gen, query, g.component, first.diagnostics, armContext, first.ok, true);
+  const rendered = await render.validate(hinted.healed);
+  return { tscOk: hinted.tscOk, renderOk: rendered.ok };
+}
+
+// For an HONEST reliability number on the bimodal cells (button-icon, number-input
+// — frozen to an arbitrary 0/1 by a single seed), draw k generations per
+// (prompt, arm) at the PRODUCT temperature (0.2) with a different seed each draw
+// (reproducible set, varied samples) and report the per-cell PASS RATE. Pure
+// independent fan-out -> ideal for the Batch API later (CLAUDE.md cost rule);
+// synchronous here for the first cut.
+async function runSampledHeadline(k: number): Promise<void> {
+  const render = new RenderValidator();
+  const arms: Array<'grounded' | 'nocontext'> = ['grounded', 'nocontext'];
+  const acc: Record<string, Record<string, { tsc: number; render: number }>> = {};
+  for (const p of LANDMINE_PROMPTS) {
+    acc[p.id] = { grounded: { tsc: 0, render: 0 }, nocontext: { tsc: 0, render: 0 } };
+  }
+
+  console.log('='.repeat(88));
+  console.log(`SAMPLED HEADLINE — k=${k} draws/cell @ temp 0.2, varied seed (honest reliability)`);
+  console.log('='.repeat(88));
+
+  try {
+    for (let i = 0; i < k; i++) {
+      const gen = new GenerationService({ temperature: 0.2, seed: MEASUREMENT_SEED + i });
+      process.stdout.write(`  sample ${i + 1}/${k} (seed ${MEASUREMENT_SEED + i}) …`);
+      for (const p of LANDMINE_PROMPTS) {
+        for (const arm of arms) {
+          const r = await sampleOnce(gen, p.query, arm === 'grounded', render);
+          if (r.tscOk) acc[p.id][arm].tsc++;
+          if (r.renderOk) acc[p.id][arm].render++;
+        }
+      }
+      console.log(' done');
+    }
+  } finally {
+    await render.close();
+  }
+
+  const cells: CellRates[] = [];
+  for (const p of LANDMINE_PROMPTS) {
+    for (const arm of arms) {
+      cells.push({ id: p.id, arm, tscPass: acc[p.id][arm].tsc / k, renderPass: acc[p.id][arm].render / k, k });
+    }
+  }
+
+  const rate = (x: number) => `${(x * 100).toFixed(0)}%`;
+  console.log(`\nPer-cell pass-rate (hinted-tsc / render) over k=${k} — bimodal cells sit strictly between 0% and 100%:`);
+  console.log(`  ${'prompt'.padEnd(18)} | grounded tsc/render | no-context tsc/render`);
+  console.log('  ' + '-'.repeat(64));
+  for (const p of LANDMINE_PROMPTS) {
+    const g = acc[p.id].grounded;
+    const n = acc[p.id].nocontext;
+    const bimodal = [g.tsc, g.render, n.tsc, n.render].some((c) => c > 0 && c < k) ? '  ←bimodal' : '';
+    console.log(
+      `  ${p.id.padEnd(18)} | ${rate(g.tsc / k).padStart(4)} / ${rate(g.render / k).padStart(4)}      | ${rate(n.tsc / k).padStart(4)} / ${rate(n.render / k).padStart(4)}${bimodal}`
+    );
+  }
+
+  const np = LANDMINE_PROMPTS.length;
+  const mean = (arm: string, sel: (c: { tsc: number; render: number }) => number) =>
+    LANDMINE_PROMPTS.reduce((a, p) => a + sel(acc[p.id][arm]), 0) / (np * k);
+  console.log('\n  AGGREGATE (mean pass-rate across prompts):');
+  console.log(`    grounded   : hinted-tsc ${rate(mean('grounded', (c) => c.tsc))}  render ${rate(mean('grounded', (c) => c.render))}`);
+  console.log(`    no-context : hinted-tsc ${rate(mean('nocontext', (c) => c.tsc))}  render ${rate(mean('nocontext', (c) => c.render))}`);
+
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const reportPath = path.join(OUT_DIR, `gen-samples-k${k}-${stamp}.json`);
+  fs.writeFileSync(
+    reportPath,
+    JSON.stringify({ generatedAt: new Date().toISOString(), k, temperature: 0.2, baseSeed: MEASUREMENT_SEED, cells }, null, 2),
+    'utf8'
+  );
+  console.log(`\n💾 Report: ${path.relative(process.cwd(), reportPath)}`);
+  console.log('='.repeat(88));
+}
+// --------------------------------------------------------------------------------
+
 async function main(): Promise<void> {
   const gen = new GenerationService({ temperature: 0, seed: MEASUREMENT_SEED });
   const judge = new GenerationJudge();
@@ -289,7 +403,10 @@ async function main(): Promise<void> {
   await render.close();
 }
 
-main().catch((e) => {
+// Default (no flag) = the temp-0 + seed 2x2 A/B (regression signal). `--samples k`
+// = the k-draw reliability headline (honest pass-rate on the bimodal cells).
+const SAMPLES = parseSamples();
+(SAMPLES > 1 ? runSampledHeadline(SAMPLES) : main()).catch((e) => {
   console.error(e);
   process.exit(1);
 });
