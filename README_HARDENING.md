@@ -1,14 +1,22 @@
 # Pipeline Hardening — Make Generation Trustworthy Before the UI
 
-> **Status:** PLAN / work-order — 2026-06-26 (not yet built). This is the self-contained context to harden the
-> generation pipeline so the metrics are reproducible and the outputs are proven to actually *render*,
-> **before** building the UI ([README_FULLSTACK.md](README_FULLSTACK.md)). Read this end-to-end before
-> starting — it captures the decisions already made so you don't re-litigate them.
+> **Status:** IN PROGRESS — 2026-06-28. Move 0 (noise quantified) ✅, **Item 1 variance control**
+> (temp + seed knob) ✅, and **Item 2 headless render-check** (esbuild + Playwright, self-test 6/6, wired
+> + validated 100% on held-out) ✅ landed; Item 3 (stable failure set + Pass G + expandability) not yet
+> built. Landmine render-pass recorded: grounded **93%** (lone non-mount `password-input`); render proved
+> **orthogonal** to tsc, not nested. This is the
+> self-contained context to harden the generation pipeline so the metrics are
+> reproducible and the outputs are proven to actually *render*, **before** building the UI
+> ([README_FULLSTACK.md](README_FULLSTACK.md)). Read this end-to-end before starting — it captures the
+> decisions already made so you don't re-litigate them.
 
 ## Why this phase exists
-The A–F correction loop reached **~93% grounded `tsc`-valid** on the 15 landmine prompts and **100%**
-on 5 held-out prompts (see [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)). But two credibility
-gaps block trusting that and block a smooth UI build:
+The A–F correction loop reached **~87% grounded `tsc`-valid** (hinted repair) on the 15 landmine
+prompts — measured across 3 runs (2026-06-28): 12/15 reliably pass, 1 reliably fails
+(`password-input`), and 2 are genuine coin-flips (`button-icon`, `icon-button`); the **~93%** quoted in
+earlier passes was the lucky top of an 80–93% range (see Move 0 below). Held-out non-trap prompts stay
+**100%** (n=5; see [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)). Two credibility gaps still
+block trusting these numbers and block a smooth UI build:
 
 1. **Soft numbers.** Generation is non-deterministic (gpt-4o, temp 0.2). Single-shot grounded `tsc`
    swung **47→60%** across runs; `button-icon` flipped ok↔ERR between Passes D/E/F on nothing but
@@ -40,8 +48,40 @@ the MCP server. Goal here = a **stable, trustworthy, expandable** pipeline first
 
 ---
 
-## Item 1 — Variance control (temp 0 + seed)
+## Item 1 — Variance control (temp 0 + seed) ✅ DONE (2026-06-28)
 **Principle: separate MEASUREMENT from PRODUCT — they want opposite things.**
+
+> **Shipped.** `GenerationService` constructor now takes `{ temperature?, seed? }` (defaults from
+> `GEN_TEMP` / `GEN_SEED`, product default temp **0.2**); both are threaded into the generate **and**
+> repair `chat.completions.create` calls (`seed` omitted entirely when unset). `repair()` stays temp 0.
+> The two **measurement** harnesses (`run-ab.ts`, `run-heldout.ts`) construct with `{ temperature: 0,
+> seed: 42 }` (`MEASUREMENT_SEED`); the product CLI and the manual-inspection scripts (`run-spike`,
+> `reserved-slot-check`) keep the 0.2 default. `npx tsc --noEmit` clean. Config helpers
+> `getGenerationTemperature()` / `getGenerationSeed()` added to `vectorConfig.ts`; `.env.example`
+> documents `GEN_TEMP` / `GEN_SEED`.
+>
+> **Verify ✅ (2026-06-28).** Ran the seeded `run-ab.ts` **twice** (temp 0 + seed 42; reports
+> `gen-ab-2026-06-28T05-52` & `T06-00`): **0/90 cells flipped** — bit-identical, including the two
+> coin-flip cells. Headline reproduced exactly (grounded hinted 0.867 / 0.867, single-shot 0.667 /
+> 0.667). So the seed delivers run-to-run determinism here (no `system_fingerprint` drift observed this
+> session). **Important nuance — reproducible ≠ representative:** seed 42 happens to pin `button-icon`→
+> FAIL and `icon-button`→PASS, so the seeded headline is **13/15 (86.7%)**; a *different* seed could pin
+> `button-icon`→PASS → 14/15 (93%). The seeded number is a stable *regression* signal, **not** the true
+> reliability of the two bimodal cells — that still needs `--samples k`.
+>
+> **`--samples k` ✅ DONE (2026-06-29).** Added to `run-ab.ts` (`--samples <k>` / `-k`): draws k
+> generations per (prompt, arm) at the PRODUCT temp (0.2) with a varied seed per draw
+> (`MEASUREMENT_SEED + i` → reproducible set, varied samples), reports the per-cell PASS RATE
+> (hinted-tsc / render) and flags cells strictly between 0–100% as bimodal. Skips the judge (untrusted
+> on v3, not part of the headline → ~⅓ fewer calls). The default (no flag) k=1 2×2 A/B is untouched.
+> First run (k=3, report `gen-samples-k3-2026-06-29T06-42`): **honest grounded headline hinted-tsc 96%
+> / render 100%** (45/45 grounded draws mounted) — supersedes the variance-prone single-run 87–93%. It
+> pinpointed `button-icon` as the **lone** genuinely-flaky grounded tsc cell (33% tsc / **100% render** —
+> runtime-harmless); `number-input` came back 100% grounded (its Pass-G-run failure was a one-draw
+> fluke, not bimodality); `password-input` held **100%/100%** across all 3 draws (Pass G robust).
+> No-context aggregate 60%/60% → retrieval Δ ≈ +36–40pt. **Synchronous first cut; k-sampling is pure
+> fan-out and the ideal Batch API candidate** (CLAUDE.md cost rule) — batching it is the natural
+> follow-up.
 
 - **Measurement harness** (`run-ab.ts`, `run-heldout.ts`): generate at **temperature 0 + a fixed
   `seed`** so one run is a stable signal. (OpenAI's `seed` + `system_fingerprint` is best-effort, not
@@ -62,18 +102,66 @@ the MCP server. Goal here = a **stable, trustworthy, expandable** pipeline first
 - (Optional) a small `--samples k` mode in `run-ab.ts` that generates k times per (prompt, arm) and
   reports per-cell pass-rate for the headline number.
 
-**Measure-first step 0 (~30 min, do this first):** run the *current* harness 3× as-is to quantify how
-noisy it actually is. If cells rarely flip, temp 0 alone suffices; if they flip a lot, you know you
-need k-sampling for the headline. Don't guess the noise — measure it.
+**Move 0 — noise quantified ✅ (2026-06-28, 3× pre-change `run-ab.ts`, reports
+`artifacts/gen-eval/gen-ab-2026-06-28T05-{15,21,27}-*.json`).** Tracked tsc pass/fail across 90 cells
+(15 prompts × {grounded, nocontext} × {single, raw-repair, hinted-repair}):
+- **5/90 cells flip (5.6%)** — under the 8% bar, so **temp 0 stabilizes the measurement** (Item 1 done).
+- **All noise is in the grounded arm** — `nocontext` is 0/45 (it reliably re-emits the same v2 output).
+- **Two genuinely bimodal cells:** `button-icon` and `icon-button` are ~50/50 *generation* outcomes, not
+  measurement jitter. temp 0 + seed freezes each to ONE arbitrary outcome → it would report 100%/0% for
+  something truly ~50%. **This is exactly why the `--samples k` headline mode is still worth keeping**
+  (milestones only). `input-addon` also flipped single-shot once.
+- **`password-input` = STABLE-FAIL** (ERR all 3 runs) → a real coverage gap, not noise → Item 3 / Pass G.
+- **Headline swing:** grounded hinted 0.933 / 0.867 / 0.867 (so honest ~**87%**, range 80–93%, not the
+  93% single-run high); grounded single-shot 0.667 / 0.600 / 0.733 (13pt spread — confirms the noted
+  47–60% swing is real). Analysis script: `scratchpad/flip_analysis.py` (throwaway).
 
 **Verify:** run `run-ab.ts` twice with temp 0 + seed → identical (or near-identical) per-cell results.
 
 ---
 
-## Item 2 — Headless render-check (gap #7, the runtime oracle)
+## Item 2 — Headless render-check (gap #7, the runtime oracle) ✅ DONE (2026-06-28)
 **Goal:** a 4th objective gate — "does the generated component actually mount and render?" — that runs
 headless (no UI), catches what `tsc` misses, and becomes the proven foundation the UI's live preview
 reuses.
+
+> **Shipped (esbuild + Playwright, the doc's recommended path).** New
+> `validators/renderValidator.ts`: `renderValidate(code)` one-shot + a reusable `RenderValidator` class
+> (lazy browser, `validate()` / `close()`) that the batch harness reuses across all renders. Mechanism:
+> wrap the component in `<ChakraProvider value={defaultSystem}>` + an error boundary, esbuild-bundle to
+> a browser IIFE (`NODE_ENV=production`, jsx automatic), mount in Chromium, fail on uncaught error /
+> `console.error` / boundary catch / empty root DOM. Always resolves (failure is data). The Chakra v3
+> provider API was **verified against the installed `@chakra-ui/react@3.27.1`** (`ChakraProvider` takes
+> `{ value: SystemContext }`, `defaultSystem` is exported), not emitted from memory.
+> - **Self-test (`test-generation/render-selftest.ts`): 6/6 discriminate** — valid button + composed
+>   Checkbox mount; throw-on-render, a tsc-blind runtime throw (`JSON.parse`), blank render, and a
+>   bundle error (missing export) all caught. The runtime-throw case is the proof render catches what
+>   `tsc` is blind to.
+> - **Wired as a 4th signal:** `pipeline.ts` (`renderOk` / `renderError`, renders the final post-heal
+>   component once via the one-shot), `run-heldout.ts` (render-pass aggregate), `run-ab.ts` (`renderOk`
+>   per cell + `renderPassRate`, reusing ONE browser across all 30 renders).
+> - **Validated:** product CLI end-to-end (`render=ok`); held-out n=5 = **100% render-pass**, including
+>   the genuinely composed ColorPicker / File Upload / Checkbox Card. `npx tsc --noEmit` clean.
+> - **Temp files** `gen-sandbox/render/` (gitignored). New dep: `esbuild@0.28.1` (devDep).
+>
+> **Landmine render-pass recorded (2026-06-28, seed 42, report `gen-ab-2026-06-28T07-22`):**
+> **grounded 93% (14/15), no-context 60% (9/15)** mount. The single non-mounting grounded landmine is
+> `password-input`, failing with `React.Children.only expected to receive a single React element child`
+> — the *runtime* face of the same `InputGroup` multi-child / TS2746 structural bug Item 3 / Pass G
+> targets. The render gate caught the one genuinely-broken case independently.
+>
+> **Finding — render ⟂ tsc (orthogonal, NOT nested; the predicted "render ≤ tsc" was wrong).** Grounded
+> render (93%) > hinted-tsc (87%) because esbuild strips types and does NOT type-check: `button-icon`
+> fails tsc but its type error is *runtime-harmless*, so it mounts fine. The two gates measure different
+> things — tsc catches type errors (some runtime-harmless), render catches mount failures (some
+> tsc-blind, e.g. the `JSON.parse` self-test case). Neither dominates. So render is a genuinely
+> independent 4th signal, and it adds discrimination: it de-escalated a type-only failure
+> (`button-icon`: tsc-ERR / render-ok) and corroborated the one real structural defect (`password-input`:
+> tsc-ERR / render-ERR).
+>
+> **Seed note:** single-shot grounded read 60% here vs 67% in the earlier seeded runs — one cell drifted
+> (the documented best-effort-seed / `system_fingerprint` caveat across days). The hinted-repair final
+> (87%) and the stable failure set held.
 
 **Why before the UI:** (a) it's a *validator*, valuable with or without a UI; (b) live preview and
 this check are the *same mechanism* (Chakra component + provider, rendered) — solve it headless first,
@@ -105,7 +193,8 @@ leaner for a CI gate.
   Promise<{ ok: boolean; error?: string }>` mirroring `tscValidator.ts`'s shape (always resolves;
   failure is data, not an exception).
 - Add it to `pipeline.ts` (`runGenerationPipeline`) as a reported signal, and to `run-ab.ts` /
-  `run-heldout.ts` as a column. **Expect render-pass rate ≤ tsc-pass rate** — that gap is the point.
+  `run-heldout.ts` as a column. (Originally expected render ≤ tsc; the run showed they're **orthogonal**
+  — render can exceed tsc when a type error is runtime-harmless. The independent signal is the point.)
 - Perf note: a browser render is slower than `tsc` (~seconds). Reuse a single Playwright
   browser/context across the run; only render the *final* (post-heal) component, not every repair iter.
 
@@ -117,6 +206,46 @@ follows the same "write → run tool → parse result → resolve" shape.
 
 ## Item 3 — Stable failure set + Pass G + expandability
 Do this **after** 1 and 2 (stable measure + runtime oracle).
+
+> **Progress (2026-06-29):** Re-measure ✅ (the seed-42 run already isolated the stable set:
+> `password-input` the lone reliable failure, `button-icon`/`icon-button` coin-flips). **Pass G ✅** —
+> shipped + validated. Corpus-derived exemplar (the expandability lever): **not yet built** (its scope
+> was corrected — see below).
+>
+> **Pass G result.** New structural repair hint in `repairHints.ts`: `InputGroup` multi-child (gated on
+> the `TS2746` diagnostic, or the removed v2 `InputRightElement`/`InputLeftElement`) → "single `Input`
+> child; trailing controls go in `endElement`." Also broadened the Pass E icon heuristic from
+> self-closing-only `icon={<X/>}` to any `icon={<…` (it was *missing* `password-input`'s
+> `icon={<span>…</span>}`, leaving its second error un-hinted). 8/8 offline checks (hint fires on the
+> real failing case; no false-positives — `leftIcon` excluded, correct `InputGroup` silent; **the
+> prescribed `endElement` structure provably passes tsc + renders**). End-to-end run
+> (`gen-ab-2026-06-29T05-52`): **`password-input` GROUNDED flipped hinted-tsc ERR→ok AND render ERR→ok**;
+> **grounded render 93%→100% (15/15)**. The grounded hinted-tsc *aggregate* held at 87% because
+> `button-icon` (known coin-flip) and `number-input` failed tsc this run — both **render fine**
+> (runtime-harmless) and **neither is reachable by the change** (no `InputGroup`/`icon={<` in
+> `number-input`), i.e. cross-day seed variance, not a regression.
+>
+> **Scope correction (corpus-derived exemplar).** The doc's "corpus-derive *also* fixes `password-input`
+> — kill two birds" is **false, measured:** all 7 of Password Input's code-example chunks carry the
+> forbidden `@/components/ui/...` import (0 clean), and it already had a curated exemplar that wasn't
+> enough — so its real fix was always Pass G, not an exemplar. Corpus-derivation remains a sound
+> *scalability* win on its own (390/410 = 95% of code-examples are clean and directly usable), but it
+> needs a **forbidden-import sanitization gate** + curated fallback for the 5 copy-in components
+> (Password Input, Code Block, Color Mode, Prose, Testing). Build it as the expandability mechanism, not
+> as the `password-input` fix.
+>
+> **Decision (2026-06-29) — DEFERRED; ship the UI first.** Corpus-derive is a *scalability* investment
+> with no payoff until scale, and generation is already trustworthy on the current corpus (grounded
+> **96% tsc / 100% render**, k=3). So the next priority is the full-stack UI ([README_FULLSTACK.md](README_FULLSTACK.md))
+> to prove end-to-end value; corpus-derive waits. **Framing (don't overstate it):** exemplars are one of
+> **four** curated v3-specific surfaces (`FEWSHOT_EXEMPLARS`, `V2_SMELLS`, `COMPOSITION_RULES`,
+> `repairHints`). Exemplars are **per-component** → corpus-deriving them scales to more components within
+> Chakra; the other three are **per-library** → a *different* library (MUI, Ant) also needs a new crawler
+> + those three rebuilt/derived. So corpus-derive is a *milestone toward* "any component library," not
+> the endgame (which is all four surfaces corpus-derived). **Revisit when (trigger-based, not calendar):**
+> (1) corpus expansion makes hand-curating exemplars a *felt* bottleneck (onboarding the ~50 in
+> `artifacts/raw-json-phase3-extra/`); (2) the UI surfaces real demand for components beyond the embedded
+> 50; (3) a decision to support a second component library.
 
 **Re-measure the failure set.** With temp 0 + seed, re-run `run-ab.ts` and record the *stable*
 grounded-hinted failures. In the last (noisy) Pass F run it was **only `password-input`** (14/15) — but
@@ -154,11 +283,16 @@ surface that needs to become expandable / corpus-derived.
 
 ## Reference
 
-### Current numbers (Pass F, 2026-06-25 — single run, hence Item 1)
-- Grounded `tsc`-pass: single-shot **60%**, raw-repair 67%, **hinted 93% (14/15)**. No-context hinted
-  47%. Report: `artifacts/gen-eval/gen-ab-2026-06-25T22-47-22-592Z.json`.
-- Held-out (n=5): **100%** single-shot and post-heal. Log: `artifacts/heldout-passF.log`.
-- Lone grounded failure: `password-input` (TS2746, structural).
+### Current numbers (3-run measurement, 2026-06-28 — supersedes the Pass F single run)
+- Grounded `tsc`-pass **hinted: ~87%** (range 80–93% across 3 runs; the Pass F **93%/14-15** was the
+  top of that range, not the central estimate). Single-shot grounded ~60–73% (13pt spread). No-context
+  hinted ~47%. Reports: `artifacts/gen-eval/gen-ab-2026-06-28T05-{15,21,27}-*.json`.
+- Stable failure set (grounded hinted): **1 reliable fail** `password-input` (TS2746, structural) +
+  **2 coin-flips** `button-icon`, `icon-button`; the other 12/15 reliably pass.
+- Held-out (n=5): **100%** single-shot and post-heal (Pass F, `artifacts/heldout-passF.log`); not yet
+  re-measured under temp 0 + seed.
+- Prior single-run figure (kept for provenance): Pass F report
+  `artifacts/gen-eval/gen-ab-2026-06-25T22-47-22-592Z.json` (single-shot 60% / raw 67% / hinted 93%).
 
 ### Key files
 | Purpose | Path |
@@ -190,9 +324,10 @@ npx tsc --noEmit                                                  # type-check t
 ### Honest caveats to carry forward
 - OpenAI `seed`/temp 0 reduces but doesn't fully eliminate nondeterminism (`system_fingerprint` can
   change). Don't claim bit-exact reproducibility.
-- Render-pass rate will be **≤** tsc-pass rate; treat the drop as newly-found real failures, not a
-  regression.
+- Render-pass and tsc-pass are **orthogonal**, not nested (measured: grounded render 93% > tsc-hinted
+  87%). A render failure on a tsc-passing component is a newly-found real failure; a render *pass* on a
+  tsc-failing one means the type error is runtime-harmless. Read the two signals together, not as a gap.
 - Few-shot/heuristics/lints are curated finite lists — they only catch what's enumerated; the
   corpus-derived path (Item 3b) is how that stops being a ceiling.
-- ~93% is on *adversarial* landmines; held-out non-trap prompts are ~100%. Real-world reliability sits
-  between — Item 1's k-sampling is how you actually pin it.
+- ~87% (range 80–93%) is on *adversarial* landmines; held-out non-trap prompts are ~100%. Real-world
+  reliability sits between — the `--samples k` mode is how you actually pin the two coin-flip cells.

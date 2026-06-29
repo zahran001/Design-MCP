@@ -1,9 +1,12 @@
 name: Claude Code Review
 
 # Automatic AI review when a pull request is opened (CodeRabbit-style, powered by Claude).
-# Requires repo secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions).
-# Cost = Anthropic API usage per review. Fires once per PR (on open) — not on every push.
-# To re-review after changes, close/reopen the PR, or add `synchronize` to the types below.
+# Auth: Claude Pro/Max subscription via an OAuth token (no API credits needed).
+#   1. Run `claude setup-token` locally (signed into your Pro/Max account) to mint a token.
+#   2. Add it as repo secret CLAUDE_CODE_OAUTH_TOKEN (Settings → Secrets and variables → Actions).
+# Cost = your subscription's shared rate limits (not pay-per-token API billing).
+# Fires once per PR (on open) — not on every push. To re-review after changes, close/reopen
+# the PR, or add `synchronize` to the types below.
 
 on:
   pull_request:
@@ -29,9 +32,9 @@ jobs:
       - name: Claude Code Review
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Pass-through CLI args. Pin a current model; raise turn budget for larger diffs.
-          claude_args: "--model claude-opus-4-8 --max-turns 25"
+          claude_args: "--model claude-sonnet-4-6 --max-turns 25"
           prompt: |
             REPO_DIR is a checkout of pull request #${{ github.event.pull_request.number }}
             ("${{ github.event.pull_request.title }}") on branch

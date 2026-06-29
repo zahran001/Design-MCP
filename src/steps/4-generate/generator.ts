@@ -13,7 +13,11 @@
 import { OpenAI } from 'openai';
 import 'dotenv/config';
 import { RetrievalService } from '../../services/RetrievalService.js';
-import { getGenerationModel } from '../../config/vectorConfig.js';
+import {
+  getGenerationModel,
+  getGenerationTemperature,
+  getGenerationSeed,
+} from '../../config/vectorConfig.js';
 import type { SearchResult } from '../../services/RetrievalService.js';
 
 export interface ContextChunk {
@@ -242,9 +246,19 @@ export class GenerationService {
   private client: OpenAI;
   private model: string;
   private retrieval: RetrievalService;
+  // Generation temperature for `generate()` (product default 0.2). `repair()`
+  // stays deterministic at temp 0 regardless — it's a corrective, not creative,
+  // pass. The eval harness constructs with { temperature: 0, seed } to make a
+  // single run a stable measurement (Item 1).
+  private temperature: number;
+  // Optional best-effort determinism seed, threaded into BOTH the generate and
+  // repair calls. undefined => omit `seed` from the OpenAI request entirely.
+  private seed: number | undefined;
 
-  constructor(options: { model?: string } = {}) {
+  constructor(options: { model?: string; temperature?: number; seed?: number } = {}) {
     this.model = options.model || getGenerationModel();
+    this.temperature = options.temperature ?? getGenerationTemperature();
+    this.seed = options.seed ?? getGenerationSeed();
     this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     this.retrieval = new RetrievalService();
   }
@@ -293,7 +307,8 @@ export class GenerationService {
 
     const completion = await this.client.chat.completions.create({
       model: this.model,
-      temperature: 0.2,
+      temperature: this.temperature,
+      ...(this.seed !== undefined ? { seed: this.seed } : {}),
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userMessage },
@@ -339,6 +354,7 @@ export class GenerationService {
     const completion = await this.client.chat.completions.create({
       model: this.model,
       temperature: 0,
+      ...(this.seed !== undefined ? { seed: this.seed } : {}),
       messages: [
         { role: 'system', content: REPAIR_SYSTEM_PROMPT },
         { role: 'user', content: userMessage },

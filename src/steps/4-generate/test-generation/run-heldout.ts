@@ -20,8 +20,13 @@ import { HELDOUT_PROMPTS } from './heldout-prompts.js';
 const OUT_DIR = path.join(process.cwd(), 'artifacts', 'generated', 'heldout');
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
+// Measurement harness: temp 0 + fixed seed for a stable single run (Item 1).
+// Keep this in sync with run-ab.ts's MEASUREMENT_SEED so the two harnesses are
+// comparable.
+const MEASUREMENT_SEED = 42;
+
 async function main(): Promise<void> {
-  const gen = new GenerationService();
+  const gen = new GenerationService({ temperature: 0, seed: MEASUREMENT_SEED });
 
   console.log('='.repeat(92));
   console.log(`END-TO-END HELD-OUT TEST — shippable pipeline  (model: ${gen.modelName}, grounded)`);
@@ -51,6 +56,7 @@ async function main(): Promise<void> {
   console.log(`  tsc-pass post-heal   : ${pct(frac((r) => r.tscOk))}`);
   console.log(`  v2-smell free        : ${pct(frac((r) => r.smells.length === 0))}`);
   console.log(`  composition complete : ${pct(frac((r) => r.incomplete.length === 0))}`);
+  console.log(`  render-pass (mounts) : ${pct(frac((r) => r.renderOk))}   (<= tsc-pass; the gap is the find)`);
   console.log(`\n💾 Components written to ${path.relative(process.cwd(), OUT_DIR)}/`);
   console.log('='.repeat(92));
 }
