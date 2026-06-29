@@ -197,6 +197,33 @@ follows the same "write → run tool → parse result → resolve" shape.
 ## Item 3 — Stable failure set + Pass G + expandability
 Do this **after** 1 and 2 (stable measure + runtime oracle).
 
+> **Progress (2026-06-29):** Re-measure ✅ (the seed-42 run already isolated the stable set:
+> `password-input` the lone reliable failure, `button-icon`/`icon-button` coin-flips). **Pass G ✅** —
+> shipped + validated. Corpus-derived exemplar (the expandability lever): **not yet built** (its scope
+> was corrected — see below).
+>
+> **Pass G result.** New structural repair hint in `repairHints.ts`: `InputGroup` multi-child (gated on
+> the `TS2746` diagnostic, or the removed v2 `InputRightElement`/`InputLeftElement`) → "single `Input`
+> child; trailing controls go in `endElement`." Also broadened the Pass E icon heuristic from
+> self-closing-only `icon={<X/>}` to any `icon={<…` (it was *missing* `password-input`'s
+> `icon={<span>…</span>}`, leaving its second error un-hinted). 8/8 offline checks (hint fires on the
+> real failing case; no false-positives — `leftIcon` excluded, correct `InputGroup` silent; **the
+> prescribed `endElement` structure provably passes tsc + renders**). End-to-end run
+> (`gen-ab-2026-06-29T05-52`): **`password-input` GROUNDED flipped hinted-tsc ERR→ok AND render ERR→ok**;
+> **grounded render 93%→100% (15/15)**. The grounded hinted-tsc *aggregate* held at 87% because
+> `button-icon` (known coin-flip) and `number-input` failed tsc this run — both **render fine**
+> (runtime-harmless) and **neither is reachable by the change** (no `InputGroup`/`icon={<` in
+> `number-input`), i.e. cross-day seed variance, not a regression.
+>
+> **Scope correction (corpus-derived exemplar).** The doc's "corpus-derive *also* fixes `password-input`
+> — kill two birds" is **false, measured:** all 7 of Password Input's code-example chunks carry the
+> forbidden `@/components/ui/...` import (0 clean), and it already had a curated exemplar that wasn't
+> enough — so its real fix was always Pass G, not an exemplar. Corpus-derivation remains a sound
+> *scalability* win on its own (390/410 = 95% of code-examples are clean and directly usable), but it
+> needs a **forbidden-import sanitization gate** + curated fallback for the 5 copy-in components
+> (Password Input, Code Block, Color Mode, Prose, Testing). Build it as the expandability mechanism, not
+> as the `password-input` fix.
+
 **Re-measure the failure set.** With temp 0 + seed, re-run `run-ab.ts` and record the *stable*
 grounded-hinted failures. In the last (noisy) Pass F run it was **only `password-input`** (14/15) — but
 **don't trust that single sample.** Expectation: `password-input` is a *reliable* failure; one or two

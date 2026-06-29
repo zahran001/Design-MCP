@@ -19,20 +19,23 @@
 
 import { V2_SMELLS } from './v2SmellDetector.js';
 
-// Pass E: heuristic hints for the two residual NON-rename failure classes Pass D
+// Pass E: heuristic hints for the residual NON-rename failure classes Pass D
 // isolated (icon-as-child, string-token coercion). Unlike V2_SMELLS these are
 // structural/typographic, so they match code shape (and, for coercion, the tsc
 // diagnostic) rather than a v2 token. Deliberately narrow to avoid false
 // positives:
-//   - icon: ONLY the bare `icon={<jsx/>}` prop (IconButton). leftIcon/rightIcon
-//     are already V2_SMELLS and already work (Pass D), so they're NOT re-matched
-//     here (the lowercase `icon=` boundary excludes `leftIcon=`/`rightIcon=`).
+//   - icon: any `icon={<...}` JSX icon prop (IconButton). leftIcon/rightIcon are
+//     already V2_SMELLS and already work (Pass D), so they're NOT re-matched here
+//     (the `\bicon=` word boundary excludes `leftIcon=`/`rightIcon=`); `icon={var}`
+//     with no JSX literal is also excluded (the `<` requirement). Pass G broadened
+//     this from the original self-closing-only `icon={<X/>}` form to also catch a
+//     non-self-closing icon like `icon={<span>Show</span>}` (the password-input case).
 //   - coercion: `value`/`defaultValue` assigned a numeric literal — but ONLY
 //     emitted when tsc actually complains "...not assignable to type 'string'",
 //     so legitimately-numeric props (e.g. a Slider value) are left alone. `gap`/
 //     `spacing` are intentionally excluded: numeric tokens are VALID in v3 (and
 //     `spacing` is already a rename smell).
-const ICON_AS_PROP = /\bicon=\{\s*<[^>]+>\s*\}/;
+const ICON_AS_PROP = /\bicon=\{\s*</;
 const NUMERIC_TOKEN = /\b(?:defaultValue|value)=\{\s*-?\d+(?:\.\d+)?\s*\}/;
 const WANTS_STRING = /not assignable to type '"?string"?'/;
 
@@ -42,6 +45,24 @@ const ICON_HINT =
 const COERCION_HINT =
   'A numeric literal was given where Chakra v3 types the prop as a string (e.g. NumberInput.Root / ' +
   "PinInput.Root `value`/`defaultValue`). Quote it: defaultValue=\"0\" instead of defaultValue={0}.";
+
+// Pass G: the one reliable landmine failure (`password-input`) is STRUCTURAL, not
+// a rename — the model wraps an <Input> plus a toggle <IconButton> as TWO children
+// of <InputGroup>, which in v3 takes a SINGLE Input child (tsc: TS2746 "expects a
+// single child"; runtime: "React.Children.only ... single React element child").
+// The fix is the `endElement`/`startElement` prop. Gated on the TS2746 diagnostic
+// (or the removed v2 InputRightElement/InputLeftElement components) so it only
+// fires on the genuine multi-child shape, never on a correct single-child InputGroup.
+const INPUTGROUP = /\bInputGroup\b/;
+const V2_INPUT_ELEMENTS = /\bInput(?:Right|Left)Element\b/;
+const SINGLE_CHILD_DIAG = /TS2746|single child/;
+
+const INPUTGROUP_HINT =
+  'Chakra v3 `InputGroup` accepts a SINGLE `Input` child — it cannot wrap multiple children. ' +
+  'Move any trailing control (a visibility-toggle IconButton, icon, or addon) into the `endElement` ' +
+  'prop (or `startElement` for a leading one), e.g. ' +
+  '<InputGroup endElement={<IconButton aria-label="Toggle" variant="ghost"><Icon /></IconButton>}>' +
+  '<Input type="password" /></InputGroup>. The v2 InputRightElement / InputLeftElement components were removed.';
 
 /**
  * Build surgical migration hints from (a) the curated V2_SMELLS rename map and
@@ -57,6 +78,13 @@ export function buildRepairHints(code: string, diagnostics: string[] = []): stri
   if (ICON_AS_PROP.test(code)) hints.push(ICON_HINT);
   if (NUMERIC_TOKEN.test(code) && diagnostics.some((d) => WANTS_STRING.test(d))) {
     hints.push(COERCION_HINT);
+  }
+  // Pass G: structural InputGroup multi-child → endElement.
+  if (
+    V2_INPUT_ELEMENTS.test(code) ||
+    (INPUTGROUP.test(code) && diagnostics.some((d) => SINGLE_CHILD_DIAG.test(d)))
+  ) {
+    hints.push(INPUTGROUP_HINT);
   }
 
   return hints;
