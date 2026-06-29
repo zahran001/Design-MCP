@@ -233,6 +233,19 @@ Do this **after** 1 and 2 (stable measure + runtime oracle).
 > needs a **forbidden-import sanitization gate** + curated fallback for the 5 copy-in components
 > (Password Input, Code Block, Color Mode, Prose, Testing). Build it as the expandability mechanism, not
 > as the `password-input` fix.
+>
+> **Decision (2026-06-29) — DEFERRED; ship the UI first.** Corpus-derive is a *scalability* investment
+> with no payoff until scale, and generation is already trustworthy on the current corpus (grounded
+> **96% tsc / 100% render**, k=3). So the next priority is the full-stack UI ([README_FULLSTACK.md](README_FULLSTACK.md))
+> to prove end-to-end value; corpus-derive waits. **Framing (don't overstate it):** exemplars are one of
+> **four** curated v3-specific surfaces (`FEWSHOT_EXEMPLARS`, `V2_SMELLS`, `COMPOSITION_RULES`,
+> `repairHints`). Exemplars are **per-component** → corpus-deriving them scales to more components within
+> Chakra; the other three are **per-library** → a *different* library (MUI, Ant) also needs a new crawler
+> + those three rebuilt/derived. So corpus-derive is a *milestone toward* "any component library," not
+> the endgame (which is all four surfaces corpus-derived). **Revisit when (trigger-based, not calendar):**
+> (1) corpus expansion makes hand-curating exemplars a *felt* bottleneck (onboarding the ~50 in
+> `artifacts/raw-json-phase3-extra/`); (2) the UI surfaces real demand for components beyond the embedded
+> 50; (3) a decision to support a second component library.
 
 **Re-measure the failure set.** With temp 0 + seed, re-run `run-ab.ts` and record the *stable*
 grounded-hinted failures. In the last (noisy) Pass F run it was **only `password-input`** (14/15) — but
