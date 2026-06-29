@@ -3,8 +3,8 @@
 > **Status:** IN PROGRESS — 2026-06-28. Move 0 (noise quantified) ✅, **Item 1 variance control**
 > (temp + seed knob) ✅, and **Item 2 headless render-check** (esbuild + Playwright, self-test 6/6, wired
 > + validated 100% on held-out) ✅ landed; Item 3 (stable failure set + Pass G + expandability) not yet
-> built — and the full landmine `run-ab` render-pass number is pending (the run hit an OpenAI quota 429;
-> the render column itself was confirmed working). This is the
+> built. Landmine render-pass recorded: grounded **93%** (lone non-mount `password-input`); render proved
+> **orthogonal** to tsc, not nested. This is the
 > self-contained context to harden the generation pipeline so the metrics are
 > reproducible and the outputs are proven to actually *render*, **before** building the UI
 > ([README_FULLSTACK.md](README_FULLSTACK.md)). Read this end-to-end before starting — it captures the
@@ -134,12 +134,24 @@ reuses.
 >   the genuinely composed ColorPicker / File Upload / Checkbox Card. `npx tsc --noEmit` clean.
 > - **Temp files** `gen-sandbox/render/` (gitignored). New dep: `esbuild@0.28.1` (devDep).
 >
-> **Still open (blocked, not broken):** the full `run-ab.ts` render column was attempted (2026-06-28)
-> but the run hit an OpenAI **429 `insufficient_quota`** after 2 prompts — today's repeated harness runs
-> exhausted the API budget. The render column itself was confirmed working in that partial output
-> (every completed cell printed `rnd=ok`); only the *aggregate* landmine render-pass rate is pending.
-> Re-run once quota is restored to record it — that ~7-min adversarial run is where a render < tsc gap
-> would surface if it exists (held-out is non-trap, so it shows none).
+> **Landmine render-pass recorded (2026-06-28, seed 42, report `gen-ab-2026-06-28T07-22`):**
+> **grounded 93% (14/15), no-context 60% (9/15)** mount. The single non-mounting grounded landmine is
+> `password-input`, failing with `React.Children.only expected to receive a single React element child`
+> — the *runtime* face of the same `InputGroup` multi-child / TS2746 structural bug Item 3 / Pass G
+> targets. The render gate caught the one genuinely-broken case independently.
+>
+> **Finding — render ⟂ tsc (orthogonal, NOT nested; the predicted "render ≤ tsc" was wrong).** Grounded
+> render (93%) > hinted-tsc (87%) because esbuild strips types and does NOT type-check: `button-icon`
+> fails tsc but its type error is *runtime-harmless*, so it mounts fine. The two gates measure different
+> things — tsc catches type errors (some runtime-harmless), render catches mount failures (some
+> tsc-blind, e.g. the `JSON.parse` self-test case). Neither dominates. So render is a genuinely
+> independent 4th signal, and it adds discrimination: it de-escalated a type-only failure
+> (`button-icon`: tsc-ERR / render-ok) and corroborated the one real structural defect (`password-input`:
+> tsc-ERR / render-ERR).
+>
+> **Seed note:** single-shot grounded read 60% here vs 67% in the earlier seeded runs — one cell drifted
+> (the documented best-effort-seed / `system_fingerprint` caveat across days). The hinted-repair final
+> (87%) and the stable failure set held.
 
 **Why before the UI:** (a) it's a *validator*, valuable with or without a UI; (b) live preview and
 this check are the *same mechanism* (Chakra component + provider, rendered) — solve it headless first,
@@ -171,7 +183,8 @@ leaner for a CI gate.
   Promise<{ ok: boolean; error?: string }>` mirroring `tscValidator.ts`'s shape (always resolves;
   failure is data, not an exception).
 - Add it to `pipeline.ts` (`runGenerationPipeline`) as a reported signal, and to `run-ab.ts` /
-  `run-heldout.ts` as a column. **Expect render-pass rate ≤ tsc-pass rate** — that gap is the point.
+  `run-heldout.ts` as a column. (Originally expected render ≤ tsc; the run showed they're **orthogonal**
+  — render can exceed tsc when a type error is runtime-harmless. The independent signal is the point.)
 - Perf note: a browser render is slower than `tsc` (~seconds). Reuse a single Playwright
   browser/context across the run; only render the *final* (post-heal) component, not every repair iter.
 
@@ -261,8 +274,9 @@ npx tsc --noEmit                                                  # type-check t
 ### Honest caveats to carry forward
 - OpenAI `seed`/temp 0 reduces but doesn't fully eliminate nondeterminism (`system_fingerprint` can
   change). Don't claim bit-exact reproducibility.
-- Render-pass rate will be **≤** tsc-pass rate; treat the drop as newly-found real failures, not a
-  regression.
+- Render-pass and tsc-pass are **orthogonal**, not nested (measured: grounded render 93% > tsc-hinted
+  87%). A render failure on a tsc-passing component is a newly-found real failure; a render *pass* on a
+  tsc-failing one means the type error is runtime-harmless. Read the two signals together, not as a gap.
 - Few-shot/heuristics/lints are curated finite lists — they only catch what's enumerated; the
   corpus-derived path (Item 3b) is how that stops being a ceiling.
 - ~87% (range 80–93%) is on *adversarial* landmines; held-out non-trap prompts are ~100%. Real-world
