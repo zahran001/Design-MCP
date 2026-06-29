@@ -41,7 +41,11 @@ async function asError(res: Response): Promise<never> {
     const body = await res.json();
     if (body?.error) message = body.error;
   } catch {
-    /* non-JSON error body — keep the status message */
+    // Non-JSON error body. A 5xx with no JSON is typically the Vite proxy failing
+    // to reach the API (e.g. the backend isn't running) — say so usefully.
+    if (res.status >= 500) {
+      message = `Backend unreachable or errored (HTTP ${res.status}) — is the API running? Start it with \`npm run serve\`.`;
+    }
   }
   throw new Error(message);
 }
@@ -54,11 +58,18 @@ export async function fetchExamples(): Promise<ExamplePrompt[]> {
 }
 
 export async function generate(query: string, useContext: boolean): Promise<PipelineReport> {
-  const res = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, useContext }),
-  });
+  let res: Response;
+  try {
+    res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, useContext }),
+    });
+  } catch {
+    // fetch rejects (TypeError "Failed to fetch") when the connection is refused
+    // / reset — i.e. the dev server can't reach the API at all.
+    throw new Error('Backend unreachable — is the API running? Start it with `npm run serve`.');
+  }
   if (!res.ok) await asError(res);
   return res.json();
 }
