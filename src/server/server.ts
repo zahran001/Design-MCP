@@ -81,9 +81,16 @@ export function createServer(gen: GenerationService): Express {
       });
       return res.json(report);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('generation failed:', message);
-      return res.status(500).json({ error: `Generation failed: ${message}` });
+      // Log the FULL error (with stack) server-side for debugging, but don't leak
+      // internal detail — OpenAI/Qdrant messages, stack traces — to the client.
+      // Production returns a generic message; non-production keeps the detail to
+      // aid local dev.
+      console.error('generation failed:', err);
+      const error =
+        process.env.NODE_ENV === 'production'
+          ? 'Generation failed, please try again.'
+          : `Generation failed: ${err instanceof Error ? err.message : String(err)}`;
+      return res.status(500).json({ error });
     }
   });
 
