@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+# tsc -b project-reference build outputs (generated from vite.config.ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
