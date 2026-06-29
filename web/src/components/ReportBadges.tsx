@@ -27,6 +27,12 @@ export function ReportBadges({ report }: { report: PipelineReport }) {
         {report.smells.length ? `v2-smells: ${report.smells.length}` : 'no v2 smells'}
       </Badge>
 
+      {report.smellRepairIters > 0 && (
+        <Badge colorPalette="green" variant="subtle" px={2} py={1}>
+          v2 smell auto-fixed
+        </Badge>
+      )}
+
       <Badge
         colorPalette={report.incomplete.length ? 'orange' : 'green'}
         variant="subtle"

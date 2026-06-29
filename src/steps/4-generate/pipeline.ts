@@ -45,6 +45,10 @@ export interface PipelineReport {
   repairIters: number; // self-heal attempts used (0 = compiled first try)
   // Tier 2 — API-migration compliance (objective, on the final component)
   smells: string[];
+  // Guarded smell-repair attempts taken AFTER tsc was already green (tsc is blind
+  // to prop-level v2 drift like colorScheme; this is the corrective pass). 0 = none
+  // needed or none accepted.
+  smellRepairIters: number;
   // Composition completeness (objective, on the final component)
   incomplete: string[]; // e.g. "Checkbox:Control/Label"; empty = fully composed
   // Tier 3 — runtime correctness (objective): does the final component actually
@@ -75,11 +79,20 @@ export function slugFromQuery(query: string): string {
 export async function runGenerationPipeline(
   gen: GenerationService,
   query: string,
-  opts: { k?: number; useContext?: boolean; maxRepair?: number; outPath?: string | null } = {}
+  opts: {
+    k?: number;
+    useContext?: boolean;
+    maxRepair?: number;
+    maxSmellRepair?: number;
+    outPath?: string | null;
+  } = {}
 ): Promise<PipelineReport> {
   const k = opts.k ?? 8;
   const useContext = opts.useContext ?? true;
   const maxRepair = opts.maxRepair ?? 2;
+  // One corrective pass is enough for a prop rename; keep it tight (cost + the
+  // guard already makes it monotonic). Set 0 to disable smell-repair entirely.
+  const maxSmellRepair = opts.maxSmellRepair ?? 1;
 
   const g = await gen.generate(query, { k, useContext });
   const armContext = g.context.map((c) => c.rendered).join('\n\n');
@@ -104,6 +117,19 @@ export async function runGenerationPipeline(
     tscOk = rt.ok;
     diagnostics = rt.diagnostics;
     repairIters++;
+  }
+
+  // Guarded smell-repair: tsc is blind to prop-level v2 drift (e.g. colorScheme),
+  // so a tsc-valid component can still carry a v2 smell that renders WRONG — the
+  // removed prop is a silent no-op (a "green" button comes out gray). The tsc loop
+  // above never fires for it (tsc is already green), so the smell would otherwise
+  // ship. Only meaningful once tsc is green (a tsc-failing component is the tsc
+  // loop's job first).
+  let smellRepairIters = 0;
+  if (tscOk) {
+    const sr = await guardedSmellRepair(gen, query, component, armContext, maxSmellRepair);
+    component = sr.component;
+    smellRepairIters = sr.iters;
   }
 
   // Tier 3: mount the FINAL (post-heal) component once in a real browser. tsc
@@ -132,11 +158,52 @@ export async function runGenerationPipeline(
     tscOk,
     tscErrors: diagnostics.length,
     repairIters,
+    smellRepairIters,
     smells: detectV2Smells(component),
     incomplete: lintComposition(component).map((i) => `${i.component}:${i.missing.join('/')}`),
     renderOk: render.ok,
     renderError: render.error,
   };
+}
+
+/**
+ * Bounded, GUARDED, monotonic smell-repair. Given a tsc-VALID component that
+ * still carries v2 smells (which tsc is blind to), regenerate with the v2->v3
+ * rename hints and accept the result ONLY if it strictly reduces smells WITHOUT
+ * breaking tsc or composition — otherwise keep the original. It can therefore
+ * only improve or no-op, never regress the artifact. Caller must ensure the input
+ * already passes tsc. Exported so the regression harness exercises this exact code.
+ */
+export async function guardedSmellRepair(
+  gen: GenerationService,
+  query: string,
+  component: string,
+  armContext: string,
+  max: number
+): Promise<{ component: string; iters: number }> {
+  let iters = 0;
+  let smells = detectV2Smells(component);
+  let incomplete = lintComposition(component).length;
+  while (smells.length > 0 && iters < max) {
+    const candidate = await gen.repair({
+      query,
+      component,
+      diagnostics: [], // tsc is green; the smell hints are the whole oracle here
+      contextBlock: armContext,
+      hints: buildRepairHints(component, []),
+    });
+    const ct = await tscValidate(candidate);
+    const candidateSmells = detectV2Smells(candidate);
+    const candidateIncomplete = lintComposition(candidate).length;
+    const improved =
+      ct.ok && candidateSmells.length < smells.length && candidateIncomplete <= incomplete;
+    if (!improved) break; // no strict improvement → keep the better (current) artifact
+    component = candidate;
+    smells = candidateSmells;
+    incomplete = candidateIncomplete;
+    iters++;
+  }
+  return { component, iters };
 }
 
 /** One-line human summary of a pipeline report. */
@@ -146,7 +213,11 @@ export function formatReport(r: PipelineReport): string {
       ? 'tsc=ok'
       : `tsc=ok(after ${r.repairIters} repair${r.repairIters > 1 ? 's' : ''})`
     : `tsc=ERR(${r.tscErrors}, ${r.repairIters} repairs tried)`;
-  const smell = r.smells.length ? `v2-smells=[${r.smells.join(',')}]` : 'v2-smells=none';
+  const smell = r.smells.length
+    ? `v2-smells=[${r.smells.join(',')}]`
+    : r.smellRepairIters > 0
+      ? 'v2-smells=none(repaired)'
+      : 'v2-smells=none';
   const comp = r.incomplete.length ? `incomplete=[${r.incomplete.join(',')}]` : 'composition=ok';
   const render = r.renderOk ? 'render=ok' : `render=ERR(${r.renderError?.split('\n')[0] ?? ''})`;
   return `${tsc} | ${smell} | ${comp} | ${render}`;

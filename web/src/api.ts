@@ -23,6 +23,7 @@ export interface PipelineReport {
   tscOk: boolean;
   tscErrors: number;
   repairIters: number;
+  smellRepairIters: number;
   smells: string[];
   incomplete: string[];
   renderOk: boolean;
