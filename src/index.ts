@@ -13,6 +13,7 @@ import { runEmbedder } from "./steps/2-embed/embedder.js";
 import { runSearchCli } from "./steps/3-search/retriever.js";
 import { GenerationService } from "./steps/4-generate/generator.js";
 import { runGenerationPipeline, formatReport } from "./steps/4-generate/pipeline.js";
+import { startServer } from "./server/server.js";
 
 function parsePositiveIntegerOption(value: string | undefined, optionName: string): number | undefined {
   if (value === undefined) {
@@ -145,6 +146,15 @@ program
       console.error("❌ Error during generation:", errorMessage);
       process.exit(1);
     }
+  });
+
+program
+  .command("4-serve")
+  .description("Start the HTTP API that wraps the generation pipeline (POST /api/generate) for the web UI")
+  .option("-p, --port <number>", "Port to listen on (default: 3001 or $PORT)")
+  .action((options: { port?: string }) => {
+    const port = parsePositiveIntegerOption(options.port, 'port');
+    startServer(port);
   });
 
 await program.parseAsync();

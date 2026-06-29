@@ -16,6 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GenerationService } from './generator.js';
+import type { ContextChunk } from './generator.js';
 import { tscValidate } from './validators/tscValidator.js';
 import { detectV2Smells } from './validators/v2SmellDetector.js';
 import { buildRepairHints } from './validators/repairHints.js';
@@ -34,6 +35,9 @@ export interface PipelineReport {
   cleanCodeBlock: boolean;
   /** Top retrieved component (context the generation was grounded in). */
   topContextComponent: string;
+  /** The retrieved chunks the generation was grounded in (the "Grounded in"
+   *  transparency panel the UI renders). Empty when useContext is false. */
+  context: ContextChunk[];
   // Tier 1 — type validity (objective)
   tscOkSingleShot: boolean; // before any repair (generation quality)
   tscOk: boolean; // after the self-heal loop (the shipped artifact)
@@ -123,6 +127,7 @@ export async function runGenerationPipeline(
     component,
     cleanCodeBlock: g.cleanCodeBlock,
     topContextComponent: g.context[0]?.componentName ?? '',
+    context: g.context,
     tscOkSingleShot: first.ok,
     tscOk,
     tscErrors: diagnostics.length,
