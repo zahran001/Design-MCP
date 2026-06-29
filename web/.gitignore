@@ -3,6 +3,7 @@ dist
 dist-ssr
 *.local
 .vite
+e2e/screenshots
 
 # tsc -b project-reference build outputs (generated from vite.config.ts)
 *.tsbuildinfo
