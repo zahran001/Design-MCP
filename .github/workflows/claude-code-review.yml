@@ -34,7 +34,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Pass-through CLI args. Pin a current model; raise turn budget for larger diffs.
-          claude_args: "--model claude-sonnet-4-6 --max-turns 25"
+          claude_args: "--model claude-sonnet-4-6 --max-turns 50"
           prompt: |
             REPO_DIR is a checkout of pull request #${{ github.event.pull_request.number }}
             ("${{ github.event.pull_request.title }}") on branch
