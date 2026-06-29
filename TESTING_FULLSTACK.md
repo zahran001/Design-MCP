@@ -181,12 +181,15 @@ Date run: `2026-06-29` (Section 2)   ·   Backend model (`/api/health`): `gpt-4o
 
 **Open issues found:**
 
-1. **v2 smells are reported but not a repair trigger.** Even *grounded*, non-determinism occasionally
-   yields `colorScheme` (v2) instead of `colorPalette` (v3). It type-checks and mounts, so `tsc ✓` and
-   `renders ✓` both pass — but the prop is a runtime no-op, so the button renders **black, not green**.
-   Only the `v2-smell` badge catches it, and the component ships anyway. Candidate fix: feed a non-empty
-   `smells[]` back into the self-heal loop as a soft repair trigger (Pass G territory). *Not done here —
-   flagged for triage.*
+1. **v2 smells are reported but not a repair trigger.** ✅ **RESOLVED** (commit `b72fa5b`). Even
+   *grounded*, non-determinism occasionally yields `colorScheme` (v2) instead of `colorPalette` (v3).
+   It type-checks and mounts, so `tsc ✓` and `renders ✓` both pass — but the prop is a runtime no-op,
+   so the button renders **black, not green**. Fix: a guarded, monotonic `guardedSmellRepair` pass runs
+   after `tsc` goes green and, when smells remain, regenerates with the v2→v3 rename hints — accepting
+   the result *only* if smells strictly drop without breaking tsc/composition. Validated on the 15
+   landmines (`validate-smell-repair.ts`, single-generation): no regression (tsc-pass 93%=93%,
+   composition/render 100%=100%), v2-smell 13%→7% — the one tsc-valid smelly case fixed; the
+   tsc-failing case correctly left to the tsc loop (smell-repair only acts on tsc-valid components).
 2. **`grounded: true` is misleading on out-of-corpus requests** (3.5). When the top retrieval score is
    low (~0.24 vs ~0.35+ for real matches), the chunks are noise and the output is model-memory in
    practice, yet the badge still says "grounded." → **Follow-up implemented:** surface a weak-grounding
