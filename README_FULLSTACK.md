@@ -1,8 +1,22 @@
 # Full-Stack Plan — Ship Generation Behind a UI
 
-> **Status:** PLAN — 2026-06-25 (not yet built). This documents the next phase: wrap the tested generation
-> pipeline in a web UI so users can type a request and **see** the Chakra v3 component. Backend
-> reuses the existing, validated `runGenerationPipeline()` — the UI is a thin layer, not a rewrite.
+> **Status:** MVP BUILT — 2026-06-29. The MVP below is implemented: an Express API (`src/server/`,
+> `npm run serve`) over the validated `runGenerationPipeline()`, and a Vite + React + Chakra v3 SPA
+> (`web/`) with prompt box, **live Sandpack preview**, code view, objective report badges, and the
+> "Grounded in" panel. The "Later / after MVP" section remains the forward plan. Backend reuses the
+> existing pipeline — the UI is a thin layer, not a rewrite.
+
+## How to run (MVP)
+
+```bash
+# 1. Backend API (long-lived; needs OPENAI_API_KEY + Qdrant up + DEBUG=false)
+npm run serve                       # POST /api/generate on :3001 (override with -p / $PORT)
+
+# 2. Frontend (separate terminal)
+cd web && npm install && npm run dev # Vite on :5173, proxies /api -> :3001
+```
+
+Then open the Vite URL, type a prompt (or click a held-out example), and Generate.
 
 ## Why
 The pipeline (`extract → normalize → embed → retrieve → generate`) is built and the A–F correction
