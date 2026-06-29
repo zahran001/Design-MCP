@@ -6,6 +6,7 @@ import { PromptBox } from './components/PromptBox';
 import { ReportBadges, ReportDetails } from './components/ReportBadges';
 import { CodeView } from './components/CodeView';
 import { GroundedPanel } from './components/GroundedPanel';
+import { LivePreview } from './components/LivePreview';
 
 export function App() {
   const [query, setQuery] = useState('');
@@ -76,8 +77,7 @@ export function App() {
                 </Text>
               </Box>
 
-              {/* Live preview lands here in the next commit. */}
-
+              <LivePreview component={report.component} renderOk={report.renderOk} />
               <CodeView code={report.component} />
               <GroundedPanel context={report.context} />
             </Stack>
