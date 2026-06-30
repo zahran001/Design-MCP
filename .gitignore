@@ -12,6 +12,7 @@ dist/
 
 # Local one-off vector/Qdrant push script (may embed cloud creds) — not for VCS.
 push-vectors.ps1
+setup-gcp-env.ps1
 
 # IDE files
 .vscode/
