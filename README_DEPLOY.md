@@ -152,9 +152,12 @@ app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
 Add to `scripts`: `"start:server": "node dist/index.js 4-serve"`.
 
 ### 6f. `deploy/Dockerfile` (new)
-Multi-stage; builds **both** the API and `web/`; **no Chromium**. Must copy the full `node_modules`
-(the `tsc` validator needs `typescript` + `@chakra-ui/react`, both devDeps — do NOT prune) and
-`gen-sandbox/` (the validator type-checks against `gen-sandbox/tsconfig.json`).
+Multi-stage; builds **both** the API and `web/`; **no Chromium**. The `tsc` validator's runtime deps
+(`typescript`, `@chakra-ui/react`, `react`+`react-dom` and their `@types`, `esbuild`) live in
+`dependencies` (not devDeps), so the builder can `npm prune --omit=dev` after the builds to drop pure
+test tooling (`jest`/`tsx`/`ts-node`/`@types/node|express|jest`) — the prod copy shrinks ~539→~460 MB
+while still type-checking. `playwright` stays (imported at load). Also copy `gen-sandbox/` (the
+validator type-checks against `gen-sandbox/tsconfig.json`).
 ```dockerfile
 # Stage 1: build API + SPA
 FROM node:20-slim AS builder
@@ -207,8 +210,45 @@ Verify `.dockerignore` excludes `node_modules`, `dist`, `artifacts` so `COPY . .
 2. Set the §5 env vars. Health-check path: `/api/health`.
 3. Render builds the image (API + `web/`), runs `npm run start:server`. The server serves `web/dist` at
    `/` and the API at `/api/*`.
-4. No Chromium → free/512 MB tier is plausible. Free tier **sleeps when idle** → cold start on first
-   request; use a small paid always-on instance or a keep-warm ping for demos.
+4. **Sizing — mind the `tsc` cost.** No Chromium keeps RAM modest, but every `/api/generate` spawns
+   `npx tsc` (CPU-bound, runs up to ~3× per request via the self-heal loop). Render's micro tiers
+   (e.g. **0.1 CPU / 512 MB**) will *run* but generation feels sluggish and 512 MB risks an OOM during
+   a type-check. Prefer **≥0.5 vCPU / 1 GB** (comfortable: 1 vCPU / 2 GB). Free tier also **sleeps when
+   idle** → cold start on first request; use a small paid always-on instance or a keep-warm ping for demos.
+
+## 8b. Deploy steps (Google Cloud Run — alternative, recommended)
+
+Cloud Run fits this workload better than a Render micro tier: **CPU is allocated during request
+processing** (exactly when `tsc` runs), it **injects `PORT`** (the server already reads `process.env.PORT`,
+so zero config), and **scale-to-zero** keeps it inside the free tier (~3,000 generations/month free at
+2 vCPU / 2 GiB). Trade-off: scale-to-zero means a **cold start on the first request after idle** (image
+pull + boot, then the ~20 s generation) — the slim image (§6f, ~460 MB) is the main mitigation.
+
+> **The two-Dockerfile trap:** `gcloud run deploy --source` / `gcloud builds submit --tag` auto-detect
+> the **root** `Dockerfile`, which is the step-0 **crawler** (Chromium). Always build with
+> `-f deploy/Dockerfile`. `cloudbuild.yaml` (repo root) does exactly this.
+
+**One-time setup** (replace `PROJECT`/region as needed):
+```bash
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+gcloud artifacts repositories create spec-gen --repository-format=docker --location=us-central1
+# Secrets (recommended over plaintext env): create one per key, grant the runtime SA access.
+printf '%s' "$OPENAI_API_KEY"   | gcloud secrets create openai-key   --data-file=-
+printf '%s' "$DEEPSEEK_API_KEY" | gcloud secrets create deepseek-key --data-file=-
+printf '%s' "$QDRANT_API_KEY"   | gcloud secrets create qdrant-key   --data-file=-
+# Configure the service env ONCE (re-deploys keep it). Non-secret config via --set-env-vars,
+# keys via --set-secrets. (Run after the first deploy below, or set on the deploy command.)
+gcloud run services update spec-to-component --region us-central1 \
+  --set-env-vars GEN_BASE_URL=https://api.deepseek.com,GEN_MODEL=deepseek-v4-pro,GEN_THINKING=false,REPAIR_THINKING=false,RENDER_CHECK=false,NODE_ENV=production,DEBUG=false,QDRANT_URL=...,QDRANT_COLLECTION_NAME=chakra-ui-docs \
+  --set-secrets OPENAI_API_KEY=openai-key:latest,DEEPSEEK_API_KEY=deepseek-key:latest,QDRANT_API_KEY=qdrant-key:latest
+```
+**Build + deploy** (repeatable; `cloudbuild.yaml` pins `-f deploy/Dockerfile`):
+```bash
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions=_REGION=us-central1,_REPO=spec-gen,_SERVICE=spec-to-component
+```
+**Notes:** don't set `PORT` (Cloud Run owns it); `--timeout 300` covers generation; the §7 Qdrant
+payload indexes are still required. Then run the §9 post-deploy smoke against the service URL.
 
 ## 9. Regression / verification
 
@@ -238,8 +278,10 @@ baseline on tsc/smell/composition; render 100% (with the export-tolerance fix); 
   smell is `button-loading` (a v2 loading prop the smell-repair didn't heal).
 - **`renderOk` unavailable in prod by design** — Sandpack covers live preview; server sends
   `renderChecked: false`, UI omits the badge. Still measured locally by the eval harness.
-- **devDeps at runtime** — the `tsc` validator needs `typescript` + `@chakra-ui/react` (both devDeps);
-  the prod image copies the full `node_modules`. Never switch to `npm ci --omit=dev`.
+- **Validator deps at runtime** — the `tsc` validator needs `typescript` + `@chakra-ui/react` +
+  `react`(+dom)/`@types` + `esbuild` at runtime; these now live in `dependencies` (not devDeps) so the
+  builder can `npm prune --omit=dev` and the prod image still type-checks. If you move any of them back
+  to devDeps, the pruned prod image will fail generation (`tsc` can't resolve the types).
 - **Cold start** on Render's free tier (idle sleep) — small paid instance or keep-warm ping for demos.
 - **Qdrant payload indexes** — Cloud needs a keyword index on every FILTERED field (`componentName`,
   `chunkType`); `2-embed` now creates them, but a pre-fix collection must be patched once (see §7).

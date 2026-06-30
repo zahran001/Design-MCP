@@ -12,13 +12,19 @@ RUN npm install
 COPY . .
 RUN npm run build                            # API -> dist/ (includes dist/server)
 RUN cd web && npm install && npm run build   # SPA -> web/dist
+# Slim node_modules for the prod copy: drop dev/test-only tooling (jest, tsx,
+# ts-node, @types/node|express|jest). The tsc validator's real runtime deps
+# (typescript, @chakra-ui/react, react(+dom) + their @types, esbuild) live in
+# "dependencies", so prune keeps them; playwright stays too. Run AFTER the builds,
+# which need the devDeps (@types/node, etc.).
+RUN npm prune --omit=dev
 
 # Stage 2: prod (no Chromium — render-check is off in prod)
 FROM node:20-slim
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
-# Full node_modules on purpose: the tsc validator needs typescript + @chakra-ui/react
-# (both devDeps) at runtime. Never prune to --omit=dev here.
+# Pruned node_modules from the builder (npm prune --omit=dev): keeps the tsc
+# validator's runtime deps (now in "dependencies") + playwright; drops jest/tsx/etc.
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/web/dist ./web/dist
