@@ -1,0 +1,61 @@
+# Cloud Build → Cloud Run, building the PROD web image from deploy/Dockerfile.
+#
+# Why this file exists: `gcloud run deploy --source` / `gcloud builds submit --tag`
+# auto-detect the Dockerfile at the REPO ROOT, which here is the step-0 CRAWLER
+# image (Playwright + Chromium). This config pins `-f deploy/Dockerfile` so the
+# slim web service is what gets built and shipped.
+#
+# Run:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REGION=us-central1,_REPO=spec-gen,_SERVICE=spec-to-component
+#
+# Env vars + secrets are configured ON THE SERVICE (once, see README_DEPLOY §8b),
+# NOT here — a re-deploy with --image keeps the existing service config, so this
+# file stays free of any keys.
+
+steps:
+  # 1. Build the web image from deploy/Dockerfile (NOT the root crawler Dockerfile).
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:latest
+      - .
+
+  # 2. Push both tags to Artifact Registry.
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web']
+
+  # 3. Deploy the new image to Cloud Run. CPU is allocated during request
+  #    processing (when the tsc validator runs); scale-to-zero keeps it free when
+  #    idle. PORT is injected by Cloud Run (default 8080) and the server reads it.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --cpu=2
+      - --memory=2Gi
+      - --timeout=300
+      - --max-instances=4
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:latest
+
+substitutions:
+  _REGION: us-central1
+  _REPO: spec-gen
+  _SERVICE: spec-to-component
+
+options:
+  logging: CLOUD_LOGGING_ONLY
