@@ -19,6 +19,11 @@
 > the corpus is OpenAI-embedded). Verified to **beat** the Pass-F gpt-4o baseline on the trusted gates:
 > grounded tsc **93%→100%** (all 15 landmines single-shot, 0 repairs; closes `password-input`), render
 > 100%, held-out 100%. Thinking mode OFF. See §3 "DeepSeek v4-pro swap" + `README_DEPLOY.md`.
+>
+> **Thinking-mode A/B (2026-06-30):** measured `GEN_THINKING`/`REPAIR_THINKING` ON vs OFF on the 15
+> landmines — **no objective gain** (all gates already at ceiling off) and **+46% latency**; repair
+> never fired (0/30), so `REPAIR_THINKING` is inert here. Prod stays thinking-OFF. See §3 "DeepSeek
+> thinking-mode A/B".
 
 ---
 
@@ -118,6 +123,33 @@ retrieval's contribution.
 > - **Validator note:** DeepSeek tends to emit a bare `const Demo` with no `export default`; the render
 >   validator (`renderValidator.ts`) was made export-shape-agnostic (mirroring `web/src/lib/sandbox.ts`)
 >   so render numbers are honest for any model — gpt-4o default-export behaviour is unchanged.
+
+> **DeepSeek thinking-mode A/B (2026-06-30)** — does `GEN_THINKING`/`REPAIR_THINKING` (DeepSeek's
+> extended chain-of-thought) move the objective gates, and at what cost? Ran the **15 landmines through
+> the shippable pipeline** (grounded, temp-0 + seed-42), **thinking OFF then ON for both generate+repair**,
+> in one process. Verdict: **off is strictly better.**
+>
+> | metric | OFF | ON |
+> |---|---|---|
+> | tsc single-shot | **100%** | **100%** |
+> | tsc post-heal | 100% | 100% |
+> | v2-smell free | **100%** | 93% |
+> | composition complete | 100% | 100% |
+> | render-pass | 100% | 100% |
+> | repairs fired (total) | 0 | 0 |
+> | wall-clock | **200.2s** | 291.1s |
+> | avg s/prompt | **13.3s** | 19.4s |
+>
+> - **No objective gain anywhere** — every gate is at ceiling with thinking off; grounding + the gates
+>   already saturate the metrics. Thinking only added **+46% latency** (13.3→19.4 s/prompt).
+> - **`REPAIR_THINKING` is inert on this corpus** — 0 repairs fired across all 30 runs (single-shot tsc
+>   was already 100%), so it can only ever matter on a tsc-failing generation, which didn't occur.
+> - **ON even regressed v2-smell** 100%→93% (one `isInvalid` flip on `field-invalid`) — treat as
+>   single-run noise (n=1, DeepSeek seed best-effort), so the honest claim is "no gain," not "it hurts."
+> - **Decision:** prod keeps `GEN_THINKING=false` / `REPAIR_THINKING=false` — turning them on is pure
+>   cost (latency + tokens) for a measured-zero benefit. Harness was a throwaway (`run-thinking-ab.ts`,
+>   not committed); reproduce by running the 15 landmines through `runGenerationPipeline` under both env
+>   settings. Caveat: single run, seed best-effort — re-run for bands before any stronger claim.
 
 > **Pass D 2×2 (tsc-pass, generation arm × repair mode)** — report
 > `gen-ab-2026-06-25T18-03-56-870Z.json`. (Single-shot grounded 47% vs the 53%
