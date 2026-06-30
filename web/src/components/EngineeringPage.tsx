@@ -4,7 +4,6 @@ import {
   Flex,
   Heading,
   HStack,
-  Link,
   Portal,
   SimpleGrid,
   Stack,
@@ -19,8 +18,6 @@ import type { ReactNode } from 'react';
 // the architecture, the headline numbers, and the decisions (including the honest
 // negatives). Mirrors SHOWCASE.md. Chakra v3 only (the app dogfoods the target),
 // no new deps; the pipeline "diagram" is built from boxes, not a mermaid render.
-
-const REPO = 'https://github.com/zahran001/Design-MCP/blob/main';
 
 // Inline term with a hover tooltip (dotted underline + help cursor). Reused for
 // every abbreviation / proper noun on the page so the treatment is consistent.
@@ -140,13 +137,6 @@ function Decision({ title, body }: { title: string; body: string }) {
     </Box>
   );
 }
-
-const docLink = {
-  target: '_blank',
-  rel: 'noopener noreferrer',
-  color: 'teal.fg',
-  textDecoration: 'underline',
-} as const;
 
 export function EngineeringPage() {
   return (
@@ -278,29 +268,6 @@ export function EngineeringPage() {
         </SimpleGrid>
       </Stack>
 
-      {/* Links */}
-      <Stack gap={2}>
-        <Heading size="md">Go deeper</Heading>
-        <Text fontSize="sm" color="fg.muted">
-          The full engineering narrative lives in the repo:{' '}
-          <Link href={`${REPO}/GENERATION_EXPERIMENT.md`} {...docLink}>
-            the correction loop &amp; A/B results
-          </Link>
-          ,{' '}
-          <Link href={`${REPO}/EVALUATION_STRATEGY.md`} {...docLink}>
-            retrieval evaluation
-          </Link>
-          ,{' '}
-          <Link href={`${REPO}/README_DEPLOY.md`} {...docLink}>
-            the deploy runbook
-          </Link>
-          , and{' '}
-          <Link href={`${REPO}/SHOWCASE.md`} {...docLink}>
-            the showcase
-          </Link>
-          .
-        </Text>
-      </Stack>
     </Stack>
   );
 }
