@@ -1,5 +1,6 @@
-# Node modules
-node_modules/
+# Node modules (root AND nested, e.g. web/node_modules — else it bloats the
+# build context: the prod image installs deps fresh in the builder stage)
+**/node_modules
 
 # Environment variables
 .env
@@ -12,13 +13,20 @@ node_modules/
 .git/
 .gitignore
 
-# Project specific (all generated artifacts — keep the Docker build context clean;
-# gen-sandbox/ is NOT here, the prod image copies it for the tsc validator)
+# Project specific (all generated artifacts — keep the Docker build context clean)
 artifacts/
 stores/*
 test-results/
 playwright-report/
 
+# gen-sandbox: the prod image needs ONLY tsconfig.json (the tsc validator points
+# at it). Exclude the validator's scratch — render/ holds esbuild/Playwright temp
+# files that don't tar cleanly, and generated.tsx is a per-run leftover.
+gen-sandbox/render/
+gen-sandbox/generated.tsx
+gen-sandbox/*.tsbuildinfo
+
 # Build artifacts
 dist/
+web/dist/
 *.log

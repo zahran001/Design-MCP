@@ -22,6 +22,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/web/dist ./web/dist
-COPY --from=builder /app/gen-sandbox ./gen-sandbox   # tsconfig the tsc validator points at
+# gen-sandbox holds the tsconfig the tsc validator points at (comment on its own
+# line — Dockerfile COPY does NOT support trailing inline comments; they parse as
+# extra source args).
+COPY --from=builder /app/gen-sandbox ./gen-sandbox
 ENV NODE_ENV=production RENDER_CHECK=false DEBUG=false
 CMD ["npm", "run", "start:server"]
