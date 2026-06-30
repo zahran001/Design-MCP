@@ -1,5 +1,5 @@
 import { SandpackProvider, SandpackLayout, SandpackPreview } from '@codesandbox/sandpack-react';
-import { Box, Text } from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import { buildPreviewFiles } from '../lib/sandbox';
 
 // The headline accessibility feature: render the generated component live, in a
@@ -16,9 +16,14 @@ export function LivePreview({ component, renderOk }: { component: string; render
   return (
     <Box borderWidth="1px" borderRadius="lg" overflow="hidden">
       <Box px={4} py={2} bg="bg.muted">
-        <Text fontSize="sm" fontWeight="medium" color="fg.muted">
-          Live preview
-        </Text>
+        <Flex align="center" justify="space-between" gap={2} wrap="wrap">
+          <Text fontSize="sm" fontWeight="medium" color="fg.muted">
+            Live preview
+          </Text>
+          <Text fontSize="xs" color="fg.subtle">
+            First preview can take a few seconds to boot the sandbox
+          </Text>
+        </Flex>
       </Box>
 
       {!renderOk && (

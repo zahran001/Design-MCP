@@ -7,7 +7,9 @@ import type { ContextChunk } from '../api';
 // component, chunk type and similarity score; expand to read the rendered text
 // the model actually saw.
 export function GroundedPanel({ context }: { context: ContextChunk[] }) {
-  const [open, setOpen] = useState(false);
+  // Open by default: this panel IS the RAG-transparency showcase (which real v3
+  // doc chunks grounded the generation) — surface it, don't hide it behind a click.
+  const [open, setOpen] = useState(true);
 
   if (!context.length) {
     return (
