@@ -32,6 +32,11 @@ export async function runEmbedder(options: EmbedderRunOptions = {}): Promise<num
   console.log('Creating collection...');
   await vectorStore.createCollection(collectionName, vectorSize);
 
+  // Reserved-slot retrieval filters on componentName + chunkType. Qdrant Cloud
+  // requires a payload index to filter (local Qdrant full-scans without one), so
+  // create them here — else grounded generation 400s against a fresh cloud cluster.
+  await vectorStore.ensurePayloadIndexes(collectionName, ['componentName', 'chunkType']);
+
   console.log('Loading normalized chunks...');
   const files = fs.readdirSync(normalizedDir).filter(f => f.endsWith('.json'));
 

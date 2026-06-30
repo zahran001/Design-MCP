@@ -42,6 +42,28 @@ export class VectorStoreService {
     }
   }
 
+  // Payload indexes for the fields reserved-slot retrieval FILTERS on
+  // (componentName + chunkType — see assembleReservedSlots in generator.ts).
+  // Qdrant Cloud REJECTS a filter on an unindexed field with a 400 ("Index
+  // required but not found"); local Qdrant silently full-scans instead, so this
+  // gap is invisible locally and only surfaces in the cloud. Idempotent —
+  // re-creating an existing index is a benign no-op.
+  async ensurePayloadIndexes(collectionName: string, fields: string[]): Promise<void> {
+    for (const field of fields) {
+      try {
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: field,
+          field_schema: 'keyword',
+          wait: true,
+        });
+        console.log(`✅ Payload index "${field}" (keyword) ready`);
+      } catch (error: any) {
+        // Already-exists or transient — log compact context, don't fail the embed.
+        console.warn(`payload index "${field}" not created (may already exist): ${error?.message ?? error}`);
+      }
+    }
+  }
+
   // Ingestion Method (Used by embedder.ts)
   // "Upsert" = Update if ID exists, Insert if it doesn't
   async upsertPoints(collectionName: string, points: VectorPoint[]): Promise<void> {
