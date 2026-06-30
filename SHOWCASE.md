@@ -14,6 +14,8 @@ an LLM remembers.
 > **Live demo:** _deploying to Cloud Run (Phase C) — URL coming._ Meanwhile the app is fully runnable
 > locally and in a container (see [README_DEPLOY.md](README_DEPLOY.md)).
 
+![The generator: a grounded, type-checked Chakra v3 component (colorPalette, not the v2 colorScheme), with the objective report and the exact doc chunks it was grounded in](assets/generator-result.png)
+
 ---
 
 ## The problem
@@ -153,6 +155,13 @@ self-contained TSX component grounded in that context. A bounded self-heal loop 
 + v2-smell hints back to the model until it compiles or the cap is hit, then the three objective gates
 score the final artifact. The SPA renders it live in a Sandpack browser sandbox and shows the report
 plus the chunks it was grounded in.
+
+## The in-app engineering page
+
+The live demo ships its own `/engineering` route — the same story, visual and skimmable, for anyone who
+opens the URL:
+
+![The in-app engineering page: architecture, result cards, and the decisions/tradeoffs including the honest negatives](assets/engineering.png)
 
 ## Explore further
 
