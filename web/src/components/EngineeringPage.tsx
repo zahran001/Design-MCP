@@ -4,6 +4,7 @@ import {
   Flex,
   Heading,
   HStack,
+  Link,
   Portal,
   SimpleGrid,
   Stack,
@@ -18,6 +19,16 @@ import type { ReactNode } from 'react';
 // the architecture, the headline numbers, and the decisions (including the honest
 // negatives). Mirrors SHOWCASE.md. Chakra v3 only (the app dogfoods the target),
 // no new deps; the pipeline "diagram" is built from boxes, not a mermaid render.
+
+// The GitHub mark, inline (no icon-lib dependency). `fill="currentColor"` so it
+// inherits the link colour.
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  );
+}
 
 // Inline term with a hover tooltip (dotted underline + help cursor). Reused for
 // every abbreviation / proper noun on the page so the treatment is consistent.
@@ -268,6 +279,24 @@ export function EngineeringPage() {
         </SimpleGrid>
       </Stack>
 
+      {/* Footer */}
+      <Box borderTopWidth="1px" borderColor="border.muted" pt={4}>
+        <Link
+          href="https://github.com/zahran001/Design-MCP"
+          target="_blank"
+          rel="noopener noreferrer"
+          display="inline-flex"
+          alignItems="center"
+          gap={2}
+          fontSize="sm"
+          color="fg.muted"
+          textDecoration="none"
+          _hover={{ color: 'fg' }}
+        >
+          <GitHubIcon />
+          View the source on GitHub
+        </Link>
+      </Box>
     </Stack>
   );
 }
