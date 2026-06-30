@@ -9,6 +9,7 @@
 // context to the SPA. Objective signals stay the spine; this adds no new gates.
 // =============================================================================
 
+import path from 'path';
 import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { GenerationService } from '../steps/4-generate/generator.js';
@@ -93,6 +94,14 @@ export function createServer(gen: GenerationService): Express {
       return res.status(500).json({ error });
     }
   });
+
+  // Serve the built SPA from the same origin as the API (no CORS, no proxy, the
+  // SPA's relative `/api` is same-origin). Registered AFTER the `/api/*` routes
+  // so those win; the `'*'` catch-all (valid in express v4) hands every other
+  // path to the SPA's client-side router via index.html.
+  const webDist = process.env.WEB_DIST || path.resolve(process.cwd(), 'web/dist');
+  app.use(express.static(webDist));
+  app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
 
   return app;
 }
