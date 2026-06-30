@@ -14,6 +14,11 @@
 > for the structural residual — `field-invalid` flipped, grounded hinted **80%→93%** (14/15); held-out
 > stayed 100%. The single remaining grounded holdout is `password-input` (`InputGroup` multi-child,
 > not a smell) — a one-heuristic Pass G follow-up. **Branch:** `week2_generation_e2e`.
+>
+> **Deploy (2026-06-29):** generation swapped to DeepSeek `deepseek-v4-pro` (embeddings stay OpenAI —
+> the corpus is OpenAI-embedded). Verified to **beat** the Pass-F gpt-4o baseline on the trusted gates:
+> grounded tsc **93%→100%** (all 15 landmines single-shot, 0 repairs; closes `password-input`), render
+> 100%, held-out 100%. Thinking mode OFF. See §3 "DeepSeek v4-pro swap" + `README_DEPLOY.md`.
 
 ---
 
@@ -82,6 +87,9 @@ retrieval's contribution.
 | **Pass F — no-context** | 7% | 13% → 20% → **47%** | **87%** (25) | 100% | unchanged (exemplar is grounded-only — isolation held) |
 | **Pass F — grounded** | 13% | 47%→60% → 67% → **93%** | **40%** (8) | 100% | + grounded few-shot exemplar; **field-invalid flipped**, lifted single-shot too |
 | **Pass F Δ** | — | tsc raw **+47** / **hinted +47** | **−47 pts** | +0 | grounded hinted **80%→93%** (14/15); `password-input` the lone holdout |
+| **DeepSeek — no-context** | 7% | 60% → 93% → **93%** | **7%** (1) | 100% | MODEL SWAP (deploy), *not* a pass — same harness, gen=`deepseek-v4-pro`, thinking off |
+| **DeepSeek — grounded** | 27% | 100% → 100% → **100%** | **7%** (1) | 100% | **0 repair iters**; closes `password-input`; lone smell = `button-loading`; render 100% |
+| **DeepSeek Δ vs gpt-4o Pass F** | — | grounded hinted **93%→100%** | ~flat | +0 | beats baseline on the spine; single run (seed likely ignored — see notes) |
 
 > **Pass F 2×2 (tsc-pass)** — report `gen-ab-2026-06-25T22-47-22-592Z.json`; held-out stayed **100%**
 > (`heldout-passF.log`). single-shot grounded 60% (47% in Pass E) reflects the exemplar + variance.
@@ -90,6 +98,26 @@ retrieval's contribution.
 > |---|---|---|---|
 > | **grounded** | 60% | 67% | **93%** |
 > | **no-context** | 13% | 20% | 47% |
+
+> **DeepSeek v4-pro swap 2×2 (tsc-pass)** — report `gen-ab-2026-06-29T22-56-59-335Z.json`; held-out
+> n=5 stayed **100%** (tsc/smell/composition/render). For the cloud deploy generation moves to DeepSeek
+> while **embeddings stay OpenAI** (`text-embedding-3-small` — the query embedding must match the
+> OpenAI-embedded corpus). Thinking mode OFF already clears the bar, so prod defaults `GEN_THINKING=false`.
+>
+> | | single-shot | raw-repair | **hinted-repair** |
+> |---|---|---|---|
+> | **grounded** | 100% | 100% | **100%** |
+> | **no-context** | 60% | 93% | 93% |
+>
+> - **Verdict:** no regression on the trusted spine — an *improvement*. Grounded tsc 93%→**100%**, all 15
+>   landmines compile **single-shot (0 repair iters)**, render 100%, composition 100%, v2-smell 7%
+>   (1 = `button-loading`, a v2 loading prop the smell-repair didn't heal).
+> - **Caveats:** single run, and DeepSeek's API doesn't document `seed`/`temperature` — so the harness's
+>   temp-0 + seed-42 reproducibility doesn't fully hold; run-to-run variance isn't controlled. Re-run for
+>   bands before any stronger claim. Judge satisfaction (27%) is untrusted on v3 (it inverts) — secondary.
+> - **Validator note:** DeepSeek tends to emit a bare `const Demo` with no `export default`; the render
+>   validator (`renderValidator.ts`) was made export-shape-agnostic (mirroring `web/src/lib/sandbox.ts`)
+>   so render numbers are honest for any model — gpt-4o default-export behaviour is unchanged.
 
 > **Pass D 2×2 (tsc-pass, generation arm × repair mode)** — report
 > `gen-ab-2026-06-25T18-03-56-870Z.json`. (Single-shot grounded 47% vs the 53%

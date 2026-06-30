@@ -17,6 +17,10 @@ import {
   getGenerationModel,
   getGenerationTemperature,
   getGenerationSeed,
+  getGenerationBaseUrl,
+  getGenerationApiKey,
+  getGenerateThinking,
+  getRepairThinking,
 } from '../../config/vectorConfig.js';
 import type { SearchResult } from '../../services/RetrievalService.js';
 
@@ -259,7 +263,13 @@ export class GenerationService {
     this.model = options.model || getGenerationModel();
     this.temperature = options.temperature ?? getGenerationTemperature();
     this.seed = options.seed ?? getGenerationSeed();
-    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Generation client may be OpenAI (default) or an OpenAI-compatible provider
+    // (DeepSeek) via GEN_BASE_URL. RetrievalService keeps its own OpenAI client
+    // for embeddings — the corpus is OpenAI-embedded, so retrieval must stay OpenAI.
+    this.client = new OpenAI({
+      apiKey: getGenerationApiKey(),
+      ...(getGenerationBaseUrl() ? { baseURL: getGenerationBaseUrl() } : {}),
+    });
     this.retrieval = new RetrievalService();
   }
 
@@ -305,10 +315,15 @@ export class GenerationService {
         exemplarBlock;
     }
 
+    // DeepSeek thinking mode is a non-standard body field; spreading a pre-typed
+    // variable (not an inline literal) bypasses TS excess-property checking, so no
+    // cast is needed. Empty object on the OpenAI path / when disabled.
+    const thinkingParam = getGenerateThinking() ? { thinking: { type: 'enabled' } } : {};
     const completion = await this.client.chat.completions.create({
       model: this.model,
       temperature: this.temperature,
       ...(this.seed !== undefined ? { seed: this.seed } : {}),
+      ...thinkingParam,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userMessage },
@@ -351,10 +366,12 @@ export class GenerationService {
       hintBlock +
       ctx;
 
+    const thinkingParam = getRepairThinking() ? { thinking: { type: 'enabled' } } : {};
     const completion = await this.client.chat.completions.create({
       model: this.model,
       temperature: 0,
       ...(this.seed !== undefined ? { seed: this.seed } : {}),
+      ...thinkingParam,
       messages: [
         { role: 'system', content: REPAIR_SYSTEM_PROMPT },
         { role: 'user', content: userMessage },

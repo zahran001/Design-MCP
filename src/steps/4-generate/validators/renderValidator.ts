@@ -40,15 +40,47 @@ export interface RenderResult {
   error?: string;
 }
 
+// The generated component's EXPORT shape varies run to run — default export,
+// named export, or NONE (DeepSeek often emits a bare `const Demo = ...` with no
+// export). A missing export is a generation style choice, NOT a render failure, so
+// resolve the entry import accordingly. Mirrors web/src/lib/sandbox.ts so the eval
+// render-check and the UI's Sandpack preview agree on what "renders" means.
+function resolveEntry(code: string): { code: string; importLine: string } {
+  // Case A — already a default export.
+  if (/\bexport\s+default\b/.test(code)) {
+    return { code, importLine: "import Component from './Component';" };
+  }
+  // Case B — a named export of a PascalCase binding.
+  const namedExport =
+    code.match(/\bexport\s+(?:function|const|class)\s+([A-Z]\w*)/)?.[1] ??
+    code.match(/\bexport\s*\{\s*([A-Z]\w*)/)?.[1];
+  if (namedExport) {
+    return { code, importLine: `import { ${namedExport} as Component } from './Component';` };
+  }
+  // Case C — no export: default-export the last top-level PascalCase declaration
+  // (the main component is conventionally defined after any helpers).
+  const decls = [...code.matchAll(/\b(?:function|const)\s+([A-Z]\w*)/g)].map((m) => m[1]);
+  const name = decls[decls.length - 1];
+  if (name) {
+    return {
+      code: `${code}\n\nexport default ${name};\n`,
+      importLine: "import Component from './Component';",
+    };
+  }
+  // Nothing we can identify — let the bundle/mount surface the failure honestly.
+  return { code, importLine: "import Component from './Component';" };
+}
+
 // Mount harness. An error boundary turns a render throw into a recorded flag
 // (deterministic) rather than only an async window error; we ALSO listen for
 // pageerror / console.error in Playwright as a backstop. Built with NODE_ENV
 // "production" so React's dev-only console warnings don't masquerade as errors.
-const ENTRY_SOURCE = `
+function entrySource(importLine: string): string {
+  return `
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
-import Component from './Component';
+${importLine}
 
 class Boundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -72,6 +104,7 @@ try {
   window.__renderError = String((e && e.stack) || e);
 }
 `;
+}
 
 /**
  * Render validator with a reusable browser. Launch once, validate many, close
@@ -95,9 +128,10 @@ export class RenderValidator {
     //    location, so the temp files must live inside the repo tree.
     let bundled: string;
     try {
+      const { code, importLine } = resolveEntry(componentCode);
       fs.mkdirSync(RENDER_DIR, { recursive: true });
-      fs.writeFileSync(COMPONENT_FILE, componentCode, 'utf8');
-      fs.writeFileSync(ENTRY_FILE, ENTRY_SOURCE, 'utf8');
+      fs.writeFileSync(COMPONENT_FILE, code, 'utf8');
+      fs.writeFileSync(ENTRY_FILE, entrySource(importLine), 'utf8');
       const result = await esbuild.build({
         entryPoints: [ENTRY_FILE],
         bundle: true,

@@ -41,6 +41,32 @@ export function getGenerationModel(): string {
   return process.env.GEN_MODEL?.trim() || DEFAULT_GENERATION_MODEL;
 }
 
+// Generation provider routing (deploy). DeepSeek is OpenAI-API compatible, so we
+// reuse the OpenAI SDK and just point the GENERATION client at a different base
+// URL + key. EMBEDDINGS stay on OpenAI regardless (the corpus is
+// text-embedding-3-small / 1536-dim — the query embedding must match the stored
+// vectors), so only generation/repair is rerouted. Unset GEN_BASE_URL => OpenAI
+// default (the gpt-4o path, kept intact for the A/B harness).
+export function getGenerationBaseUrl(): string | undefined {
+  return process.env.GEN_BASE_URL?.trim() || undefined;
+}
+
+// Use the DeepSeek key when a DeepSeek base URL is configured, else the OpenAI key.
+export function getGenerationApiKey(): string | undefined {
+  return getGenerationBaseUrl() ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY;
+}
+
+// DeepSeek "thinking mode" toggles — independent for generate vs repair so the
+// objective harness can pick each by the numbers, not a guessed default. Both
+// default OFF. No-op on the OpenAI path (the param is only emitted when enabled).
+export function getGenerateThinking(): boolean {
+  return process.env.GEN_THINKING === 'true';
+}
+
+export function getRepairThinking(): boolean {
+  return process.env.REPAIR_THINKING === 'true';
+}
+
 // Generation sampling knobs (Step 4 hardening, Item 1). PRODUCT default is 0.2
 // (variety is a feature in the CLI/UI). The MEASUREMENT harness overrides to
 // temp 0 + a fixed seed so a single A/B run is a stable signal — Move 0 found
