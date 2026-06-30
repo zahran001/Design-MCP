@@ -1,12 +1,12 @@
-# Deploy — single Render service (API + SPA), Qdrant Cloud, DeepSeek V4
+# Deploy — single container (Cloud Run · Render), Qdrant Cloud, DeepSeek V4
 
-> **Status:** 2026-06-30 — **Phase 1 (DeepSeek swap) DONE** (`74d4da5` on `main`). **Phase 2 (deploy
-> infra) BUILT** on `feat/deploy-infra` (§6 file-by-file all landed) and **Phase B local prod-parity
-> Docker smoke PASSED** — `deploy/Dockerfile` builds, the container serves the SPA + `POST /api/generate`
-> with **no Chromium** against Qdrant Cloud, returning `tscOk:true` + `renderChecked:false` on the v2
-> landmine (`colorPalette`, not `colorScheme`). **Remaining: Phase C (Render dashboard deploy) + Phase D
-> (live smoke)** — see §8/§9. Volatile numbers (tsc-pass rates, chunk counts) live in
-> `GENERATION_EXPERIMENT.md` / Qdrant — verify there, don't copy them here.
+> **Status:** 2026-06-30 — **Phases 1 & 2 DONE and merged to `main`** (DeepSeek generation swap +
+> deploy infra). **Phase B local prod-parity Docker smoke PASSED:** the container serves the SPA +
+> `POST /api/generate` with **no Chromium** against Qdrant Cloud → `tscOk:true`, `renderChecked:false`,
+> `colorPalette` (not the v2 `colorScheme`). The prod image is **slimmed (539→462 MB)** and **Google
+> Cloud Run is the recommended target** (§8). **Remaining: Phase C — run the deploy (§8) — and Phase D —
+> live smoke (§9).** Volatile numbers (tsc-pass rates, chunk counts) live in `GENERATION_EXPERIMENT.md`
+> / Qdrant — verify there, don't copy them here.
 
 This is the checked-in runbook for deploying `spec-driven-generator` (Vite SPA + Express generation API)
 to the cloud **without breaking the validated generation path**. It supersedes the "ad-hoc Vercel both
@@ -36,16 +36,17 @@ ends" idea — see *Why not Vercel serverless*.
 - DeepSeek accepts `temperature`/`seed` without 400ing, but its docs don't list them → treat as
   best-effort (reproducibility/variance caveat). `GEN_THINKING` defaults **false** (already clears the bar).
 
-### What REMAINS (Phase 2 — this commit/session)
-The whole "render-check off in prod" feature + serving + container + docs. **File-by-file in §6.** All of
-it is additive and env-gated; none of it changes default local behavior.
+### What REMAINS — Phase C (deploy) + Phase D (live smoke)
+Phase 2 (the "render-check off in prod" feature + serving + container, **file-by-file in §6**) **shipped
+and merged**, followed by the slim image and the Cloud Run path. **No app code remains** — what's left is
+**executing the deploy** (§8, Phase C) and the **post-deploy smoke** (§9, Phase D).
 
 ---
 
 ## 1. Target architecture
 
 ```
-                 [ Render: ONE Docker service (deploy/Dockerfile) ]
+             [ ONE container — Cloud Run / Render (deploy/Dockerfile) ]
   browser  --->  Express:  GET  /            -> static web/dist (SPA)
                            POST /api/generate -> runGenerationPipeline()
                                                   ├─ retrieve -> OpenAI embeddings + Qdrant Cloud
@@ -87,7 +88,7 @@ runs `4-serve`). Merging them would either break the documented crawl or ship un
 - **Leave `Dockerfile` (root) untouched** — crawler.
 - **Add `deploy/Dockerfile`** — the prod web service. Point Render at it (Dockerfile path = `deploy/Dockerfile`).
 
-## 5. Environment variables (Render dashboard)
+## 5. Environment variables (Cloud Run or Render dashboard)
 
 | Var | Value | Notes |
 |---|---|---|
@@ -107,7 +108,7 @@ runs `4-serve`). Merging them would either break the documented crawl or ship un
 
 ---
 
-## 6. Remaining implementation (file-by-file)
+## 6. Implementation (file-by-file — shipped in Phase 2)
 
 All edits are additive and env-gated. After each, run `npx tsc --noEmit`.
 
@@ -203,7 +204,15 @@ Verify `.dockerignore` excludes `node_modules`, `dist`, `artifacts` so `COPY . .
    `{"field_name":"componentName","field_schema":"keyword"}` (repeat for `chunkType`), `api-key` header.
 4. Verify the live point count (Qdrant `points/count`) — don't assume a number.
 
-## 8. Deploy steps (Render)
+## 8. Phase C — deploy to the cloud
+
+**Recommended: Google Cloud Run (§8b)** — it allocates CPU *during request processing* (exactly when
+`tsc` runs), **injects `PORT`** (the server already reads it, zero config), and **scales to zero** inside
+a generous free tier; the slim image keeps cold starts down. **Render (§8a)** is the simpler,
+dashboard-driven alternative. Either way: same `deploy/Dockerfile`, the §5 env vars, health-check
+`/api/health`.
+
+### 8a. Render (simple alternative)
 
 1. Push to GitHub; on Render create a **Web Service** → **Docker** runtime, **Dockerfile path =
    `deploy/Dockerfile`**, repo root as context.
@@ -216,7 +225,7 @@ Verify `.dockerignore` excludes `node_modules`, `dist`, `artifacts` so `COPY . .
    a type-check. Prefer **≥0.5 vCPU / 1 GB** (comfortable: 1 vCPU / 2 GB). Free tier also **sleeps when
    idle** → cold start on first request; use a small paid always-on instance or a keep-warm ping for demos.
 
-## 8b. Deploy steps (Google Cloud Run — alternative, recommended)
+### 8b. Google Cloud Run — recommended
 
 Cloud Run fits this workload better than a Render micro tier: **CPU is allocated during request
 processing** (exactly when `tsc` runs), it **injects `PORT`** (the server already reads `process.env.PORT`,
@@ -250,19 +259,19 @@ gcloud builds submit --config cloudbuild.yaml \
 **Notes:** don't set `PORT` (Cloud Run owns it); `--timeout 300` covers generation; the §7 Qdrant
 payload indexes are still required. Then run the §9 post-deploy smoke against the service URL.
 
-## 9. Regression / verification
+## 9. Phase D — verification
 
 **Model-swap gate — DONE** (Phase 1, recorded in `GENERATION_EXPERIMENT.md`): DeepSeek beats the gpt-4o
 baseline on tsc/smell/composition; render 100% (with the export-tolerance fix); held-out 100%.
 
-**After Phase 2 edits, before deploying (local):**
+**Local pre-deploy gate:**
 1. `npx tsc --noEmit` — repo type-checks.
 2. `npm test` — 629 unit tests pass.
 3. **Local prod-parity smoke** — build `deploy/Dockerfile`, run it with `RENDER_CHECK=false` + DeepSeek
    env against Qdrant Cloud; hit `/` (SPA loads) and `POST /api/generate` (works with **no Chromium**).
    Confirm the response includes `renderChecked: false` and the UI omits the render badge.
 
-**Post-deploy smoke (live URL):**
+**Post-deploy smoke (live URL — the Phase D acceptance check):**
 - `GET /api/health` → `{ ok: true, model: "deepseek-v4-pro" }`.
 - `GET /api/examples` → 5 prompts.
 - `POST /api/generate {"query":"a stat card showing revenue"}` → `tscOk: true` within timeout.
@@ -275,7 +284,9 @@ baseline on tsc/smell/composition; render 100% (with the export-tolerance fix); 
 
 - **DeepSeek baseline** — passed thinking-off in a single run; seed/temperature likely best-effort, so
   variance isn't fully controlled. Re-run the harness for bands before any stronger claim. The lone v2
-  smell is `button-loading` (a v2 loading prop the smell-repair didn't heal).
+  smell is `button-loading` (a v2 loading prop the smell-repair didn't heal). **Thinking mode stays
+  off:** a 2026-06-30 A/B measured no objective-gate gain and +46% latency (see
+  `GENERATION_EXPERIMENT.md`), so `GEN_THINKING`/`REPAIR_THINKING` default `false`.
 - **`renderOk` unavailable in prod by design** — Sandpack covers live preview; server sends
   `renderChecked: false`, UI omits the badge. Still measured locally by the eval harness.
 - **Validator deps at runtime** — the `tsc` validator needs `typescript` + `@chakra-ui/react` +
@@ -289,8 +300,25 @@ baseline on tsc/smell/composition; render 100% (with the export-tolerance fix); 
   an "incompatible with server version" warning against a newer Cloud cluster (e.g. 1.18.x). Verified
   **benign** in the Phase-B smoke (search/filter work); bump the client if it ever turns into a hard error.
 
-## 11. Related docs
+## 11. Beyond Phase C
 
+After a live URL exists:
+
+- **Cold start / keep-warm** — Cloud Run scale-to-zero means the first request after idle pays an
+  image-pull + boot before the ~20 s generation. For a demo, slim the image further (below) or add a
+  keep-warm ping (cron hitting `/api/health`); avoid `--min-instances=1` on the free tier (it blows the
+  grant). Render's free tier idles the same way.
+- **Custom domain + monitoring** — map a domain to the service; watch Cloud Run request logs + latency
+  (and the cold-start tail).
+- **Further image slim** — lazy-import `playwright`/`esbuild` in `renderValidator` so the prod image can
+  drop them too (render is off in prod). Touches the render path → re-validate local render first.
+- **Corpus expansion** — ~50 more components are staged; re-embed (the §7 Qdrant payload indexes
+  auto-create now, so a fresh embed is self-sufficient).
+- **MCP server** — expose generation as an MCP tool (planned; see `README_FULLSTACK.md` non-goals).
+
+## 12. Related docs
+
+- `SHOWCASE.md` — the engineering portfolio (problem, architecture, decisions) this deploy serves.
 - `README_FULLSTACK.md` — the UI/serving MVP this deploys.
-- `GENERATION_EXPERIMENT.md` — the objective baseline + the recorded DeepSeek swap result.
+- `GENERATION_EXPERIMENT.md` — the objective baseline, the DeepSeek swap, and the thinking-mode A/B.
 - `CLAUDE.md` — conventions, objective-signal rules, cost discipline.

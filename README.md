@@ -1,5 +1,8 @@
 # Design-MCP: Spec-Driven Component Generator
 
+> 👉 **New here?** Start with the **[engineering showcase →](SHOWCASE.md)** (the problem, architecture,
+> and key decisions at a glance). This README is the developer changelog / setup reference.
+
 > **Status:** 2026-06-25 — full pipeline (steps 0–4) built; live per-step status below and in the
 > linked phase docs.
 
