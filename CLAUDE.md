@@ -218,6 +218,9 @@ image small.
 * `README_HARDENING.md` — the next phase: reproducibility (temp 0 + seed) + a headless render-check,
   before the UI.
 * `README_FULLSTACK.md` — the UI/serving plan (Express API + Vite/Chakra-v3 SPA, live preview).
+* `README_DEPLOY.md` — cloud deploy runbook (single Render Docker service serving SPA + API,
+  Qdrant Cloud, render-check off in prod). Generation can run on DeepSeek V4 via `GEN_BASE_URL`
+  (unset ⇒ OpenAI gpt-4o); embeddings stay on OpenAI.
 * `docs/CHUNK_TYPE_STRATEGY.md` — ROI analysis of the 7 chunk types.
 
 ---

@@ -53,6 +53,10 @@ export interface PipelineReport {
   incomplete: string[]; // e.g. "Checkbox:Control/Label"; empty = fully composed
   // Tier 3 — runtime correctness (objective): does the final component actually
   // mount and produce DOM in a real browser? Catches what tsc is blind to.
+  // `renderChecked` is false in prod (no Chromium; RENDER_CHECK=false) — then
+  // `renderOk` is a vacuous true and the UI omits the badge rather than show a
+  // misleading green. Sandpack covers live preview client-side instead.
+  renderChecked: boolean;
   renderOk: boolean;
   renderError?: string; // failure reason when renderOk is false
 }
@@ -135,8 +139,12 @@ export async function runGenerationPipeline(
   // Tier 3: mount the FINAL (post-heal) component once in a real browser. tsc
   // proves types, not runtime — this is the only signal that the shipped artifact
   // actually renders. One-shot (launch+close a browser); batch callers reuse a
-  // RenderValidator instead.
-  const render = await renderValidate(component);
+  // RenderValidator instead. Render-check is OFF in prod (no Chromium); Sandpack
+  // renders client-side and tsc stays the objective gate.
+  const renderChecked = process.env.RENDER_CHECK !== 'false';
+  const render = renderChecked
+    ? await renderValidate(component)
+    : { ok: true as const, error: undefined };
 
   let outPath: string | null = null;
   if (opts.outPath !== null) {
@@ -161,6 +169,7 @@ export async function runGenerationPipeline(
     smellRepairIters,
     smells: detectV2Smells(component),
     incomplete: lintComposition(component).map((i) => `${i.component}:${i.missing.join('/')}`),
+    renderChecked,
     renderOk: render.ok,
     renderError: render.error,
   };

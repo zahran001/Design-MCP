@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Switch, Textarea, Text, Wrap } from '@chakra-ui/react';
+import { Box, Button, Flex, HStack, Switch, Textarea, Text, Wrap } from '@chakra-ui/react';
 import type { ExamplePrompt } from '../api';
 
 interface Props {
@@ -55,15 +55,20 @@ export function PromptBox({
           </Switch.Label>
         </Switch.Root>
 
-        <Button
-          colorPalette="teal"
-          onClick={onGenerate}
-          loading={loading}
-          loadingText="Generating…"
-          disabled={!value.trim()}
-        >
-          Generate
-        </Button>
+        <HStack gap={3}>
+          <Text fontSize="xs" color="fg.subtle" display={{ base: 'none', sm: 'block' }}>
+            ⌘/Ctrl + Enter
+          </Text>
+          <Button
+            colorPalette="teal"
+            onClick={onGenerate}
+            loading={loading}
+            loadingText="Generating…"
+            disabled={!value.trim()}
+          >
+            Generate
+          </Button>
+        </HStack>
       </Flex>
 
       {examples.length > 0 && (

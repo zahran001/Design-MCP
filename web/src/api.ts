@@ -26,6 +26,7 @@ export interface PipelineReport {
   smellRepairIters: number;
   smells: string[];
   incomplete: string[];
+  renderChecked: boolean;
   renderOk: boolean;
   renderError?: string;
 }

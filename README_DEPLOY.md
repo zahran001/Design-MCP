@@ -1,9 +1,12 @@
 # Deploy — single Render service (API + SPA), Qdrant Cloud, DeepSeek V4
 
-> **Status:** 2026-06-29 — runbook + handoff. **Phase 1 (DeepSeek generation swap) is DONE and committed
-> (`74d4da5` on `main`)**; Phase 2 (deployment infra) is NOT started — this doc is the cold-start handoff
-> for it. Volatile numbers (tsc-pass rates, chunk counts) live in `GENERATION_EXPERIMENT.md` / Qdrant —
-> verify there, don't copy them here.
+> **Status:** 2026-06-30 — **Phase 1 (DeepSeek swap) DONE** (`74d4da5` on `main`). **Phase 2 (deploy
+> infra) BUILT** on `feat/deploy-infra` (§6 file-by-file all landed) and **Phase B local prod-parity
+> Docker smoke PASSED** — `deploy/Dockerfile` builds, the container serves the SPA + `POST /api/generate`
+> with **no Chromium** against Qdrant Cloud, returning `tscOk:true` + `renderChecked:false` on the v2
+> landmine (`colorPalette`, not `colorScheme`). **Remaining: Phase C (Render dashboard deploy) + Phase D
+> (live smoke)** — see §8/§9. Volatile numbers (tsc-pass rates, chunk counts) live in
+> `GENERATION_EXPERIMENT.md` / Qdrant — verify there, don't copy them here.
 
 This is the checked-in runbook for deploying `spec-driven-generator` (Vite SPA + Express generation API)
 to the cloud **without breaking the validated generation path**. It supersedes the "ad-hoc Vercel both
@@ -187,7 +190,14 @@ Verify `.dockerignore` excludes `node_modules`, `dist`, `artifacts` so `COPY . .
 
 1. Create a free **Qdrant Cloud** cluster; copy its URL + API key.
 2. Locally set `QDRANT_URL`, `QDRANT_API_KEY`, `OPENAI_API_KEY`, `DEBUG=false`.
-3. Ingest: `npm run cli -- 2-embed` (embeddings stay `text-embedding-3-small`).
+3. Ingest: `npm run cli -- 2-embed` (embeddings stay `text-embedding-3-small`). This also creates the
+   **payload indexes** (`componentName`, `chunkType`, keyword) that reserved-slot retrieval filters on.
+   **Required for Qdrant Cloud:** unlike local Qdrant (which full-scans an unindexed field), Cloud
+   rejects a filter on an unindexed field with a 400 — grounded generation 500s until the indexes
+   exist. `2-embed` now does this automatically (`VectorStoreService.ensurePayloadIndexes`); on a
+   collection embedded **before** this fix, create them once via the REST API:
+   `PUT {QDRANT_URL}:6333/collections/chakra-ui-docs/index` with body
+   `{"field_name":"componentName","field_schema":"keyword"}` (repeat for `chunkType`), `api-key` header.
 4. Verify the live point count (Qdrant `points/count`) — don't assume a number.
 
 ## 8. Deploy steps (Render)
@@ -231,6 +241,11 @@ baseline on tsc/smell/composition; render 100% (with the export-tolerance fix); 
 - **devDeps at runtime** — the `tsc` validator needs `typescript` + `@chakra-ui/react` (both devDeps);
   the prod image copies the full `node_modules`. Never switch to `npm ci --omit=dev`.
 - **Cold start** on Render's free tier (idle sleep) — small paid instance or keep-warm ping for demos.
+- **Qdrant payload indexes** — Cloud needs a keyword index on every FILTERED field (`componentName`,
+  `chunkType`); `2-embed` now creates them, but a pre-fix collection must be patched once (see §7).
+- **Qdrant client/server version skew** — the pinned JS client (`@qdrant/js-client-rest@1.16.x`) logs
+  an "incompatible with server version" warning against a newer Cloud cluster (e.g. 1.18.x). Verified
+  **benign** in the Phase-B smoke (search/filter work); bump the client if it ever turns into a hard error.
 
 ## 11. Related docs
 

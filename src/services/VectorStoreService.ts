@@ -12,7 +12,12 @@ export class VectorStoreService {
 
   constructor() {
     const url = process.env.QDRANT_URL || 'http://localhost:6333';
-    this.client = new QdrantClient({ url });
+    // Qdrant Cloud requires an API key; local docker-compose Qdrant needs none.
+    // Keep it conditional so the local path keeps working with the key unset.
+    this.client = new QdrantClient({
+      url,
+      ...(process.env.QDRANT_API_KEY ? { apiKey: process.env.QDRANT_API_KEY } : {}),
+    });
   }
 
   async createCollection(name: string, vectorSize: number): Promise<void> {
@@ -34,6 +39,28 @@ export class VectorStoreService {
       // Otherwise, it's a real error
       console.error('Collection creation failed:', error);
       throw error;
+    }
+  }
+
+  // Payload indexes for the fields reserved-slot retrieval FILTERS on
+  // (componentName + chunkType — see assembleReservedSlots in generator.ts).
+  // Qdrant Cloud REJECTS a filter on an unindexed field with a 400 ("Index
+  // required but not found"); local Qdrant silently full-scans instead, so this
+  // gap is invisible locally and only surfaces in the cloud. Idempotent —
+  // re-creating an existing index is a benign no-op.
+  async ensurePayloadIndexes(collectionName: string, fields: string[]): Promise<void> {
+    for (const field of fields) {
+      try {
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: field,
+          field_schema: 'keyword',
+          wait: true,
+        });
+        console.log(`✅ Payload index "${field}" (keyword) ready`);
+      } catch (error: any) {
+        // Already-exists or transient — log compact context, don't fail the embed.
+        console.warn(`payload index "${field}" not created (may already exist): ${error?.message ?? error}`);
+      }
     }
   }
 

@@ -1,10 +1,16 @@
 # Full-Stack Plan — Ship Generation Behind a UI
 
-> **Status:** MVP BUILT — 2026-06-29. The MVP below is implemented: an Express API (`src/server/`,
-> `npm run serve`) over the validated `runGenerationPipeline()`, and a Vite + React + Chakra v3 SPA
-> (`web/`) with prompt box, **live Sandpack preview**, code view, objective report badges, and the
-> "Grounded in" panel. The "Later / after MVP" section remains the forward plan. Backend reuses the
-> existing pipeline — the UI is a thin layer, not a rewrite.
+> **Status:** MVP BUILT + DEPLOY WIRED — 2026-06-29. The MVP below is implemented: an Express API
+> (`src/server/`, `npm run serve`) over the validated `runGenerationPipeline()`, and a Vite + React +
+> Chakra v3 SPA (`web/`) with prompt box, **live Sandpack preview**, code view, objective report
+> badges, and the "Grounded in" panel. **Deploy topology is one Render Docker service**
+> (`deploy/Dockerfile`) serving the built SPA at `/` **and** `POST /api/generate` from a single
+> origin (no CORS/proxy) — the Express server now serves `web/dist` after the `/api/*` routes.
+> **Generation runs on DeepSeek V4** (`GEN_BASE_URL`; embeddings stay OpenAI) and **the Chromium
+> render-check is OFF in prod** (`RENDER_CHECK=false` → no Chromium, small image; Sandpack renders
+> client-side, the report carries `renderChecked: false` and the UI omits the render badge). Full
+> runbook: `README_DEPLOY.md`. The "Later / after MVP" section remains the forward plan. Backend
+> reuses the existing pipeline — the UI is a thin layer, not a rewrite.
 
 ## How to run (MVP)
 

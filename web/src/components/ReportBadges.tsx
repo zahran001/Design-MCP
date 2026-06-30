@@ -42,9 +42,11 @@ export function ReportBadges({ report }: { report: PipelineReport }) {
         {report.incomplete.length ? 'composition incomplete' : 'composition complete'}
       </Badge>
 
-      <Badge colorPalette={report.renderOk ? 'green' : 'red'} variant="subtle" px={2} py={1}>
-        {report.renderOk ? 'renders ✓' : 'render ✗'}
-      </Badge>
+      {report.renderChecked && (
+        <Badge colorPalette={report.renderOk ? 'green' : 'red'} variant="subtle" px={2} py={1}>
+          {report.renderOk ? 'renders ✓' : 'render ✗'}
+        </Badge>
+      )}
 
       <Badge colorPalette={report.grounded ? 'teal' : 'gray'} variant="outline" px={2} py={1}>
         {report.grounded ? 'grounded' : 'ungrounded'}

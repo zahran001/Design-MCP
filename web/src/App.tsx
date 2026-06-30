@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Container, Heading, Stack, Text } from '@chakra-ui/react';
+import { Box, Container, Heading, Link, Spinner, Stack, Text } from '@chakra-ui/react';
 import { fetchExamples, generate } from './api';
 import type { ExamplePrompt, PipelineReport } from './api';
 import { PromptBox } from './components/PromptBox';
@@ -46,10 +46,19 @@ export function App() {
       <Container maxW="5xl" py={10}>
         <Stack gap={6} align="stretch">
           <Stack gap={1}>
-            <Heading size="2xl">Chakra v3 Component Generator</Heading>
+            <Heading size="2xl">Spec to Component</Heading>
             <Text color="fg.muted">
-              Describe a component in plain language and see it generated, grounded in the Chakra UI
-              v3 docs, validated, and rendered live.
+              Describe a component in plain language and see it generated, grounded in the{' '}
+              <Link
+                href="https://chakra-ui.com/docs/components/concepts/overview"
+                target="_blank"
+                rel="noopener noreferrer"
+                color="teal.fg"
+                textDecoration="underline"
+              >
+                Chakra UI v3 docs
+              </Link>
+              , validated, and rendered live.
             </Text>
           </Stack>
 
@@ -72,7 +81,41 @@ export function App() {
             </Box>
           )}
 
-          {report && (
+          {loading && (
+            <Box
+              borderWidth="1px"
+              borderColor="border.muted"
+              borderRadius="lg"
+              p={10}
+              bg="bg.panel"
+            >
+              <Stack gap={3} align="center">
+                <Spinner size="lg" color="teal.solid" borderWidth="3px" />
+                <Text color="fg.muted" fontSize="sm">
+                  {useContext
+                    ? 'Retrieving v3 docs → generating → validating…'
+                    : 'Generating → validating…'}
+                </Text>
+              </Stack>
+            </Box>
+          )}
+
+          {!loading && !report && !error && (
+            <Box
+              borderWidth="1px"
+              borderStyle="dashed"
+              borderColor="border.muted"
+              borderRadius="lg"
+              p={10}
+            >
+              <Text color="fg.muted" textAlign="center" fontSize="sm">
+                Your generated component will appear here: live preview, validated code, and the docs
+                it was grounded in.
+              </Text>
+            </Box>
+          )}
+
+          {report && !loading && (
             <Stack gap={4} align="stretch">
               <Box>
                 <ReportBadges report={report} />
