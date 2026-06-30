@@ -6,6 +6,12 @@ dist/
 
 # Environment variables
 .env
+# Any *.env file holds secrets (e.g. deploy.env for the local Docker smoke).
+# .env.example ends in .example, so it is NOT matched and stays tracked.
+*.env
+
+# Local one-off vector/Qdrant push script (may embed cloud creds) — not for VCS.
+push-vectors.ps1
 
 # IDE files
 .vscode/
