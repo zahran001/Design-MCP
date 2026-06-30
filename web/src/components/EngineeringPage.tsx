@@ -155,7 +155,7 @@ export function EngineeringPage() {
       {/* Hero */}
       <Stack gap={2}>
         <Heading size="xl">How it’s built</Heading>
-        <Text color="fg.muted" maxW="3xl">
+        <Text color="fg.muted" maxW="4xl">
           LLMs confidently emit the old Chakra <b>v2</b> API (<code>colorScheme</code>,{' '}
           <code>isLoading</code>, <code>FormControl</code>) because that’s what they were trained on. v3
           was a breaking change. The fix isn’t a bigger model. It’s <b>grounding</b> generation in the
