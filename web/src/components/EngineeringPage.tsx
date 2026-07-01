@@ -156,11 +156,11 @@ export function EngineeringPage() {
       <Stack gap={2}>
         <Heading size="xl">How it’s built</Heading>
         <Text color="fg.muted" maxW="4xl">
-          LLMs confidently emit the old Chakra <b>v2</b> API (<code>colorScheme</code>,{' '}
-          <code>isLoading</code>, <code>FormControl</code>) because that’s what they were trained on. v3
-          was a breaking change. The fix isn’t a bigger model. It’s <b>grounding</b> generation in the
-          real v3 docs, then <b>validating</b> the output with signals a compiler can verify rather than
-          an LLM’s opinion.
+          LLMs confidently hallucinate the old Chakra <b>v2</b> API (<code>colorScheme</code>,{' '}
+          <code>isLoading</code>) because that is their training baseline, and v3 introduced massive
+          breaking changes. The solution isn’t throwing a larger model at the problem. It’s{' '}
+          <b>grounding</b> generation in the real v3 documentation, and <b>validating</b> the output
+          using deterministic compiler checks instead of a probabilistic LLM opinion.
         </Text>
         <Wrap gap={2} mt={1}>
           {['RAG', 'Qdrant', 'OpenAI embeddings', 'DeepSeek V4', 'Chakra UI v3', 'tsc gates', 'Cloud Run'].map(
