@@ -17,7 +17,7 @@ import type { ReactNode } from 'react';
 // The in-app engineering showcase (route: #/engineering). A skimmable, visual
 // distillation of the engineering story for someone who opens the live demo:
 // the architecture, the headline numbers, and the decisions (including the honest
-// negatives). Mirrors SHOWCASE.md. Chakra v3 only (the app dogfoods the target),
+// negatives). Mirrors the root README's showcase sections. Chakra v3 only (the app dogfoods the target),
 // no new deps; the pipeline "diagram" is built from boxes, not a mermaid render.
 
 // The GitHub mark, inline (no icon-lib dependency). `fill="currentColor"` so it

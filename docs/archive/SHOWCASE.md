@@ -1,8 +1,8 @@
-# Spec to Component — Engineering Showcase
+# Spec to Component — Engineering Showcase (archived)
 
-> **Status:** 2026-06-30. A portfolio-oriented tour of *how* this project is built and *why* the
-> decisions were made. For the developer-facing changelog and setup, see [README.md](README.md);
-> numbers here link to their source of truth (they’re re-measured, not eternal).
+> **⚠️ Archived (2026-07-01).** This content was merged into the root **[README](../../README.md)**,
+> which is now the project's showcase + overview. Kept for history. Internal links below are relative
+> to the repo root and may not resolve from this location.
 
 **Type a UI request in plain English → get a grounded, type-checked, live-rendered Chakra UI v3
 component.** A RAG pipeline retrieves real v3 documentation, a model generates the component, and
@@ -15,7 +15,7 @@ an LLM remembers.
 > The free tier sleeps when idle, so the first request may cold-start; the live preview renders via
 > codesandbox.io, which some ad/privacy blockers can block (the code and validation report still work).
 
-![The generator: a grounded, type-checked Chakra v3 component (colorPalette, not the v2 colorScheme), with the objective report and the exact doc chunks it was grounded in](assets/generator-result.png)
+![The generator: a grounded, type-checked Chakra v3 component (colorPalette, not the v2 colorScheme), with the objective report and the exact doc chunks it was grounded in](../../assets/generator-result.png)
 
 ---
 
@@ -162,7 +162,7 @@ plus the chunks it was grounded in.
 The live demo ships its own `/engineering` route — the same story, visual and skimmable, for anyone who
 opens the URL:
 
-![The in-app engineering page: architecture, result cards, and the decisions/tradeoffs including the honest negatives](assets/engineering.png)
+![The in-app engineering page: architecture, result cards, and the decisions/tradeoffs including the honest negatives](../../assets/engineering.png)
 
 ## Explore further
 

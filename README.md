@@ -1,760 +1,254 @@
-# Design-MCP: Spec-Driven Component Generator
+# Spec to Component
 
-> 👉 **New here?** Start with the **[engineering showcase →](SHOWCASE.md)** (the problem, architecture,
-> and key decisions at a glance). This README is the developer changelog / setup reference.
+**Describe a UI component in plain English and get a grounded, type-checked, live-rendered Chakra UI
+v3 component.** A RAG pipeline retrieves the real v3 documentation, a model generates the component,
+and objective validators gate the result, so the output uses the *current* v3 API instead of the v2
+API an LLM remembers.
 
-> ▶ **Live demo:** **https://spec-to-component-986872156950.us-central1.run.app** (Google Cloud Run;
-> the free tier may cold-start on the first request after idle).
+`TypeScript` · `RAG` · `Qdrant` · `OpenAI embeddings` · `DeepSeek V4` · `React + Chakra UI v3` · `Sandpack` · `Docker` · `Cloud Run`
 
-> **Status:** 2026-06-25 — full pipeline (steps 0–4) built; live per-step status below and in the
-> linked phase docs.
+▶ **Live demo:** **https://spec-to-component-986872156950.us-central1.run.app**
+_(Google Cloud Run; the free tier may cold-start on the first request after idle.)_
 
-A TypeScript-based documentation crawler and extraction tool designed to systematically gather component specifications from design system documentation (initially targeting Chakra UI) and transform them into structured, machine-readable formats suitable for RAG (Retrieval-Augmented Generation) systems.
-
-## Quick Start
-
-```bash
-# 1. Install dependencies
-npm install
-npx playwright install chromium
-
-# 2. Configure (optional - defaults work for Chakra UI)
-cp .env.example .env
-
-# 3. Run extraction
-npm run cli -- 0-extract-docs -m 10
-
-# 4. Verify quality
-npm run quality:smoke
-npm run quality:samples
-```
-
-**Output:** See extracted data in [artifacts/raw-json/](artifacts/raw-json/)
+![The generator: a grounded, type-checked Chakra v3 component (colorPalette, not the v2 colorScheme), with the objective report and the exact doc chunks it was grounded in](assets/generator-result.png)
 
 ---
 
-## 🎯 Current Focus: Ship the generation capability behind a UI
+## The problem
 
-The full pipeline (extract → normalize → embed → search → **generate**) is built and validated. Step 4
-spec-driven generation reached **~93% grounded tsc-valid** via the A–F correction loop (method +
-results in **[GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)**). The active work is exposing that
-tested capability through an accessibility-first UI (type a request → see the v3 component rendered
-live + its code + the objective report) — plan in **[README_FULLSTACK.md](README_FULLSTACK.md)**.
+Ask any LLM for a Chakra UI component and it confidently emits the **v2** API (`colorScheme`,
+`isLoading`, `FormControl`, monolithic components) because that is what dominated its training data.
+Chakra **v3** was a major breaking change (`colorPalette`, `loading`, slot-based composition like
+`Field.Root` / `NumberInput.Root`). The result *looks* right, compiles in the model's head, and is
+**wrong**.
 
-<details>
-<summary><b>✅ Resolved earlier — Trustworthy Retrieval Evaluation</b> (kept for history)</summary>
+The fix isn't a bigger model. It's **grounding** (retrieve the real v3 docs and put them in context)
+plus **objective validation** (prove the output is correct with checks a compiler can confirm, not an
+LLM's opinion).
 
-The retrieval-quality question is **answered**: authentic docs prose beats synthesized templates
-(LLM-as-judge, paraphrase leakage test). Full rationale and proof in
-**[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)**.
+## Highlights
 
-**The fundamental question (resolved):** the text we embed for code examples was once *synthesized from
-hardcoded templates*, while the live docs contain real prose we discarded (the Button page has ~21
-section headings + per-section descriptions; raw JSON once captured **1 heading and 0 prose**). Was
-template-embedding viable, or must we embed authentic prose? Answered with data, in three phases:
-
-- **Phase 1 — Build the trustworthy eval (do first).** Add LLM-as-judge *graded* chunk relevance
-  (nDCG) and a paraphrased developer-query set. The current "100% component-hit" score is a mirage
-  (too coarse, possibly circular). *Do not fix the scraper yet — build the measuring tool.*
-- **Phase 2 — Lock the baseline.** Run the current template-generated data through the strict
-  harness for an honest (likely much lower) baseline.
-- **Phase 3 — Fix the scraper (Experiment #1).** Rewrite DOM traversal to capture section
-  headings + intro prose, re-crawl, re-embed the authentic text, re-eval. The delta vs baseline
-  conclusively proves whether real prose beats templates.
-
-**Already shipped on this track:**
-- Retrieval eval harness — `npm run quality:eval` ([src/steps/3-search/eval/](src/steps/3-search/eval/)),
-  committed baseline at [artifacts/eval/baseline.json](artifacts/eval/).
-- **chunkId-collision fix** — duplicate IDs were silently dropping **26% of chunks** at embed time
-  (747 chunks → 554 points); now 747 unique → 747 points.
-
-> ⚠️ Before any `2-embed`/`quality:eval` run: set `DEBUG=false` in `.env` (else the OpenAI SDK
-> floods stdout), ensure Qdrant is running, and **drop the `chakra-ui-docs` collection before
-> re-embedding if chunkIds changed** (point IDs are `uuidv5(chunkId)`; stale points orphan
-> otherwise). See [EVALUATION_STRATEGY.md §6](EVALUATION_STRATEGY.md) for the full gotcha list.
-
-</details>
-
----
-
-## Overview
-
-Design-MCP is a specialized web scraping and data extraction pipeline that:
-- Crawls design system documentation websites using Playwright
-- Extracts structured component information (props, examples, accessibility notes)
-- Filters code examples for composition patterns (not boilerplate)
-- Validates and schemas data using Zod
-- Prepares documentation for embedding into vector stores and RAG systems
-- Enables AI-powered component generation from design specifications
+- **RAG-grounded generation.** Retrieves real Chakra v3 doc chunks from Qdrant and generates a
+  self-contained TSX component grounded in them.
+- **Objective validation, not vibes.** Every generation is gated on three signals a compiler can
+  verify: a `tsc` type-check (against the pinned `@chakra-ui/react@3.27.1`), a v2-smell lint, and a
+  composition lint.
+- **Bounded self-heal.** Feeds `tsc` diagnostics and smell hints back to the model until the component
+  compiles or a cap is hit.
+- **Cheaper model, made reliable by the system.** Generation runs on DeepSeek V4 (embeddings stay on
+  OpenAI); with grounding it beats the gpt-4o baseline on the objective gates while costing less.
+- **Live and deployed.** A Vite + Chakra v3 SPA with a Sandpack live preview, served with the API from
+  a single Cloud Run container.
+- **Measured, honestly.** Grounded-vs-no-context A/B, held-out generalization, and recorded *negative*
+  results (DeepSeek "thinking mode" gave no objective gain at +46% latency).
 
 ## Architecture
 
-The project follows a **step-based pipeline architecture**:
+```mermaid
+flowchart LR
+  subgraph Ingestion["Offline ingestion (build the corpus)"]
+    direction LR
+    A[Chakra v3 docs] -->|Playwright BFS crawl| B[raw JSON]
+    B -->|normalize| C[typed chunks<br/>code · prop · overview · capability]
+    C -->|OpenAI text-embedding-3-small| D[(Qdrant<br/>897 vectors)]
+  end
 
-```
-✅ Step 0: Extract Documentation (COMPLETE)
-├── Crawling (Playwright-based web automation)
-├── Extraction (CSS selectors & DOM parsing)
-└── Storage (JSON artifacts)
+  subgraph Request["Online request (per generation)"]
+    direction LR
+    Q[NL request] -->|embed query| R{Retrieve<br/>reserved-slot}
+    R --> G[Generate TSX<br/>DeepSeek V4, grounded]
+    G --> H{tsc self-heal<br/>bounded loop}
+    H -->|errors + smell hints| G
+    H --> V[Objective gates<br/>tsc · v2-smell · composition]
+    V --> UI[SPA: Sandpack live preview<br/>+ code + grounding panel]
+  end
 
-✅ Step 1: Normalize & Transform (4 of 7 chunk types)
-├── CodeExampleChunk transformer ✅ (410 chunks; embeds real docs prose)
-├── PropReferenceChunk transformer ✅ (374 chunks)
-├── ComponentOverviewChunk ✅ (50) + CapabilityReferenceChunk ✅ (63)
-└── 897 normalized chunks from 50 components
+  D -. nearest-neighbour .-> R
 
-✅ Step 2: Embed & Vector Store
-├── OpenAI text-embedding-3-small (1536d)
-├── Qdrant vector store (897 points, no drift)
-└── Batch ingestion
-
-✅ Step 3: Search & Retrieval + Evaluation
-├── Vector similarity search + metadata filtering
-├── LLM-as-judge eval harness (gP@k / nDCG, paraphrase leakage test)
-└── Verdict: authentic docs prose > synthesized templates
-
-✅ Step 4: Spec-Driven Generation (NL → grounded v3 TSX)
-├── Retrieval-grounded generation + bounded tsc self-heal (Passes A–F)
-├── Objective gates: tsc-valid + v2-smell + composition lint
-└── Grounded ~93% tsc-valid (hinted); 100% on held-out prompts
+  classDef store fill:#1f2937,stroke:#60a5fa,color:#fff;
+  class D store;
 ```
 
-### Current Implementation Status
+**Deploy:** one container serves the SPA **and** `POST /api/generate` from a single origin (no CORS).
+Generation runs on **DeepSeek V4**; **embeddings stay on OpenAI** (the query vector must match the
+`text-embedding-3-small` corpus). The Chromium render-check is **off in prod** (small image); Sandpack
+renders client-side and `tsc` stays the gate. Full runbook: **[README_DEPLOY.md](README_DEPLOY.md)**.
 
-**✅ Week 1 Complete - Core Extraction Pipeline:**
-- ✅ CLI infrastructure with Commander.js
-- ✅ Playwright browser automation setup
-- ✅ Full data schemas (ComponentDoc, Prop, CodeExample)
-- ✅ Text processing utilities (chunking, normalization)
-- ✅ Environment-based configuration
-- ✅ Docker containerization
-- ✅ TypeScript compilation and type safety
-- ✅ BFS web crawler with link discovery
-- ✅ Component data extraction (descriptions, props, code examples)
-- ✅ High-quality code filtering (composition patterns only)
-- ✅ Props table parsing (column-order agnostic)
-- ✅ Related components detection
-- ✅ Quality validation suite (smoke tests + sample viewer)
+## How it works
 
-**📊 Extraction Quality (50 Chakra UI components):**
-- Schema validation: 100% (50/50 files)
-- Description coverage: 100% (50/50 components)
-- **Section + prose capture: ~100%** of code examples now carry their real heading **and** intro
-  prose (Phase 3 scraper rewrite; was 1/16 headings + 0 prose on the Button page)
-- Props extraction: handles simple, composite, and no-props patterns (dot notation for composites,
-  e.g. "Root.collection")
+The corpus is built offline: crawl the Chakra v3 docs, normalize each page into typed chunks (code
+examples with their real prose, prop references, component overviews, capabilities), embed with
+OpenAI, and store in Qdrant. At request time the natural-language prompt is embedded, the most relevant
+chunks are retrieved (including a reserved slot for the target component's blueprint), and DeepSeek
+generates a self-contained TSX component grounded in that context. A bounded self-heal loop feeds `tsc`
+diagnostics plus v2-smell hints back to the model until it compiles or the cap is hit, then the three
+objective gates score the final artifact. The SPA renders it live in a Sandpack sandbox and shows the
+report plus the chunks it was grounded in.
 
-**✅ Step 1 — Normalization (4 of 7 chunk types implemented):**
-- ✅ **CodeExampleChunk** transformer — **410 chunks**. Embeds the **authentic section prose**
-  captured from the docs; the hardcoded template generator is demoted to a fallback used only for
-  prose-less sections.
-- ✅ **PropReferenceChunk** transformer — **374 chunks** (PropExplanationGenerator + externalized
-  template config).
-- ✅ **ComponentOverviewChunk** (50) + **CapabilityReferenceChunk** (63) — "what is X" / "what can X
-  do" chunks; both routed in `extractEmbeddingText.ts` and embedded (Pass B's reserved-slot retrieval
-  depends on them).
-- ✅ Inference engine (code analyzer, section inferrer, intent classifier), config system, and
-  graceful fallback generation.
-- ✅ **897 normalized chunks** total from 50 components.
-- 📋 Not yet implemented (3 of 7 types, low ROI): `prop-group`, `composition-pattern`, `api-reference`.
+## Engineering decisions & tradeoffs
 
-**✅ Step 2 — Embedding:** all **897 chunks embedded** into Qdrant (`chakra-ui-docs`,
-text-embedding-3-small, 1536d); drift detection clean (897 points = 897 chunks). _Proof — Qdrant
-`points/count` by `chunkType` (2026-06-25): code-example 410, prop-reference 374, component-overview
-50, capability-reference 63; prop-group/composition-pattern/api-reference 0._
+The product is the easy part. These are the decisions worth talking through.
 
-**✅ Step 3 — Search + Evaluation:** LLM-as-judge retrieval eval (`npm run quality:eval:judge`)
-reporting graded precision (gP@k), no-relevant count, and nDCG over the golden set plus a held-out
-paraphrased set (leakage test). It proved **authentic prose beats templates** (gpt-4o judge:
-paraphrased gP@k 0.684 → 0.748, no-relevant queries 3 → 0). See
-[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md).
+- **Objective gates over an untrusted LLM judge.** I built an LLM-as-judge and found it *inverts* on
+  v3: it prefers the familiar v2 API and marks correct v3 as wrong. So the trusted spine is `tsc` +
+  v2-smell + composition, and the judge is a secondary signal only.
+  → [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)
+- **A/B isolation to prove grounding helps.** Generation runs as a grounded-vs-no-context 2×2 on 15
+  engineered "v2-landmine" prompts, with retrieval-only knowledge kept out of the shared prompt, so the
+  measured delta is attributable to retrieval, not prompt leakage.
+- **Honest negatives (the part most portfolios hide).** DeepSeek's "thinking mode" was the obvious
+  lever; an A/B measured **no objective-gate gain and +46% latency**, so it ships off. And the naïve
+  `tsc`-feedback repair loop *failed first*, because TypeScript's JSX-prop errors don't name the
+  offending prop; what fixed it was smell-named hints that point at the exact v2→v3 rename.
+- **A cheaper model, made reliable by the system.** Generation moved from gpt-4o to DeepSeek V4
+  (cheaper), and with grounding it *beats* the gpt-4o baseline on the objective gates. The win came
+  from retrieval + validation, not a bigger model.
+- **Deploy engineering, and the gotchas.** Single-origin SPA+API, render-check off in prod, a slim
+  image (539→462 MB), and a Cloud Run path. Found in a prod-parity smoke: a Dockerfile
+  inline-comment-on-`COPY` trap, a Qdrant Cloud payload-index requirement that local Qdrant silently
+  hides, and a benign client/server version-skew warning. → [README_DEPLOY.md](README_DEPLOY.md)
 
-**🧪 Tests:** 609 passing across 20 suites.
+## Validation & results
 
-**✅ Step 4 — Spec-Driven Generation:** NL request → retrieval-grounded v3 TSX → bounded `tsc`
-self-heal, gated on objective signals (tsc-valid + v2-smell + composition lint, **not** the LLM judge,
-which Passes A proved unreliable on v3). The A–F correction loop reached **~93% grounded tsc-valid**
-(hinted repair) on the 15 v2-"landmine" prompts and **100%** on a held-out generalization set. CLI:
-`npm run cli -- 4-generate "<request>"`. Full method + results: [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md).
+Every generation is scored on signals a compiler can verify, not an LLM's opinion:
 
-**🎯 Next:** ship the tested generation capability behind a UI (live preview + code + objective
-report) — see [README_FULLSTACK.md](README_FULLSTACK.md). Then: corpus expansion (~50 more components
-in `raw-json-phase3-extra/`), the remaining 3 low-ROI chunk types, and an MCP server.
-
-## Project Structure
-
-```
-Design-MCP/
-├── src/
-│   ├── index.ts                               # CLI entry point
-│   ├── schemas/
-│   │   ├── RAGResultSchema.ts                 # Extraction schemas (Step 0)
-│   │   └── NormalizedChunkSchema.ts           # Normalization schemas (7 chunk types defined)
-│   ├── steps/
-│   │   ├── 0-extract-docs/                    # ✅ COMPLETE
-│   │   │   ├── crawler.ts                     # BFS web crawler
-│   │   │   ├── extractors.ts                  # DOM extraction logic
-│   │   │   └── test-extraction/               # Quality validation suite
-│   │   └── 1-normalize/                       # ✅ PARTIAL (CodeExampleChunk complete)
-│   │       ├── config/                        # Configuration system
-│   │       │   ├── categories.config.ts       # Component category mappings
-│   │       │   ├── patterns.config.ts         # Pattern detection rules
-│   │       │   ├── transformer.config.ts      # Transformer behavior settings
-│   │       │   └── prop-templates.ts          # ✅ Prop description + guidance templates (NEW)
-│   │       ├── inference/                     # Inference engine
-│   │       │   ├── codeAnalyzer.ts            # Extract imports, props, hooks
-│   │       │   ├── sectionInferrer.ts         # Detect semantic section titles
-│   │       │   ├── intentClassifier.ts        # Classify intent (6 types)
-│   │       │   └── patternMatchers.ts         # Pattern matching utilities
-│   │       ├── generators/                    # Content generation
-│   │       │   ├── templateDataExtractor.ts   # Extract data for templates
-│   │       │   ├── explanationGenerator.ts    # Generate natural language (code examples)
-│   │       │   ├── propExplanationGenerator.ts # ✅ Generate natural language (props) (NEW)
-│   │       │   └── __tests__/
-│   │       │       ├── explanationGenerator.test.ts
-│   │       │       └── propExplanationGenerator.test.ts # ✅ 37/37 tests (NEW)
-│   │       ├── transformers/                  # Chunk transformers
-│   │       │   ├── codeExampleTransformer.ts  # ✅ CodeExampleChunk (complete)
-│   │       │   ├── propReferenceTransformer.ts # PropReferenceChunk (Phase 3)
-│   │       │   └── __tests__/
-│   │       │       ├── codeExampleTransformer.test.ts
-│   │       │       └── propReferenceTransformer.test.ts
-│   │       ├── utils/                         # Error handling & metrics
-│   │       │   ├── fallbackChunks.ts          # Graceful degradation
-│   │       │   ├── transformerErrors.ts       # Custom error types
-│   │       │   ├── transformationContext.ts   # Metrics tracking
-│   │       │   └── transformationMetrics.ts   # JSONL logging
-│   │       └── normalizer.ts                  # Main orchestrator
-│   └── utils/
-│       ├── textProcessor.ts                   # Text chunking & normalization
-│       ├── chunkId.ts                         # Stable chunk ID generation
-│       └── tokenEstimator.ts                  # Token counting
-├── artifacts/
-│   ├── raw-json/                              # ✅ 50 extracted component files
-│   ├── normalized/                            # ✅ normalized chunk files (897 chunks, 4 types)
-│   ├── metrics/                               # ✅ Transformation metrics (JSONL)
-│   └── logs/                                  # ✅ Error logs
-├── docs/                                       # 📂 Documentation (see "Documentation" below)
-│   ├── CHUNK_TYPE_STRATEGY.md                  # ROI analysis of the 7 chunk types
-│   ├── NORMALIZATION_TECHNICAL_GUIDE.md        # Normalization transformer deep-dive
-│   ├── NORMALIZATION_USAGE_GUIDE.md            # Normalization usage & design
-│   ├── archive/                               # Historical / superseded docs
-│   ├── week1/                                 # Week 1 implementation docs
-│   └── week2/                                 # Week 2 phase docs
-├── scripts/                                    # Build & utility scripts
-├── .env.example                               # Environment configuration template
-├── Dockerfile                                 # Multi-stage Docker build
-├── package.json                               # Dependencies & scripts
-├── tsconfig.json                              # TypeScript configuration
-├── README.md                                  # This file
-├── CLAUDE.md                                  # Project quick facts & contribution guide
-├── AGENTS.md                                  # Agent-facing project overview
-├── EVALUATION_STRATEGY.md                     # Active retrieval-quality plan
-└── TEST_CHECKLIST.md                          # Manual verification checklist
-```
-
-## Documentation
-
-Active docs live in the repo root; reference material is under `docs/`; superseded historical
-docs are under `docs/archive/` (kept for provenance).
-
-### Root — active
-| Doc | What it is |
+| Gate | Checks |
 |---|---|
-| [README.md](README.md) | This file — overview, setup, CLI, project structure. |
-| [CLAUDE.md](CLAUDE.md) | Contribution rules & quick facts for AI agents working in this repo. |
-| [AGENTS.md](AGENTS.md) | Agent-facing project & pipeline overview. |
-| [EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md) | Active retrieval-quality plan + results: LLM-as-judge eval, paraphrase leakage test, and the authentic-prose-vs-template verdict. |
-| [TEST_CHECKLIST.md](TEST_CHECKLIST.md) | Manual verification checklist for pipeline steps 0–3. |
+| **`tsc`** | Does it type-check against the pinned `@chakra-ui/react@3.27.1`? (runs `tsc` in a sandbox) |
+| **v2-smell lint** | Does it use a removed v2 prop (`colorScheme`, `isLoading`, …)? |
+| **composition lint** | Are slot-based components fully composed (e.g. `Checkbox.Root` + `Control` + `Label`)? |
 
-### Reference — `docs/`
-**Start at [docs/INDEX.md](docs/INDEX.md)** — it classifies every `docs/` file as 🟢 active vs 🗄️
-historical (the folder is mostly a point-in-time archive; trust the root docs for current facts).
+_Re-measured on the dates in the linked docs; generation is non-deterministic, so treat single-run
+flips as noise._
 
-| Doc | What it is |
-|---|---|
-| [docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md) | ROI analysis of the 7 chunk types — which to implement next and why. |
-| [docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md) | Deep-dive on the normalization transformer (inference → generation → chunk assembly). |
-| [docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md) | How to run/use normalization, plus design decisions. |
+| Signal | Result | Source |
+|---|---|---|
+| Grounded `tsc`-valid (15 v2-landmines) | gpt-4o ~93% hinted → **DeepSeek 100% single-shot** (0 repairs) | [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md) |
+| Held-out generalization (unseen prompts) | **100%** tsc / smell-free / composition | [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md) |
+| Thinking-mode A/B | **no gain, +46% latency** → shipped off | [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md) |
+| Retrieval quality (authentic prose vs templates) | paraphrased gP@k **0.684 → 0.748** | [EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md) |
+| Corpus | **897 chunks** from 50 components (Qdrant, 1536-dim) | this repo |
+| Unit tests | **629 passing** across 22 suites | `npm test` |
+| Prod image | **539 → 462 MB** (dep reclassify + prune) | [README_DEPLOY.md](README_DEPLOY.md) |
 
-> The two normalization guides predate PropReferenceChunk; their "1/7 chunk types" status headers
-> are out of date (prop-reference is implemented), but the architectural content remains accurate.
+The live demo also ships an **`/engineering`** page with this same story, visual and skimmable:
 
-### Archive — `docs/archive/` (historical / superseded)
-| Doc | Why archived |
-|---|---|
-| [docs/archive/PROJECT_PLAN.md](docs/archive/PROJECT_PLAN.md) | Original Week 1–4 technical plan (Oct 2025); superseded by EVALUATION_STRATEGY.md and actual progress. |
-| [docs/archive/VECTOR_DB_POC_GUIDE.md](docs/archive/VECTOR_DB_POC_GUIDE.md) | Build plan/timeline for the vector-DB POC — now complete. |
-| [docs/archive/PROJECT_REVIEW.md](docs/archive/PROJECT_REVIEW.md) | Point-in-time project health assessment (Dec 2025). |
-| [docs/archive/RETRIEVAL_TEST_REPORT.md](docs/archive/RETRIEVAL_TEST_REPORT.md) | Original 5-query manual retrieval test; the golden eval set was seeded from it. |
+![The in-app engineering page: architecture, result cards, and the decisions/tradeoffs including the honest negatives](assets/engineering.png)
 
-Dated implementation/design notes also live under `docs/week1/` and `docs/week2/`.
+## Tech stack
 
-## Installation
+- **Pipeline / API:** TypeScript (NodeNext, strict), Commander CLI, Express, Zod.
+- **Retrieval:** OpenAI `text-embedding-3-small` (1536-dim) → Qdrant; reserved-slot retrieval.
+- **Generation:** DeepSeek V4 (`deepseek-v4-pro`), OpenAI-compatible; gpt-4o fallback via one env var.
+- **Validation:** `tsc` child-process sandbox, curated v2-smell & composition lints, optional headless
+  render-check (esbuild + Playwright).
+- **Web:** React + **Chakra UI v3** (the app dogfoods the target library), Sandpack live preview, Prism.
+- **Infra:** Docker (multi-stage), Qdrant Cloud, Cloud Run / Render; Jest (629 tests).
 
-### Prerequisites
-- Node.js >= 20.0.0
-- npm or yarn
-
-### Local Setup
+## Quickstart
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd Design-MCP
-
-# Install dependencies
 npm install
+npx playwright install chromium        # step 0 (crawl) only
+cp .env.example .env                    # set OPENAI_API_KEY, DEEPSEEK_API_KEY, QDRANT_URL, DEBUG=false
 
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your preferred settings
+# with Qdrant up and the corpus embedded:
+npm run cli -- 4-generate "a green submit button"   # one-shot generation (CLI)
 
-# Install Playwright browsers
-npx playwright install chromium
+# or run the web app:
+npm run serve                           # API on :3001
+cd web && npm install && npm run dev    # SPA on :5173
 ```
 
-### Docker Setup
+Try `a green submit button` — it comes back with `colorPalette="green"` (v3), not the v2 `colorScheme`.
+
+## The pipeline
+
+Five steps, each a CLI command, ending in the web UI:
+
+```
+0-extract-docs → 1-normalize → 2-embed → 3-search → 4-generate → (web)
+ crawl            chunk         Qdrant     retrieve   LLM → TSX     UI
+```
 
 ```bash
-# Build the Docker image
-docker build -t design-mcp .
-
-# Run with environment variables
-docker run -v $(pwd)/artifacts:/app/artifacts \
-  -e START_URL=https://chakra-ui.com/docs/components/concepts/overview \
-  -e MAX_PAGES=100 \
-  design-mcp start
+npm run cli -- 0-extract-docs -m 20            # crawl the Chakra v3 docs (Playwright BFS)
+npm run cli -- 1-normalize                     # raw JSON → typed chunks (code / prop / overview / capability)
+npm run cli -- 2-embed                          # embed chunks → Qdrant (also creates payload indexes)
+npm run cli -- 3-search "a checkbox with a label"   # retrieval sanity check
+npm run cli -- 4-generate "a stat card showing revenue"   # grounded generation → validated .tsx
+npm run cli -- 4-serve                          # HTTP API the SPA calls
 ```
 
-## Configuration
+**The corpus:** 897 typed chunks from 50 Chakra v3 components (Qdrant, 1536-dim). Retrieval quality is
+evaluated with an LLM-as-judge harness + a paraphrase-leakage test — the verdict (authentic docs prose
+beats synthesized templates) is in **[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)**.
 
-Edit `.env` to customize crawler behavior:
+## Project structure
 
-```env
-# URL of the documentation to start crawling from
-START_URL=https://chakra-ui.com/docs/components/concepts/overview
-
-# Maximum number of pages to crawl (-1 for unlimited)
-MAX_PAGES=100
-
-# REQUIRED: Only URLs starting with this pattern will be crawled
-# This prevents the crawler from following external links
-CRAWL_URL_PATTERN=https://chakra-ui.com/docs/components/
-
-# Optional: Delay between page navigations (in milliseconds)
-CRAWL_DELAY=1000
+```
+src/
+  index.ts                 # CLI entrypoint (all commands)
+  steps/
+    0-extract-docs/        # Playwright BFS crawler + Chakra extractors
+    1-normalize/           # raw JSON → typed chunks (transformers / inference / config)
+    2-embed/               # embed chunks → Qdrant
+    3-search/              # retrieval CLI + LLM-as-judge eval harness
+    4-generate/            # generation: generator, pipeline, validators/, eval/
+  server/                  # Express API (POST /api/generate) the SPA calls
+  services/                # RetrievalService, VectorStoreService, EmbeddingService
+  schemas/                 # NormalizedChunkSchema (7 chunk types), RAGResultSchema
+  config/                  # model / collection config
+web/                       # Vite + React + Chakra v3 SPA (live Sandpack preview + /engineering page)
+deploy/Dockerfile          # prod web-service image (no Chromium)
+cloudbuild.yaml            # Cloud Build → Cloud Run
+gen-sandbox/               # tsconfig the tsc validator type-checks against
+artifacts/                 # raw-json/, normalized/, generated/ (gitignored)
 ```
 
-**Key Settings:**
-- `START_URL`: The page where crawling begins (should list component links)
-- `MAX_PAGES`: Limit crawl size for testing (use 5-10 for quick tests)
-- `CRAWL_URL_PATTERN`: Safety filter to stay within intended documentation scope
-- `CRAWL_DELAY`: Polite crawling delay (1000ms = 1 second between pages)
-
-## Usage
-
-### CLI Commands
+## Testing
 
 ```bash
-# Build TypeScript
-npm run build
-
-# Step 0: Extract documentation - uses settings from .env
-npm run cli -- 0-extract-docs
-
-# With CLI options (override .env settings)
-npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/overview -m 50
-
-# Step 1: Normalize code examples (creates semantic chunks)
-npm run cli -- 1-normalize                    # Process all components
-npm run cli -- 1-normalize Button             # Process single component
-
-# Step 2: Embed normalized chunks into Qdrant
-npm run cli -- 2-embed
-npm run cli -- 2-embed --limit 5              # Quick validation run
-
-# Step 3: Search embedded chunks
-npm run cli -- 3-search "button color"
-npm run cli -- 3-search "button color" --limit 3
-
-# Development mode (no build required)
-npm run dev
+npm test                                   # 629 unit tests across 22 suites
+npx tsc --noEmit                           # repo type-check
+npx tsx src/steps/4-generate/eval/run-ab.ts             # grounded-vs-no-context 2×2 (objective gates)
+npx tsx src/steps/4-generate/test-generation/run-heldout.ts   # held-out generalization
 ```
 
-### Command Options
-
-**`0-extract-docs`** - Crawl and extract component documentation
-
-Options:
-- `-s, --start-url <url>` - Starting URL for crawling
-- `-m, --max-pages <number>` - Maximum number of pages to crawl
-
-Example:
-```bash
-npm run cli -- 0-extract-docs -s https://chakra-ui.com/docs/components/concepts/overview -m 50
-```
-
-**`1-normalize [component]`** - Transform raw JSON into normalized chunks
-
-Transforms code examples from `artifacts/raw-json/` into semantic chunks with:
-- Intent classification (sizing, variants, states, composition, etc.)
-- Natural language explanations
-- Structured metadata for vector search
-
-Example:
-```bash
-npm run cli -- 1-normalize Button             # Single component
-npm run cli -- 1-normalize                    # All components
-```
-
-Output: `artifacts/normalized/{ComponentName}.json` (one file per component)
-
-**`2-embed`** - Generate embeddings for normalized chunks and upsert them to Qdrant
-
-- Uses `QDRANT_COLLECTION_NAME`, `EMBEDDING_MODEL`, and `EMBEDDING_DIMENSIONS` from `.env`
-- Supports `--limit` for small validation runs and `--batch-size` for upsert tuning
-
-Example:
-```bash
-npm run cli -- 2-embed
-npm run cli -- 2-embed --limit 5
-```
-
-**`3-search <query>`** - Search embedded chunks
-
-- Embeds the query and searches the configured Qdrant collection
-- Prints ranked matches with payload summaries
-
-Example:
-```bash
-npm run cli -- 3-search "button color"
-npm run cli -- 3-search "button color" --limit 3
-```
-
-### Quality Evaluation Commands
-
-After extraction, validate the quality of extracted content:
-
-```bash
-# Run automated smoke test (pass/fail check)
-npm run quality:smoke
-
-# View random samples for manual review
-npm run quality:samples
-
-# Test props extraction logic
-npm run quality:props-test
-
-# Verify props in extracted files
-npm run quality:props-verify
-
-# Run all quality checks
-npm run quality:all
-
-# View custom number of samples (e.g., 5)
-npx tsx src/steps/0-extract-docs/test-extraction/sample-viewer.ts 5
-```
-
-**Quality criteria:**
-- ✅ Schema validation ≥95%
-- ✅ Description coverage ≥80%
-- ✅ Code examples coverage ≥70%
-- ✅ Props extraction validated
-
-See [docs/week1/testing/QUALITY_EVALUATION.md](docs/week1/testing/QUALITY_EVALUATION.md) for details.
-
-## Data Schema
-
-Extracted documentation follows the `RAGResult` schema:
-
-```typescript
-interface RAGResult {
-  componentName: string;           // e.g., "Button"
-  sourceUrl: string;                // Original documentation URL
-  description: string;              // Component description
-  props: Prop[];                    // Component properties
-  codeExamples: CodeExample[];      // Usage examples
-  accessibilityNotes?: string;      // A11y considerations
-}
-
-interface Prop {
-  name: string;                     // e.g., "variant"
-  type: string;                     // e.g., "string | 'solid' | 'outline'"
-  description: string;              // Property description
-  defaultValue?: string;            // Default value if any
-  required: boolean;                // Whether prop is required
-}
-
-interface CodeExample {
-  title: string;                    // Example title
-  description?: string;             // Example description
-  code: string;                     // Source code
-  language: string;                 // Default: "tsx"
-}
-```
-
-## Output
-
-Extracted data is saved to individual JSON files:
-```
-artifacts/raw-json/{ComponentName}-{timestamp}.json
-```
-
-Each file contains structured component data validated against the `ComponentDocSchema`:
-- **componentName**: Component identifier (e.g., "Button")
-- **sourceUrl**: Original documentation URL
-- **description**: Component description/purpose
-- **codeExamples**: High-quality usage examples (filtered)
-- **relatedComponents**: Components used together in examples
-- **props**: Component properties from documentation tables
-
-Example output structure:
-```json
-{
-  "componentName": "Button",
-  "sourceUrl": "https://chakra-ui.com/docs/components/button",
-  "description": "Used to trigger an action or event",
-  "codeExamples": [...],
-  "relatedComponents": ["ButtonGroup", "IconButton", "Stack"],
-  "props": [...]
-}
-```
-
-## Development Roadmap
-
-### ✅ Week 1: Core Extraction (COMPLETE)
-- [x] Project setup and CLI infrastructure
-- [x] Complete web crawler implementation
-- [x] Implement DOM extraction logic
-- [x] High-quality code filtering (composition patterns)
-- [x] Props table parsing (column-order agnostic)
-- [x] Related components detection
-- [x] Test against Chakra UI documentation (60+ components)
-- [x] Validate data schema with real examples (100% pass rate)
-- [x] Quality validation suite
-
-**📂 View Results:** See [artifacts/raw-json/](artifacts/raw-json/) for extracted data
-
-### ✅ Step 1 Complete: Normalization Pipeline (4 of 7 chunk types)
-
-**CodeExampleChunk Transformer**
-- [x] Inference engine (code analyzer, section inferrer, intent classifier)
-- [x] Embeds **authentic docs prose**; the template generator is demoted to a fallback
-- [x] Transformation pipeline (raw JSON → CodeExampleChunk), config system, fallback generation
-- [x] Metrics tracking & JSONL logging
-- [x] **410 code-example chunks** from 50 components
-
-**PropReferenceChunk Transformer**
-- [x] `propExplanationGenerator.ts` + externalized `prop-templates.ts` (60+ description, 20+ guidance)
-- [x] Type-aware fallbacks; union truncation; honest defaults
-- [x] `normalizePropReferences()` orchestrator — per-prop error handling + Zod validation
-- [x] **374 prop-reference chunks** from 50 components
-
-**✅ ComponentOverviewChunk + CapabilityReferenceChunk** — **50 + 63 chunks**; "what is X" / "what
-can X do". Routed in `extractEmbeddingText.ts` and embedded (Pass B reserved-slot retrieval uses them).
-
-**📋 Remaining chunk types (3 of 7, low ROI):**
-- [ ] `prop-group`, `composition-pattern`, `api-reference`
-
-### ✅ Step 2 Complete: Embedding & Vector Store
-- [x] OpenAI text-embedding-3-small (1536d)
-- [x] Qdrant store — **897 points embedded**, drift detection clean
-- [x] Idempotent upsert via `uuidv5(chunkId)` (after fixing a collision bug that dropped 26% of points)
-
-### ✅ Step 3 Complete: Search & Evaluation
-- [x] Vector similarity search + metadata filtering, CLI query interface
-- [x] **LLM-as-judge eval harness** (`quality:eval:judge`): graded precision (gP@k), no-relevant count, nDCG
-- [x] Held-out **paraphrased** query set (leakage / circularity test)
-- [x] **Verdict: authentic prose > templates** (paraphrased gP@k 0.684 → 0.748). See [EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)
-
-**🔮 Next:**
-- [ ] Implement `component-overview` + `capability-reference` chunk types (the weakest eval categories)
-- [ ] Optional corpus expansion (~50 more components discovered during the re-crawl)
-- [ ] Spec-driven generation (Step 4) and LLM re-ranking (if needed)
-
-**📖 Technical Documentation:**
-- [docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md) - Implementation deep-dive
-- [docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md) - Usage & design decisions
-
-### Week 3+: Advanced Features (PLANNED)
-- [ ] Two-stage retrieval optimization
-- [ ] Multi-query strategies
-- [ ] Component composition queries
-- [ ] Extend to other design systems (Material-UI, Ant Design)
-- [ ] Custom component library support
-
-## Technical Details
-
-### Technology Stack
-- **Runtime:** Node.js 20+
-- **Language:** TypeScript (ES2022)
-- **Browser Automation:** Playwright (Chromium)
-- **CLI Framework:** Commander.js
-- **Schema Validation:** Zod
-- **Configuration:** dotenv
-
-### Key Components
-
-**ChakraDocsSpider** ([src/steps/0-extract-docs/crawler.ts](src/steps/0-extract-docs/crawler.ts))
-- Manages Playwright browser lifecycle
-- BFS crawling with link discovery
-- Orchestrates page navigation and data extraction
-- Validates and saves individual JSON files per component
-
-**Extractors** ([src/steps/0-extract-docs/extractors.ts](src/steps/0-extract-docs/extractors.ts))
-- CSS selector-based DOM parsing with semantic fallbacks
-- High-quality code filtering (composition score ≥5)
-- Column-order-agnostic props table parsing
-- Related components detection from code examples
-- Section-aware extraction (skips Installation/Import sections)
-
-**Quality Validation** ([src/steps/0-extract-docs/test-extraction/smoke-test.ts](src/steps/0-extract-docs/test-extraction/smoke-test.ts))
-- Schema validation (Zod)
-- Coverage metrics (descriptions, code examples, props)
-- Pass/fail criteria enforcement
-- Automated quality gates
-
-**Sample Viewer** ([src/steps/0-extract-docs/test-extraction/sample-viewer.ts](src/steps/0-extract-docs/test-extraction/sample-viewer.ts))
-- Random sampling for manual review
-- Formatted output for human inspection
-- Quality verification workflow
-
-**Normalization Pipeline** ([src/steps/1-normalize/](src/steps/1-normalize/))
-- **Transformers**: CodeExample + PropReference + ComponentOverview + CapabilityReference (4/7 chunk types)
-- **Inference Engine**: Code analyzer, section inferrer, intent classifier
-- **Content Generation**: Authentic docs prose, with template generator as a fallback
-- **Configuration**: External JSON configs for categories, patterns, behavior
-- **Error Handling**: Graceful fallbacks, detailed logging
-- **Metrics**: JSONL-based transformation tracking
-
-**Normalization Schemas** ([src/schemas/NormalizedChunkSchema.ts](src/schemas/NormalizedChunkSchema.ts))
-- 7 specialized chunk types defined (CodeExampleChunk + PropReferenceChunk implemented)
-- Dual content strategy (embedding-optimized + API reference)
-- Type-safe with Zod validation
-
-**Chunk ID Generation** ([src/utils/chunkId.ts](src/utils/chunkId.ts))
-- Stable, semantic ID generation
-- Versioning support
-- Sequential fallback for non-semantic cases
-
-**Quality Assurance**
-- 609 passing tests across 20 test suites
-- Configuration-driven pattern matching
-- Fallback generation for error recovery
-
-### Design Patterns
-- **Step-based Pipeline:** Modular architecture for extensibility
-- **Configuration-driven:** Environment variables for runtime behavior
-- **Schema Validation:** Type-safe data processing with Zod
-- **Separation of Concerns:** Clear boundaries between crawling, extraction, and processing
-
-## Troubleshooting
-
-### Playwright Issues
-```bash
-# Reinstall browser binaries
-npx playwright install chromium --force
-
-# Check browser installation
-npx playwright install --dry-run
-```
-
-### Permission Errors
-Ensure the `artifacts/raw-json` directory is writable:
-```bash
-mkdir -p artifacts/raw-json
-chmod -R 755 artifacts
-```
-
-### TypeScript Compilation Errors
-```bash
-# Clean and rebuild
-rm -rf dist
-npm run build
-```
-
-## Contributing
-
-This project is in active development. Contributions are welcome!
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Implement changes with tests
-4. Commit your changes (`git commit -m 'Add amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
-
-### Development Guidelines
-- Follow existing code structure and naming conventions
-- Add TypeScript types for all new code
-- Update schemas when changing data structures
-- Test extraction logic against multiple documentation sources
-- Document non-obvious implementation decisions
-
-## Use Cases
-
-### AI-Powered Component Generation
-Use extracted specs to train or prompt LLMs for generating:
-- Component implementations in different frameworks
-- Custom variants based on design system patterns
-- Accessibility-compliant alternatives
-
-### Documentation Analysis
-- Compare component APIs across design systems
-- Identify documentation gaps
-- Generate compatibility matrices
-
-### Migration Tools
-- Assist in migrating between design systems
-- Map equivalent components across libraries
-- Generate migration scripts
-
-## License
-
-[Specify your license here]
+Generation is non-deterministic; a change is "good" only if the objective 2×2 holds or improves (not
+the LLM judge). See **[CLAUDE.md](CLAUDE.md)** for the objective-signals-are-the-spine philosophy.
+
+## Deploy
+
+Single Cloud Run (or Render) Docker service serving the SPA + API, Qdrant Cloud, DeepSeek generation /
+OpenAI embeddings, render-check off in prod. Build with `cloudbuild.yaml` (which pins
+`-f deploy/Dockerfile`, avoiding the root crawler image). Step-by-step runbook + the live smoke:
+**[README_DEPLOY.md](README_DEPLOY.md)**.
+
+## Docs
+
+| Doc | What it is |
+|---|---|
+| **[GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md)** | The A–F correction loop: method, 2×2 results, judge inversion, thinking-mode A/B. |
+| **[EVALUATION_STRATEGY.md](EVALUATION_STRATEGY.md)** | Retrieval-quality eval (LLM-as-judge, nDCG, paraphrase leakage) + the authentic-prose verdict. |
+| **[README_DEPLOY.md](README_DEPLOY.md)** | Cloud deploy runbook (Cloud Run / Render, DeepSeek swap, slim image). |
+| **[README_FULLSTACK.md](README_FULLSTACK.md)** | The UI/serving design (Express API + Vite/Chakra-v3 SPA). |
+| **[CLAUDE.md](CLAUDE.md)** | Conventions, objective-signal rules, cost discipline. |
+| [docs/INDEX.md](docs/INDEX.md) | Index of reference/historical docs under `docs/` (active vs archived). |
+
+## Status & roadmap
+
+**Built and deployed:** the full pipeline (extract → normalize → embed → search → generate) plus a
+deployed web UI. Steps 0–3 are mature; step 4 (generation) is the active surface, gated on the
+objective A–F correction loop.
+
+**Next:** corpus expansion (~50 more components staged), the remaining 3 low-ROI chunk types
+(`prop-group`, `composition-pattern`, `api-reference`), post-deploy hardening (keep-warm, custom
+domain), and an MCP server. Details in [README_DEPLOY.md §11](README_DEPLOY.md) and
+[docs/CHUNK_TYPE_STRATEGY.md](docs/CHUNK_TYPE_STRATEGY.md).
 
 ## Acknowledgments
 
-- Built for extracting specifications from design systems like [Chakra UI](https://chakra-ui.com/)
-- Powered by [Playwright](https://playwright.dev/) for reliable web automation
-- Schema validation by [Zod](https://zod.dev/)
-
----
-
-## What's Next?
-
-### If you're starting fresh:
-1. **Run the Quick Start** (see top of README)
-2. **Check extraction quality:** `npm run quality:smoke`
-3. **Review samples:** `npm run quality:samples`
-4. **Adjust configuration** in `.env` if targeting different docs
-
-### Where things stand:
-- ✅ **Step 0 — Extraction:** 50 components in [artifacts/raw-json/](artifacts/raw-json/); captures real section headings + prose
-- ✅ **Step 1 — Normalization:** 4/7 chunk types, **897 chunks** (code-example 410, prop-reference 374, component-overview 50, capability-reference 63)
-- ✅ **Step 2 — Embedding:** 897 points in Qdrant (`chakra-ui-docs`)
-- ✅ **Step 3 — Search + Evaluation:** LLM-as-judge harness; authentic prose beats templates
-- ✅ **Step 4 — Generation:** grounded v3 TSX + tsc self-heal; ~93% grounded tsc-valid (see [GENERATION_EXPERIMENT.md](GENERATION_EXPERIMENT.md))
-- 📋 **Next:** ship a UI over generation ([README_FULLSTACK.md](README_FULLSTACK.md)); then corpus expansion, 3 remaining chunk types, MCP server
-
-### Key Documentation:
-- **[CLAUDE.md](CLAUDE.md)** - Project quick facts & contribution guide
-- **[docs/NORMALIZATION_TECHNICAL_GUIDE.md](docs/NORMALIZATION_TECHNICAL_GUIDE.md)** - Technical implementation details
-- **[docs/NORMALIZATION_USAGE_GUIDE.md](docs/NORMALIZATION_USAGE_GUIDE.md)** - Usage, design decisions, testing
-- **[.env.example](.env.example)** - Configuration reference
-- **[Documentation](#documentation)** - Full doc index
-
----
-
-**Status:** ✅ **Steps 0–4 Complete** (extract → normalize → embed → search + eval → spec-driven generation, ~93% grounded tsc-valid) | 📋 **Next: ship a UI over generation ([README_FULLSTACK.md](README_FULLSTACK.md)); then corpus expansion / MCP server**
-
-**Details:**
-- Step 0 — Extraction: ✅ 50 components, 100% schema validation; real headings + prose captured
-- Step 1 — Normalization: ✅ code-example (410) + prop-reference (374) + component-overview (50) + capability-reference (63) = 897 chunks, 4/7 types
-- Step 2 — Embedding: ✅ 897 points in Qdrant (text-embedding-3-small, 1536d)
-- Step 3 — Search + Eval: ✅ LLM-as-judge harness; authentic prose > templates (see EVALUATION_STRATEGY.md)
-- Step 4 — Generation: ✅ grounded v3 TSX + tsc self-heal; ~93% grounded tsc-valid (see GENERATION_EXPERIMENT.md)
-- Tests: ✅ 609 passing across 20 suites
-
-For questions, issues, or feature requests, please open an issue on GitHub.
+Targets **[Chakra UI v3](https://chakra-ui.com/)**; crawls with **[Playwright](https://playwright.dev/)**,
+validates schemas with **[Zod](https://zod.dev/)**, retrieves with **[Qdrant](https://qdrant.tech/)**,
+and previews live with **[Sandpack](https://sandpack.codesandbox.io/)**.

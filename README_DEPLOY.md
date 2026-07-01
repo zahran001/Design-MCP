@@ -319,7 +319,8 @@ After a live URL exists:
 
 ## 12. Related docs
 
-- `SHOWCASE.md` — the engineering portfolio (problem, architecture, decisions) this deploy serves.
+- `README.md` — the project overview + engineering showcase (problem, architecture, decisions) this
+  deploy serves.
 - `README_FULLSTACK.md` — the UI/serving MVP this deploys.
 - `GENERATION_EXPERIMENT.md` — the objective baseline, the DeepSeek swap, and the thinking-mode A/B.
 - `CLAUDE.md` — conventions, objective-signal rules, cost discipline.
