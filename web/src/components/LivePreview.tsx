@@ -13,10 +13,10 @@ import { buildPreviewFiles } from '../lib/sandbox';
 // run ~13-30s cold). Timing alone can't tell "blocked" from "slow", so we escalate
 // in two tiers, both keyed on the `done` (compile-complete) message and both
 // auto-clearing the moment it arrives:
-//   - SLOW (15s): a soft note that is honest during a slow-but-working build.
+//   - SLOW (35s): a soft note that is honest during a slow-but-working build.
 //   - BLOCKED (60s): well past any working build (measured ~13-30s), so a stall
 //     this long is almost certainly a block -> assert it and give an actionable fix.
-const SLOW_MS = 15_000;
+const SLOW_MS = 35_000;
 const BLOCKED_MS = 60_000;
 
 // Inner body (inside SandpackProvider) so it can subscribe to bundler messages.
