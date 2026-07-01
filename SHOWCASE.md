@@ -11,8 +11,9 @@ an LLM remembers.
 
 `TypeScript` · `RAG` · `Qdrant` · `OpenAI embeddings` · `DeepSeek V4 generation` · `React + Chakra UI v3` · `Sandpack` · `Docker` · `Cloud Run`
 
-> **Live demo:** _deploying to Cloud Run (Phase C) — URL coming._ Meanwhile the app is fully runnable
-> locally and in a container (see [README_DEPLOY.md](README_DEPLOY.md)).
+> **Live demo:** **[spec-to-component-986872156950.us-central1.run.app](https://spec-to-component-986872156950.us-central1.run.app)** (Google Cloud Run).
+> The free tier sleeps when idle, so the first request may cold-start; the live preview renders via
+> codesandbox.io, which some ad/privacy blockers can block (the code and validation report still work).
 
 ![The generator: a grounded, type-checked Chakra v3 component (colorPalette, not the v2 colorScheme), with the objective report and the exact doc chunks it was grounded in](assets/generator-result.png)
 

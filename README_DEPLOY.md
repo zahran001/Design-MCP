@@ -1,12 +1,11 @@
 # Deploy — single container (Cloud Run · Render), Qdrant Cloud, DeepSeek V4
 
-> **Status:** 2026-06-30 — **Phases 1 & 2 DONE and merged to `main`** (DeepSeek generation swap +
-> deploy infra). **Phase B local prod-parity Docker smoke PASSED:** the container serves the SPA +
-> `POST /api/generate` with **no Chromium** against Qdrant Cloud → `tscOk:true`, `renderChecked:false`,
-> `colorPalette` (not the v2 `colorScheme`). The prod image is **slimmed (539→462 MB)** and **Google
-> Cloud Run is the recommended target** (§8). **Remaining: Phase C — run the deploy (§8) — and Phase D —
-> live smoke (§9).** Volatile numbers (tsc-pass rates, chunk counts) live in `GENERATION_EXPERIMENT.md`
-> / Qdrant — verify there, don't copy them here.
+> **Status:** 2026-07-01 — **LIVE on Google Cloud Run:**
+> **https://spec-to-component-986872156950.us-central1.run.app** (`/api/health` → `deepseek-v4-pro`).
+> Phases 1 & 2 done and merged, Phase B prod-parity Docker smoke passed, prod image slimmed
+> (539→462 MB); **Phase C (deploy) and Phase D (post-deploy smoke) complete.** Deploy steps in §8,
+> smoke in §9, follow-ups in §11. Volatile numbers (tsc-pass rates, chunk counts) live in
+> `GENERATION_EXPERIMENT.md` / Qdrant; verify there, don't copy them here.
 
 This is the checked-in runbook for deploying `spec-driven-generator` (Vite SPA + Express generation API)
 to the cloud **without breaking the validated generation path**. It supersedes the "ad-hoc Vercel both
@@ -36,10 +35,12 @@ ends" idea — see *Why not Vercel serverless*.
 - DeepSeek accepts `temperature`/`seed` without 400ing, but its docs don't list them → treat as
   best-effort (reproducibility/variance caveat). `GEN_THINKING` defaults **false** (already clears the bar).
 
-### What REMAINS — Phase C (deploy) + Phase D (live smoke)
-Phase 2 (the "render-check off in prod" feature + serving + container, **file-by-file in §6**) **shipped
-and merged**, followed by the slim image and the Cloud Run path. **No app code remains** — what's left is
-**executing the deploy** (§8, Phase C) and the **post-deploy smoke** (§9, Phase D).
+### Status — DEPLOYED (Phases C + D done)
+Phase 2 (the "render-check off in prod" feature + serving + container, **file-by-file in §6**) shipped
+and merged, followed by the slim image and the Cloud Run path. The service is now **live** (see the
+status header); `/api/health`, `/api/examples`, and a v2-landmine generation were smoke-tested against
+the live URL. What's left is optional hardening in **§11 (Beyond)**: keep-warm, custom domain, further
+image slim.
 
 ---
 

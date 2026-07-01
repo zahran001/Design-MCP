@@ -3,6 +3,9 @@
 > 👉 **New here?** Start with the **[engineering showcase →](SHOWCASE.md)** (the problem, architecture,
 > and key decisions at a glance). This README is the developer changelog / setup reference.
 
+> ▶ **Live demo:** **https://spec-to-component-986872156950.us-central1.run.app** (Google Cloud Run;
+> the free tier may cold-start on the first request after idle).
+
 > **Status:** 2026-06-25 — full pipeline (steps 0–4) built; live per-step status below and in the
 > linked phase docs.
 
